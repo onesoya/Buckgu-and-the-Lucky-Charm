@@ -649,7 +649,12 @@
   });
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
     const provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithRedirect(provider);
+    firebase.auth().signInWithPopup(provider).catch(err=>{
+      console.error('로그인 실패', err);
+      if(err.code !== 'auth/popup-closed-by-user'){
+        alert('로그인에 실패했어. 다시 시도해줘.');
+      }
+    });
   });
 
   document.getElementById('schedAddBtn').addEventListener('click', async ()=>{
