@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0043)file:///C:/Users/oneso/Downloads/index.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>벅구와 복덩어리</title>
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="file:///C:/Users/oneso/Downloads/icon-180.png">
+<link rel="icon" href="file:///C:/Users/oneso/Downloads/favicon-32.png" sizes="32x32">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="벅구와 복덩어리">
@@ -204,6 +204,17 @@
   .del-btn{
     border:none;background:none;color:#D8C7CE;font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0;
   }
+  .edit-btn{
+    border:none;background:none;color:var(--plum-soft);font-size:15px;cursor:pointer;padding:2px 6px;flex-shrink:0;
+  }
+  .cancel-edit-btn{
+    display:block;width:100%;text-align:center;background:none;border:none;
+    color:var(--plum-soft);font-size:12px;padding:10px 0 0;cursor:pointer;text-decoration:underline;
+  }
+  .toggle-past-btn{
+    display:block;margin:14px auto 0;background:var(--white);border:none;border-radius:20px;
+    padding:8px 16px;font-size:12px;color:var(--plum-soft);box-shadow:0 2px 8px rgba(74,53,72,0.06);cursor:pointer;
+  }
   .past{opacity:0.5;}
 
   .empty-state{
@@ -307,11 +318,11 @@
 </head>
 <body>
 
-<div class="app-shell">
+<div class="app-shell" style="visibility: hidden;">
   <header class="app-header">
     <div>
       <div class="app-title">🐶벅구와 복덩어리💝</div>
-      <div class="dday-pill" id="ddayPill"></div>
+      <div class="dday-pill" id="ddayPill">2026.02.02부터 &nbsp;<b>D+158</b>일째</div>
     </div>
     <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
   </header>
@@ -330,8 +341,11 @@
         <div class="add-row">
           <button class="btn" id="schedAddBtn" style="width:100%;">추가하기</button>
         </div>
+        <button class="cancel-edit-btn hidden" id="schedCancelBtn">수정 취소</button>
       </div>
       <div class="list" id="scheduleList"></div>
+      <button class="toggle-past-btn hidden" id="togglePastBtn">지난 일정 보기</button>
+      <div class="list hidden" id="pastScheduleSection" style="margin-top:10px;"></div>
     </section>
 
     <section class="tab-panel" id="panel-wish">
@@ -357,6 +371,7 @@
         <div class="add-row">
           <button class="btn" id="wishAddBtn" style="width:100%;">게시하기</button>
         </div>
+        <button class="cancel-edit-btn hidden" id="wishCancelBtn">수정 취소</button>
       </div>
       <div id="wishList"></div>
     </section>
@@ -382,8 +397,34 @@
         <div class="add-row">
           <button class="btn" id="dateLogAddBtn" style="width:100%;">기록하기</button>
         </div>
+        <button class="cancel-edit-btn hidden" id="dateLogCancelBtn">수정 취소</button>
       </div>
       <div class="list" id="dateLogList"></div>
+    </section>
+
+    <section class="tab-panel" id="panel-letter">
+      <div class="section-title">편지</div>
+      <div class="add-card">
+        <div class="add-row">
+          <input type="text" id="letterTitle" placeholder="제목 (선택)">
+        </div>
+        <div class="add-row">
+          <textarea id="letterBody" placeholder="하고 싶은 말을 편지처럼 적어봐" style="min-height:120px;"></textarea>
+        </div>
+        <div class="add-row">
+          <input type="file" accept="image/*" id="letterPhotoInput" class="hidden">
+          <button class="btn-photo" id="letterPhotoBtn">📷 사진 추가 (선택)</button>
+        </div>
+        <div class="photo-preview-wrap hidden" id="letterPhotoPreviewWrap">
+          <img class="photo-preview" id="letterPhotoPreview">
+          <button class="rm-photo" id="letterPhotoRemove">✕</button>
+        </div>
+        <div class="add-row">
+          <button class="btn" id="letterAddBtn" style="width:100%;">편지 보내기</button>
+        </div>
+        <button class="cancel-edit-btn hidden" id="letterCancelBtn">수정 취소</button>
+      </div>
+      <div id="letterList"></div>
     </section>
 
     <section class="tab-panel" id="panel-stamp">
@@ -418,6 +459,7 @@
         <div class="add-row">
           <button class="btn btn-yellow" id="stampAddBtn" style="width:100%;">도장 쾅! 찍기</button>
         </div>
+        <button class="cancel-edit-btn hidden" id="stampCancelBtn">수정 취소</button>
       </div>
       <div class="stamp-list" id="stampList"></div>
     </section>
@@ -425,24 +467,39 @@
 
   <nav class="tabbar">
     <button class="tab-btn active" data-tab="schedule">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
       일정
     </button>
     <button class="tab-btn" data-tab="wish">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l2.4 6.8L21 9.3l-5.4 4.6L17.3 21 12 17.2 6.7 21l1.7-7.1L3 9.3l6.6-0.5z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l2.4 6.8L21 9.3l-5.4 4.6L17.3 21 12 17.2 6.7 21l1.7-7.1L3 9.3l6.6-0.5z"></path></svg>
       위시
     </button>
     <button class="tab-btn" data-tab="datelog">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20s-7-4.5-9.5-9C1 7.5 2.5 4 6 4c2 0 3.5 1.2 4.5 2.8C11.5 5.2 13 4 15 4c3.5 0 5 3.5 3.5 7-2.5 4.5-9.5 9-9.5 9z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20s-7-4.5-9.5-9C1 7.5 2.5 4 6 4c2 0 3.5 1.2 4.5 2.8C11.5 5.2 13 4 15 4c3.5 0 5 3.5 3.5 7-2.5 4.5-9.5 9-9.5 9z"></path></svg>
       데이트
     </button>
+    <button class="tab-btn" data-tab="letter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+      편지
+    </button>
     <button class="tab-btn" data-tab="stamp">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 21l5-3 5 3-1.5-6.5"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="9" r="6"></circle><path d="M8.5 14.5L7 21l5-3 5 3-1.5-6.5"></path></svg>
       스탬프
     </button>
   </nav>
 
-  <div class="modal-overlay hidden" id="loginGate">
+  <div class="modal-overlay hidden" id="confirmModal">
+    <div class="modal-card">
+      <div class="modal-title">삭제할까?</div>
+      <div class="modal-sub" id="confirmMsg">이 내용을 정말 삭제할까?<br>되돌릴 수 없어.</div>
+      <div class="modal-btns">
+        <button class="btn" id="confirmCancelBtn" style="background:#F0E4E9;color:var(--plum);">취소</button>
+        <button class="btn" id="confirmDeleteBtn" style="background:#E5546F;">삭제하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="loginGate">
     <div class="modal-card">
       <div class="modal-title">🐶🍀</div>
       <div class="modal-sub" id="loginGateMsg">소정, 선호만 쓸 수 있는 앱이에요.<br>구글 계정으로 로그인해줘.</div>
@@ -453,9 +510,9 @@
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
+<script src="./index_files/firebase-app-compat.js.다운로드"></script>
+<script src="./index_files/firebase-firestore-compat.js.다운로드"></script>
+<script src="./index_files/firebase-auth-compat.js.다운로드"></script>
 <script>
 (function(){
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -473,9 +530,9 @@
   const db = firebase.firestore();
 
   let identity = null;
-  let schedule = [], wishes = [], dateLogs = [], stamps = [];
+  let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
   let stampPerson = null;
-  let pendingWishPhoto = null, pendingDateLogPhoto = null, pendingStampPhoto = null;
+  let pendingWishPhoto = null, pendingDateLogPhoto = null, pendingStampPhoto = null, pendingLetterPhoto = null;
 
   function resizeImage(file){
     return new Promise((resolve, reject)=>{
@@ -542,25 +599,54 @@
   function linkHost(url){
     try{ return new URL(url).hostname.replace('www.',''); }catch(e){ return url; }
   }
+  function otherPerson(author){
+    if(author === '소정') return '선호';
+    if(author === '선호') return '소정';
+    return '상대방';
+  }
 
+  function scheduleCardHTML(item){
+    const d = fmtDate(item.date);
+    return `<div class="item-card ${isPast(item.date)?'past':''}">
+      <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
+      <div class="item-body">
+        <div class="item-title">${escapeHTML(item.title)}</div>
+        ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
+        <div class="item-meta">${authorTagHTML(item.author)}</div>
+      </div>
+      <button class="edit-btn" data-edit-schedule="${item.id}">✏️</button>
+      <button class="del-btn" data-del-schedule="${item.id}">✕</button>
+    </div>`;
+  }
+  let showPastSchedule = false;
   function renderSchedule(){
     const list = document.getElementById('scheduleList');
+    const toggleBtn = document.getElementById('togglePastBtn');
+    const pastSection = document.getElementById('pastScheduleSection');
+
     if(schedule.length === 0){
       list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🗓️</span>아직 등록된 일정이 없어요.<br>첫 일정을 추가해볼까요?</div>';
+      toggleBtn.classList.add('hidden');
+      pastSection.classList.add('hidden');
       return;
     }
-    list.innerHTML = schedule.map(item => {
-      const d = fmtDate(item.date);
-      return `<div class="item-card ${isPast(item.date)?'past':''}">
-        <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
-        <div class="item-body">
-          <div class="item-title">${escapeHTML(item.title)}</div>
-          ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
-          <div class="item-meta">${authorTagHTML(item.author)}</div>
-        </div>
-        <button class="del-btn" data-del-schedule="${item.id}">✕</button>
-      </div>`;
-    }).join('');
+
+    const upcoming = schedule.filter(item => !isPast(item.date));
+    const past = [...schedule.filter(item => isPast(item.date))].reverse();
+
+    list.innerHTML = upcoming.length === 0
+      ? '<div class="empty-state"><span class="empty-emoji">✅</span>다가오는 일정이 없어요.</div>'
+      : upcoming.map(scheduleCardHTML).join('');
+
+    if(past.length > 0){
+      toggleBtn.classList.remove('hidden');
+      toggleBtn.textContent = showPastSchedule ? '지난 일정 숨기기' : `지난 일정 ${past.length}개 보기`;
+      pastSection.classList.toggle('hidden', !showPastSchedule);
+      pastSection.innerHTML = past.map(scheduleCardHTML).join('');
+    } else {
+      toggleBtn.classList.add('hidden');
+      pastSection.classList.add('hidden');
+    }
   }
 
   function renderWish(){
@@ -580,7 +666,10 @@
           ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
           <div class="wish-footer">
             <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
-            <button class="del-btn" data-del-wish="${item.id}">✕</button>
+            <div>
+              <button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
+              <button class="del-btn" data-del-wish="${item.id}">✕</button>
+            </div>
           </div>
         </div>
       </div>`;
@@ -603,6 +692,7 @@
           ${item.photo ? `<img class="item-photo" src="${item.photo}">` : ''}
           <div class="item-meta">${authorTagHTML(item.author)}</div>
         </div>
+        <button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
         <button class="del-btn" data-del-datelog="${item.id}">✕</button>
       </div>`;
     }).join('');
@@ -633,7 +723,35 @@
           ${item.photo ? `<img class="item-photo" src="${item.photo}">` : ''}
           <div class="stamp-date">${dateStr}</div>
         </div>
+        <button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
         <button class="del-btn" data-del-stamp="${item.id}">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderLetters(){
+    const list = document.getElementById('letterList');
+    if(letters.length === 0){
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어요.<br>짧은 편지 한 통 써볼까?</div>';
+      return;
+    }
+    list.innerHTML = letters.map(item => {
+      const dt = new Date(item.createdAt || Date.now());
+      const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+      return `<div class="wish-card">
+        ${item.photo ? `<img class="wish-photo" src="${item.photo}">` : ''}
+        <div class="wish-content">
+          <div class="section-sub" style="margin-bottom:4px;">To. ${otherPerson(item.author)}</div>
+          ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
+          <div class="wish-body">${escapeHTML(item.body)}</div>
+          <div class="wish-footer">
+            <div class="wish-meta">From. ${item.author || ''} · ${dateStr}</div>
+            <div>
+              <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
+              <button class="del-btn" data-del-letter="${item.id}">✕</button>
+            </div>
+          </div>
+        </div>
       </div>`;
     }).join('');
   }
@@ -670,93 +788,317 @@
     });
   });
 
+  // ---- 삭제 확인 모달 ----
+  let pendingDeleteAction = null;
+  function askDeleteConfirm(action){
+    pendingDeleteAction = action;
+    document.getElementById('confirmModal').classList.remove('hidden');
+  }
+  document.getElementById('confirmCancelBtn').addEventListener('click', ()=>{
+    pendingDeleteAction = null;
+    document.getElementById('confirmModal').classList.add('hidden');
+  });
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async ()=>{
+    const action = pendingDeleteAction;
+    pendingDeleteAction = null;
+    document.getElementById('confirmModal').classList.add('hidden');
+    if(action){ try{ await action(); }catch(err){ console.error(err); } }
+  });
+
+  // ---- 일정 ----
+  let editingScheduleId = null;
+  function startEditSchedule(item){
+    editingScheduleId = item.id;
+    document.getElementById('schedDate').value = item.date;
+    document.getElementById('schedTitle').value = item.title;
+    document.getElementById('schedMemo').value = item.memo || '';
+    document.getElementById('schedAddBtn').textContent = '수정 완료';
+    document.getElementById('schedCancelBtn').classList.remove('hidden');
+    document.getElementById('schedAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetScheduleForm(){
+    editingScheduleId = null;
+    document.getElementById('schedTitle').value='';
+    document.getElementById('schedMemo').value='';
+    document.getElementById('schedDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('schedAddBtn').textContent = '추가하기';
+    document.getElementById('schedCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('schedCancelBtn').addEventListener('click', resetScheduleForm);
   document.getElementById('schedAddBtn').addEventListener('click', async ()=>{
     const date = document.getElementById('schedDate').value;
     const title = document.getElementById('schedTitle').value.trim();
     if(!date || !title) return;
-    const id = genId();
+    const memo = document.getElementById('schedMemo').value.trim();
     try{
-      await db.collection('schedule').doc(id).set({
-        date, title, memo: document.getElementById('schedMemo').value.trim(), author: identity
-      });
-      document.getElementById('schedTitle').value='';
-      document.getElementById('schedMemo').value='';
+      if(editingScheduleId){
+        await db.collection('schedule').doc(editingScheduleId).update({ date, title, memo });
+        resetScheduleForm();
+      } else {
+        await db.collection('schedule').doc(genId()).set({ date, title, memo, author: identity });
+        document.getElementById('schedTitle').value='';
+        document.getElementById('schedMemo').value='';
+      }
     }catch(e){ console.error('일정 저장 실패', e); alert('저장에 실패했어. 인터넷 연결을 확인해줘.'); }
   });
-  document.getElementById('scheduleList').addEventListener('click', async (e)=>{
-    const id = e.target.dataset && e.target.dataset.delSchedule;
-    if(id){ try{ await db.collection('schedule').doc(id).delete(); }catch(err){ console.error(err); } }
+  function handleScheduleClick(e){
+    const editId = e.target.dataset && e.target.dataset.editSchedule;
+    const delId = e.target.dataset && e.target.dataset.delSchedule;
+    if(editId){
+      const item = schedule.find(s=>s.id===editId);
+      if(item) startEditSchedule(item);
+    } else if(delId){
+      askDeleteConfirm(async ()=>{ await db.collection('schedule').doc(delId).delete(); });
+    }
+  }
+  document.getElementById('scheduleList').addEventListener('click', handleScheduleClick);
+  document.getElementById('pastScheduleSection').addEventListener('click', handleScheduleClick);
+  document.getElementById('togglePastBtn').addEventListener('click', ()=>{
+    showPastSchedule = !showPastSchedule;
+    renderSchedule();
   });
 
+  // ---- 하고 싶은 일 ----
+  let editingWishId = null;
   setupPhotoPicker('wishPhotoInput','wishPhotoBtn','wishPhotoPreviewWrap','wishPhotoPreview','wishPhotoRemove', (v)=>{ pendingWishPhoto = v; });
+  function startEditWish(item){
+    editingWishId = item.id;
+    document.getElementById('wishTitle').value = item.title;
+    document.getElementById('wishBody').value = item.body || '';
+    document.getElementById('wishLink').value = item.link || '';
+    pendingWishPhoto = item.photo || null;
+    if(item.photo){
+      document.getElementById('wishPhotoPreview').src = item.photo;
+      document.getElementById('wishPhotoPreviewWrap').classList.remove('hidden');
+    } else {
+      document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+    }
+    document.getElementById('wishAddBtn').textContent = '수정 완료';
+    document.getElementById('wishCancelBtn').classList.remove('hidden');
+    document.getElementById('wishAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetWishForm(){
+    editingWishId = null;
+    document.getElementById('wishTitle').value='';
+    document.getElementById('wishBody').value='';
+    document.getElementById('wishLink').value='';
+    pendingWishPhoto = null;
+    document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+    document.getElementById('wishAddBtn').textContent = '게시하기';
+    document.getElementById('wishCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('wishCancelBtn').addEventListener('click', resetWishForm);
   document.getElementById('wishAddBtn').addEventListener('click', async ()=>{
     const title = document.getElementById('wishTitle').value.trim();
     if(!title) return;
-    const id = genId();
+    const body = document.getElementById('wishBody').value.trim();
+    const link = document.getElementById('wishLink').value.trim();
     try{
-      await db.collection('wishlist').doc(id).set({
-        title,
-        body: document.getElementById('wishBody').value.trim(),
-        link: document.getElementById('wishLink').value.trim(),
-        photo: pendingWishPhoto || null,
-        author: identity, createdAt: Date.now()
-      });
-      document.getElementById('wishTitle').value='';
-      document.getElementById('wishBody').value='';
-      document.getElementById('wishLink').value='';
-      pendingWishPhoto = null;
-      document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+      if(editingWishId){
+        await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photo: pendingWishPhoto || null });
+        resetWishForm();
+      } else {
+        await db.collection('wishlist').doc(genId()).set({
+          title, body, link, photo: pendingWishPhoto || null, author: identity, createdAt: Date.now()
+        });
+        document.getElementById('wishTitle').value='';
+        document.getElementById('wishBody').value='';
+        document.getElementById('wishLink').value='';
+        pendingWishPhoto = null;
+        document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+      }
     }catch(e){ console.error('위시 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
-  document.getElementById('wishList').addEventListener('click', async (e)=>{
-    const id = e.target.dataset && e.target.dataset.delWish;
-    if(id){ try{ await db.collection('wishlist').doc(id).delete(); }catch(err){ console.error(err); } }
+  document.getElementById('wishList').addEventListener('click', (e)=>{
+    const editId = e.target.dataset && e.target.dataset.editWish;
+    const delId = e.target.dataset && e.target.dataset.delWish;
+    if(editId){
+      const item = wishes.find(s=>s.id===editId);
+      if(item) startEditWish(item);
+    } else if(delId){
+      askDeleteConfirm(async ()=>{ await db.collection('wishlist').doc(delId).delete(); });
+    }
   });
 
+  // ---- 데이트 기록 ----
+  let editingDatelogId = null;
   setupPhotoPicker('dateLogPhotoInput','dateLogPhotoBtn','dateLogPhotoPreviewWrap','dateLogPhotoPreview','dateLogPhotoRemove', (v)=>{ pendingDateLogPhoto = v; });
+  function startEditDatelog(item){
+    editingDatelogId = item.id;
+    document.getElementById('dateLogDate').value = item.date;
+    document.getElementById('dateLogTitle').value = item.title;
+    document.getElementById('dateLogMemo').value = item.memo || '';
+    pendingDateLogPhoto = item.photo || null;
+    if(item.photo){
+      document.getElementById('dateLogPhotoPreview').src = item.photo;
+      document.getElementById('dateLogPhotoPreviewWrap').classList.remove('hidden');
+    } else {
+      document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+    }
+    document.getElementById('dateLogAddBtn').textContent = '수정 완료';
+    document.getElementById('dateLogCancelBtn').classList.remove('hidden');
+    document.getElementById('dateLogAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetDatelogForm(){
+    editingDatelogId = null;
+    document.getElementById('dateLogTitle').value='';
+    document.getElementById('dateLogMemo').value='';
+    document.getElementById('dateLogDate').value = new Date().toISOString().slice(0,10);
+    pendingDateLogPhoto = null;
+    document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+    document.getElementById('dateLogAddBtn').textContent = '기록하기';
+    document.getElementById('dateLogCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('dateLogCancelBtn').addEventListener('click', resetDatelogForm);
   document.getElementById('dateLogAddBtn').addEventListener('click', async ()=>{
     const date = document.getElementById('dateLogDate').value;
     const title = document.getElementById('dateLogTitle').value.trim();
     if(!date || !title) return;
-    const id = genId();
+    const memo = document.getElementById('dateLogMemo').value.trim();
     try{
-      await db.collection('datelog').doc(id).set({
-        date, title,
-        memo: document.getElementById('dateLogMemo').value.trim(),
-        photo: pendingDateLogPhoto || null,
-        author: identity
-      });
-      document.getElementById('dateLogTitle').value='';
-      document.getElementById('dateLogMemo').value='';
-      pendingDateLogPhoto = null;
-      document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+      if(editingDatelogId){
+        await db.collection('datelog').doc(editingDatelogId).update({ date, title, memo, photo: pendingDateLogPhoto || null });
+        resetDatelogForm();
+      } else {
+        await db.collection('datelog').doc(genId()).set({
+          date, title, memo, photo: pendingDateLogPhoto || null, author: identity
+        });
+        document.getElementById('dateLogTitle').value='';
+        document.getElementById('dateLogMemo').value='';
+        pendingDateLogPhoto = null;
+        document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+      }
     }catch(e){ console.error('데이트기록 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
-  document.getElementById('dateLogList').addEventListener('click', async (e)=>{
-    const id = e.target.dataset && e.target.dataset.delDatelog;
-    if(id){ try{ await db.collection('datelog').doc(id).delete(); }catch(err){ console.error(err); } }
+  document.getElementById('dateLogList').addEventListener('click', (e)=>{
+    const editId = e.target.dataset && e.target.dataset.editDatelog;
+    const delId = e.target.dataset && e.target.dataset.delDatelog;
+    if(editId){
+      const item = dateLogs.find(s=>s.id===editId);
+      if(item) startEditDatelog(item);
+    } else if(delId){
+      askDeleteConfirm(async ()=>{ await db.collection('datelog').doc(delId).delete(); });
+    }
   });
 
+  // ---- 스탬프 ----
+  let editingStampId = null;
   setupPhotoPicker('stampPhotoInput','stampPhotoBtn','stampPhotoPreviewWrap','stampPhotoPreview','stampPhotoRemove', (v)=>{ pendingStampPhoto = v; });
   document.getElementById('pickSojeong').addEventListener('click', ()=>{ stampPerson='소정'; renderStamp(); });
   document.getElementById('pickSeonho').addEventListener('click', ()=>{ stampPerson='선호'; renderStamp(); });
+  function startEditStamp(item){
+    editingStampId = item.id;
+    stampPerson = item.person;
+    document.getElementById('stampText').value = item.text;
+    pendingStampPhoto = item.photo || null;
+    if(item.photo){
+      document.getElementById('stampPhotoPreview').src = item.photo;
+      document.getElementById('stampPhotoPreviewWrap').classList.remove('hidden');
+    } else {
+      document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
+    }
+    renderStamp();
+    document.getElementById('stampAddBtn').textContent = '수정 완료';
+    document.getElementById('stampCancelBtn').classList.remove('hidden');
+    document.getElementById('stampAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetStampForm(){
+    editingStampId = null;
+    document.getElementById('stampText').value='';
+    pendingStampPhoto = null;
+    document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
+    document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
+    document.getElementById('stampCancelBtn').classList.add('hidden');
+    stampPerson = null;
+    renderStamp();
+  }
+  document.getElementById('stampCancelBtn').addEventListener('click', resetStampForm);
   document.getElementById('stampAddBtn').addEventListener('click', async ()=>{
     const text = document.getElementById('stampText').value.trim();
     if(!text || !stampPerson) return;
-    const id = genId();
     try{
-      await db.collection('stamps').doc(id).set({
-        person: stampPerson, text, photo: pendingStampPhoto || null, createdAt: Date.now()
-      });
-      document.getElementById('stampText').value='';
-      pendingStampPhoto = null;
-      document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
-      renderStamp(id);
+      if(editingStampId){
+        await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photo: pendingStampPhoto || null });
+        resetStampForm();
+      } else {
+        const id = genId();
+        await db.collection('stamps').doc(id).set({
+          person: stampPerson, text, photo: pendingStampPhoto || null, createdAt: Date.now()
+        });
+        document.getElementById('stampText').value='';
+        pendingStampPhoto = null;
+        document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
+        renderStamp(id);
+      }
     }catch(e){ console.error('스탬프 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
-  document.getElementById('stampList').addEventListener('click', async (e)=>{
-    const id = e.target.dataset && e.target.dataset.delStamp;
-    if(id){ try{ await db.collection('stamps').doc(id).delete(); }catch(err){ console.error(err); } }
+  document.getElementById('stampList').addEventListener('click', (e)=>{
+    const editId = e.target.dataset && e.target.dataset.editStamp;
+    const delId = e.target.dataset && e.target.dataset.delStamp;
+    if(editId){
+      const item = stamps.find(s=>s.id===editId);
+      if(item) startEditStamp(item);
+    } else if(delId){
+      askDeleteConfirm(async ()=>{ await db.collection('stamps').doc(delId).delete(); });
+    }
+  });
+
+  // ---- 편지 ----
+  let editingLetterId = null;
+  setupPhotoPicker('letterPhotoInput','letterPhotoBtn','letterPhotoPreviewWrap','letterPhotoPreview','letterPhotoRemove', (v)=>{ pendingLetterPhoto = v; });
+  function startEditLetter(item){
+    editingLetterId = item.id;
+    document.getElementById('letterTitle').value = item.title || '';
+    document.getElementById('letterBody').value = item.body || '';
+    pendingLetterPhoto = item.photo || null;
+    if(item.photo){
+      document.getElementById('letterPhotoPreview').src = item.photo;
+      document.getElementById('letterPhotoPreviewWrap').classList.remove('hidden');
+    } else {
+      document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
+    }
+    document.getElementById('letterAddBtn').textContent = '수정 완료';
+    document.getElementById('letterCancelBtn').classList.remove('hidden');
+    document.getElementById('letterAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function resetLetterForm(){
+    editingLetterId = null;
+    document.getElementById('letterTitle').value='';
+    document.getElementById('letterBody').value='';
+    pendingLetterPhoto = null;
+    document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
+    document.getElementById('letterAddBtn').textContent = '편지 보내기';
+    document.getElementById('letterCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('letterCancelBtn').addEventListener('click', resetLetterForm);
+  document.getElementById('letterAddBtn').addEventListener('click', async ()=>{
+    const body = document.getElementById('letterBody').value.trim();
+    if(!body) return;
+    const title = document.getElementById('letterTitle').value.trim();
+    try{
+      if(editingLetterId){
+        await db.collection('letters').doc(editingLetterId).update({ title, body, photo: pendingLetterPhoto || null });
+        resetLetterForm();
+      } else {
+        await db.collection('letters').doc(genId()).set({
+          title, body, photo: pendingLetterPhoto || null, author: identity, createdAt: Date.now()
+        });
+        document.getElementById('letterTitle').value='';
+        document.getElementById('letterBody').value='';
+        pendingLetterPhoto = null;
+        document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
+      }
+    }catch(e){ console.error('편지 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
+  });
+  document.getElementById('letterList').addEventListener('click', (e)=>{
+    const editId = e.target.dataset && e.target.dataset.editLetter;
+    const delId = e.target.dataset && e.target.dataset.delLetter;
+    if(editId){
+      const item = letters.find(s=>s.id===editId);
+      if(item) startEditLetter(item);
+    } else if(delId){
+      askDeleteConfirm(async ()=>{ await db.collection('letters').doc(delId).delete(); });
+    }
   });
 
   function watch(collectionName, orderField, orderDir, onData){
@@ -790,6 +1132,7 @@
     watch('wishlist', 'createdAt', 'desc', items=>{ wishes = items; renderWish(); });
     watch('datelog', 'date', 'desc', items=>{ dateLogs = items; renderDateLog(); });
     watch('stamps', 'createdAt', 'desc', items=>{ stamps = items; renderStamp(); });
+    watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); });
   }
 
   function init(){
@@ -816,5 +1159,6 @@
   init();
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
