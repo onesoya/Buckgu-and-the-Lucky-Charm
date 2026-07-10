@@ -105,19 +105,26 @@
 
   .home-today{ text-align:center; font-size:12px; color:var(--plum-soft); padding-top:8px; margin-bottom:4px; }
   .home-mascot-row{
-    display:flex; align-items:flex-start; justify-content:center; gap:10px;
+    display:flex; align-items:flex-start; justify-content:center; gap:14px;
     padding:6px 0 4px;
   }
   .home-mascot{ width:220px; height:220px; object-fit:contain; flex-shrink:0; }
+  .home-bubble-wrap{ position:relative; margin-top:22px; }
   .home-speech-bubble{
     position:relative;
-    background:linear-gradient(135deg, #FFFFFF 55%, var(--pink-soft));
-    border-radius:6px 20px 20px 20px;
+    background:var(--white);
+    border-radius:22px;
     padding:14px 16px;
     font-size:12.5px; color:var(--plum); line-height:1.55; font-weight:600;
     box-shadow:0 6px 16px rgba(74,53,72,0.14);
-    max-width:140px; margin-top:26px; text-align:left;
+    max-width:140px; text-align:left;
   }
+  .home-bubble-dot{
+    position:absolute; background:var(--white); border-radius:50%;
+    box-shadow:0 4px 10px rgba(74,53,72,0.12);
+  }
+  .home-bubble-dot.dot1{ width:16px; height:16px; left:10px; bottom:-14px; }
+  .home-bubble-dot.dot2{ width:9px; height:9px; left:-2px; bottom:-24px; }
   .home-anniv-mini{ text-align:center; font-size:12px; color:var(--plum-soft); margin:-4px 0 18px; }
   .home-anniv-mini b{ color:var(--pink); font-family:'Jua',sans-serif; font-size:13px; }
   .home-next-card{
@@ -218,6 +225,17 @@
     padding:9px 12px;font-size:12.5px;color:var(--plum-soft);cursor:pointer;
     font-family:'Pretendard',sans-serif;width:100%;
   }
+  .location-results{
+    background:var(--white); border:1.5px solid #F0E4E9; border-radius:12px;
+    margin:-4px 0 10px; overflow:hidden; max-height:220px; overflow-y:auto;
+  }
+  .location-result-item{
+    padding:10px 12px; cursor:pointer; border-bottom:1px solid #F5EBEE;
+  }
+  .location-result-item:last-child{ border-bottom:none; }
+  .location-result-item:active{ background:#FDF6F8; }
+  .location-result-name{ font-size:13px; font-weight:600; color:var(--plum); }
+  .location-result-addr{ font-size:11px; color:var(--plum-soft); margin-top:1px; }
   .photo-preview-grid{
     display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;
   }
@@ -577,7 +595,11 @@
       <div class="home-today" id="homeToday"></div>
       <div class="home-mascot-row">
         <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩어리" onerror="this.style.display='none'">
-        <div class="home-speech-bubble" id="homeSpeechBubble"></div>
+        <div class="home-bubble-wrap">
+          <div class="home-speech-bubble" id="homeSpeechBubble"></div>
+          <div class="home-bubble-dot dot1"></div>
+          <div class="home-bubble-dot dot2"></div>
+        </div>
       </div>
       <div class="home-anniv-mini" id="homeAnnivMini"></div>
       <div class="home-next-card" id="homeNextDateCard"></div>
@@ -687,8 +709,10 @@
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
         </div>
         <div class="add-row">
-          <input type="text" id="dateLogLocation" placeholder="📍 위치 검색 (선택, 지도에 표시하려면 입력)">
+          <input type="text" id="dateLogLocation" placeholder="📍 위치 검색 (선택)">
+          <button type="button" class="btn-photo" id="dateLogLocationSearchBtn" style="width:auto;flex-shrink:0;padding:9px 14px;">🔍 검색</button>
         </div>
+        <div class="location-results hidden" id="dateLogLocationResults"></div>
         <div class="field-label hidden" id="dateLogLocationStatus" style="margin:-4px 0 8px 2px;"></div>
         <div class="add-row">
           <textarea id="dateLogMemo" placeholder="오늘 어땠어?"></textarea>
@@ -862,17 +886,15 @@
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
   let stampPerson = null;
   let pendingWishPhotos = [], pendingDateLogPhotos = [], pendingStampPhotos = [], pendingLetterPhotos = [];
+  let pendingDateLogGeo = null;
 
-  async function geocodeLocation(query){
-    if(!query) return null;
+  async function searchLocations(query){
+    if(!query) return [];
     try{
       const callable = firebase.app().functions('asia-northeast3').httpsCallable('geocodePlace');
       const result = await callable({ query });
-      if(result.data && typeof result.data.lat === 'number'){
-        return { lat: result.data.lat, lng: result.data.lng };
-      }
-    }catch(e){ console.error('지오코딩 실패', e); }
-    return null;
+      return (result.data && result.data.results) || [];
+    }catch(e){ console.error('위치 검색 실패', e); return []; }
   }
 
   function resizeImage(file){
@@ -1472,12 +1494,15 @@
     const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
+    const toClass = item.person === '소정' ? 'to-sojeong' : 'to-seonho';
+    const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
     return `<div class="stamp-card">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
       <div class="stamp-body">
+        <div class="letter-to ${toClass}" style="margin-bottom:6px;font-size:11px;padding:3px 9px;">🏅 To. ${item.person}</div>
         <div class="stamp-text">${escapeHTML(item.text)}</div>
         ${cardPhotosHTML(item)}
-        <div class="stamp-date">${dateStr}</div>
+        <div class="stamp-date">${item.author ? `<span class="letter-from ${fromClass}">From. ${item.author}</span> · ` : ''}${dateStr}</div>
       </div>
       ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
       <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
@@ -1633,7 +1658,7 @@
       items.push({ ts: it.createdAt, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
     });
     stamps.forEach(it=>{
-      items.push({ ts: it.createdAt || 0, author: it.person, label:'스탬프', text: it.text, tab:'stamp' });
+      items.push({ ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
     });
     letters.forEach(it=>{
       items.push({ ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
@@ -2001,6 +2026,17 @@
     document.getElementById('dateLogTime').value = item.time || '';
     document.getElementById('dateLogTitle').value = item.title;
     document.getElementById('dateLogLocation').value = item.location || '';
+    document.getElementById('dateLogLocationResults').classList.add('hidden');
+    const statusEl0 = document.getElementById('dateLogLocationStatus');
+    if(typeof item.lat === 'number' && typeof item.lng === 'number'){
+      pendingDateLogGeo = { lat: item.lat, lng: item.lng };
+      statusEl0.classList.remove('hidden');
+      statusEl0.textContent = '✅ 저장된 위치가 있어';
+      statusEl0.style.color = '#4A9B6E';
+    } else {
+      pendingDateLogGeo = null;
+      statusEl0.classList.add('hidden');
+    }
     document.getElementById('dateLogMemo').value = item.memo || '';
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('dateLogEndDate').value = item.endDate;
@@ -2022,6 +2058,8 @@
     document.getElementById('dateLogTitle').value='';
     document.getElementById('dateLogLocation').value='';
     document.getElementById('dateLogLocationStatus').classList.add('hidden');
+    document.getElementById('dateLogLocationResults').classList.add('hidden');
+    pendingDateLogGeo = null;
     document.getElementById('dateLogMemo').value='';
     document.getElementById('dateLogTime').value='';
     document.getElementById('dateLogEndDate').value='';
@@ -2033,6 +2071,42 @@
     document.getElementById('dateLogAddBtn').textContent = '기록하기';
     document.getElementById('dateLogCancelBtn').classList.add('hidden');
   }
+  document.getElementById('dateLogLocation').addEventListener('input', ()=>{
+    pendingDateLogGeo = null;
+    document.getElementById('dateLogLocationStatus').classList.add('hidden');
+  });
+  document.getElementById('dateLogLocationSearchBtn').addEventListener('click', async ()=>{
+    const query = document.getElementById('dateLogLocation').value.trim();
+    if(!query) return;
+    const resultsEl = document.getElementById('dateLogLocationResults');
+    document.getElementById('dateLogLocationStatus').classList.add('hidden');
+    resultsEl.classList.remove('hidden');
+    resultsEl.innerHTML = '<div class="location-result-item">검색 중...</div>';
+    const results = await searchLocations(query);
+    if(results.length === 0){
+      resultsEl.innerHTML = '<div class="location-result-item">검색 결과가 없어. 다른 이름으로 시도해봐.</div>';
+      return;
+    }
+    resultsEl.innerHTML = results.map((r,i)=>`
+      <div class="location-result-item" data-idx="${i}">
+        <div class="location-result-name">${escapeHTML(r.name)}</div>
+        <div class="location-result-addr">${escapeHTML(r.address || '')}</div>
+      </div>
+    `).join('');
+    resultsEl.querySelectorAll('.location-result-item[data-idx]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = results[Number(el.dataset.idx)];
+        pendingDateLogGeo = { lat: r.lat, lng: r.lng };
+        document.getElementById('dateLogLocation').value = r.name;
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+        const statusEl = document.getElementById('dateLogLocationStatus');
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = `✅ 이 위치로 선택했어: ${r.name}`;
+        statusEl.style.color = '#4A9B6E';
+      });
+    });
+  });
   document.getElementById('dateLogCancelBtn').addEventListener('click', resetDatelogForm);
   document.getElementById('dateLogAddBtn').addEventListener('click', async ()=>{
     const date = document.getElementById('dateLogDate').value;
@@ -2049,12 +2123,13 @@
     const addBtn = document.getElementById('dateLogAddBtn');
     const originalBtnText = addBtn.textContent;
     const statusEl = document.getElementById('dateLogLocationStatus');
-    let geo = null;
-    if(location){
+    let geo = pendingDateLogGeo;
+    if(!geo && location){
       addBtn.disabled = true;
       addBtn.textContent = '위치 찾는 중...';
       statusEl.classList.add('hidden');
-      geo = await geocodeLocation(location);
+      const results = await searchLocations(location);
+      geo = results[0] ? { lat: results[0].lat, lng: results[0].lng } : null;
       addBtn.disabled = false;
       addBtn.textContent = originalBtnText;
       statusEl.classList.remove('hidden');
@@ -2062,7 +2137,7 @@
         statusEl.textContent = '✅ 위치를 찾았어! 지도에 표시될 거야.';
         statusEl.style.color = '#4A9B6E';
       } else {
-        statusEl.textContent = '⚠️ 이 위치를 못 찾았어. 더 잘 알려진 이름으로 다시 시도해봐 (지도 없이 기록은 저장돼).';
+        statusEl.textContent = '⚠️ 이 위치를 못 찾았어. "🔍 검색"으로 직접 골라보거나 다른 이름으로 시도해봐.';
         statusEl.style.color = '#C24065';
       }
     }
@@ -2090,6 +2165,8 @@
           document.getElementById('dateLogTitle').value='';
           document.getElementById('dateLogLocation').value='';
           document.getElementById('dateLogLocationStatus').classList.add('hidden');
+          document.getElementById('dateLogLocationResults').classList.add('hidden');
+          pendingDateLogGeo = null;
           document.getElementById('dateLogMemo').value='';
           document.getElementById('dateLogTime').value='';
           document.getElementById('dateLogEndDate').value='';
