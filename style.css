@@ -53,7 +53,7 @@
   .app-title-row{ display:flex; align-items:center; gap:6px; }
   .home-btn{
     background:var(--white); border:none; border-radius:50%; width:26px; height:26px;
-    font-size:19.5px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer;
     box-shadow:0 2px 6px rgba(74,53,72,0.08); flex-shrink:0; padding:0;
   }
   .app-title{
@@ -81,7 +81,7 @@
   }
   .identity-chip{
     font-family:'NanumDaHaengCe',sans-serif;font-weight:700;
-    font-size:19.5px;
+    font-size:16px;
     background:var(--white);
     border:none;
     padding:8px 14px;
@@ -110,8 +110,8 @@
   .home-speech-bubble{
     background-image:url('bubble.png');
     background-size:contain; background-repeat:no-repeat; background-position:center;
-    width:170px; height:114px; /* 3:2 비율에 근접하게 변경 */
-    padding: 22px 28px; /* 텍스트가 정확히 중앙에 오도록 상하좌우 패딩 조정 */
+    width:205px; height:137px; /* 텍스트 넘침 방지를 위해 확대 */
+    padding: 22px 30px; /* 텍스트가 정확히 중앙에 오도록 상하좌우 패딩 조정 */
     box-sizing:border-box;
     display:flex; align-items:center; justify-content:center; text-align:center;
     font-size:17px; color:#6B4423; font-weight:700; line-height:1.35;
@@ -322,14 +322,14 @@
     padding:6px 0;
     font-family:'NanumDaHaengCe',sans-serif;font-weight:700;
   }
-  .date-badge .day{font-size:24px;line-height:1;}
-  .date-badge .mon{font-size:15px;color:var(--plum-soft);}
+  .date-badge .day{font-size:20px;line-height:1;}
+  .date-badge .mon{font-size:13px;color:var(--plum-soft);}
   .item-body{flex:1;min-width:0;}
-  .item-title{font-size:21px;font-weight:600;word-break:break-word;}
-  .item-memo{font-size:18px;color:var(--plum-soft);margin-top:3px;word-break:break-word;white-space:pre-wrap;}
+  .item-title{font-size:18px;font-weight:600;word-break:break-word;}
+  .item-memo{font-size:15.5px;color:var(--plum-soft);margin-top:3px;word-break:break-word;white-space:pre-wrap;}
   .item-meta{display:flex;align-items:center;gap:6px;margin-top:6px;}
   .author-tag{
-    font-size:15px;
+    font-size:13px;
     padding:2px 8px;
     border-radius:8px;
     font-family:'NanumDaHaengCe',sans-serif;font-weight:700;
@@ -381,7 +381,7 @@
   .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center; }
   .calendar-weekday{ font-size:15px; color:var(--plum-soft); padding-bottom:6px; }
 .calendar-day{
-    position:relative; min-height:50px; display:flex; flex-direction:column; align-items:center;
+    position:relative; min-height:66px; display:flex; flex-direction:column; align-items:center;
     padding:3px 0 2px; /* 좌우 패딩을 없애서 이벤트 바가 끝까지 닿게 함 */
     border-radius:8px; cursor:pointer; color:var(--plum); 
     /* overflow:hidden 제거 (띠가 셀 사이 빈 공간을 덮게 하기 위함) */
@@ -397,7 +397,7 @@
     font-size:14.5px; line-height:1.4; padding:0 3px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; color:#4A3548; font-weight:600; 
     text-align:center; /* 글씨 중앙 정렬 */
-    box-sizing:border-box; height:14px;
+    box-sizing:border-box; height:21px;
   }
   .cal-event-pill.empty-label{ text-indent:-999px; }
   .cal-event-pill.person-sojeong{ background:var(--pink-soft); }
@@ -465,8 +465,13 @@
     font-size:16px;color:var(--plum-soft);cursor:pointer;font-family:'NanumDaHaengCe',sans-serif;
   }
   .wish-check.checked{background:var(--sage);border-color:var(--sage);color:var(--white);}
+
+  /* 위시 탭만 텍스트 축소 (편지 탭은 같은 클래스를 쓰지만 그대로 유지) */
+  #panel-wish .wish-title{font-size:19px;}
+  #panel-wish .wish-body{font-size:17px;}
+  #panel-wish .wish-meta{font-size:14px;}
   .letter-to{
-    display:inline-flex;align-items:center;gap:4px;font-family:'NanumDaHaengCe',sans-serif;font-weight:700;font-size:19.5px;
+    display:inline-flex;align-items:center;gap:4px;font-family:'NanumDaHaengCe',sans-serif;font-weight:700;font-size:16px;
     padding:5px 12px;border-radius:10px;margin-bottom:8px;
   }
   .letter-to.to-sojeong{background:var(--pink-soft);color:#C24065;}
