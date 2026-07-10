@@ -173,6 +173,8 @@
   .card-photos img{
     width:140px; height:140px; object-fit:cover; border-radius:12px; flex-shrink:0; background:#F5EBEE;
   }
+  .field-group{ display:flex; flex-direction:column; gap:4px; }
+  .field-label{ font-size:10px; color:var(--plum-soft); padding-left:2px; }
   .link-toggle-btn{
     display:block; background:none; border:none; color:var(--pink); font-size:12px;
     text-align:left; padding:2px 2px 10px; cursor:pointer; font-weight:700; font-family:'Pretendard',sans-serif;
@@ -414,14 +416,26 @@
       <div class="calendar-card" id="scheduleCalendar"></div>
       <div class="add-card">
         <div class="add-row">
-          <input type="date" id="schedDate" style="max-width:150px;">
-          <input type="time" id="schedTime" style="max-width:120px;">
+          <div class="field-group" style="max-width:150px;">
+            <label class="field-label">📅 날짜</label>
+            <input type="date" id="schedDate">
+          </div>
+          <div class="field-group" style="max-width:120px;">
+            <label class="field-label">🕐 시간 (선택)</label>
+            <input type="time" id="schedTime">
+          </div>
         </div>
         <div class="add-row hidden" id="schedEndDateRow">
-          <input type="date" id="schedEndDate">
-          <input type="time" id="schedEndTime" style="max-width:120px;">
+          <div class="field-group" style="max-width:150px;">
+            <label class="field-label">📅 종료일</label>
+            <input type="date" id="schedEndDate">
+          </div>
+          <div class="field-group" style="max-width:120px;">
+            <label class="field-label">🕐 종료 시간 (선택)</label>
+            <input type="time" id="schedEndTime">
+          </div>
         </div>
-        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가</button>
+        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
         <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
@@ -472,14 +486,26 @@
       <div class="section-title">데이트 기록</div>
       <div class="add-card">
         <div class="add-row">
-          <input type="date" id="dateLogDate" style="max-width:150px;">
-          <input type="time" id="dateLogTime" style="max-width:120px;">
+          <div class="field-group" style="max-width:150px;">
+            <label class="field-label">📅 날짜</label>
+            <input type="date" id="dateLogDate">
+          </div>
+          <div class="field-group" style="max-width:120px;">
+            <label class="field-label">🕐 시간 (선택)</label>
+            <input type="time" id="dateLogTime">
+          </div>
         </div>
         <div class="add-row hidden" id="dateLogEndDateRow">
-          <input type="date" id="dateLogEndDate">
-          <input type="time" id="dateLogEndTime" style="max-width:120px;">
+          <div class="field-group" style="max-width:150px;">
+            <label class="field-label">📅 종료일</label>
+            <input type="date" id="dateLogEndDate">
+          </div>
+          <div class="field-group" style="max-width:120px;">
+            <label class="field-label">🕐 종료 시간 (선택)</label>
+            <input type="time" id="dateLogEndTime">
+          </div>
         </div>
-        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가</button>
+        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
         <div class="add-row">
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
         </div>
@@ -1048,7 +1074,7 @@
   });
   function setRangeToggleState(rowId, btnId, show){
     document.getElementById(rowId).classList.toggle('hidden', !show);
-    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가';
+    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (여행 등 여러 날 일정)';
   }
   document.getElementById('schedRangeToggleBtn').addEventListener('click', ()=>{
     const row = document.getElementById('schedEndDateRow');
