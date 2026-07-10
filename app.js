@@ -743,27 +743,23 @@ function renderCalendar(){
       </div>
     </div>`;
   }
-function renderWish(){
-  // 1. 검색어로 필터링하기 (검색어가 있으면 제목/내용 포함된 것만 걸러내기)
-  const filtered = searchQuery 
-    ? wishes.filter(w => (w.title && w.title.toLowerCase().includes(searchQuery)) || (w.body && w.body.toLowerCase().includes(searchQuery)))
-    : wishes;
+  function renderWish(){
+    const list = document.getElementById('wishList');
+    const toggleBtn = document.getElementById('toggleDoneWishBtn');
+    const doneSection = document.getElementById('doneWishSection');
 
-  const list = document.getElementById('wishList');
-  const toggleBtn = document.getElementById('toggleDoneWishBtn');
-  const doneSection = document.getElementById('doneWishSection');
+    if(wishes.length === 0){
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어.<br>버킷리스트를 적어볼까?</div>';
+      toggleBtn.classList.add('hidden');
+      doneSection.classList.add('hidden');
+      return;
+    }
+    const active = wishes.filter(w=>!w.done);
+    const done = wishes.filter(w=>w.done);
 
-  // 2. 이제 wishes 대신 filtered를 사용해!
-  if(filtered.length === 0){ // wishes -> filtered 로 변경
-    list.innerHTML = '<div class="empty-state">검색 결과가 없어...</div>';
-    toggleBtn.classList.add('hidden');
-    doneSection.classList.add('hidden');
-    return;
-  }
-  
-  const active = filtered.filter(w=>!w.done); // wishes -> filtered 로 변경
-  const done = filtered.filter(w=>w.done);    // wishes -> filtered 로 변경
-list.innerHTML = active.length === 0 ? '<div class="empty-state">진행 중인 위시가 없어</div>' : active.map(wishCardHTML).join('');
+    list.innerHTML = active.length === 0
+      ? '<div class="empty-state"><span class="empty-emoji">🎉</span>다 완료했어! 새로운 위시를 적어볼까?</div>'
+      : active.map(wishCardHTML).join('');
 
     if(done.length > 0){
       toggleBtn.classList.remove('hidden');
@@ -815,21 +811,13 @@ list.innerHTML = active.length === 0 ? '<div class="empty-state">진행 중인 �
     </div>`;
   }
 function renderDateLog() {
-  const filtered = searchQuery 
-    ? dateLogs.filter(d => 
-        (d.title && d.title.toLowerCase().includes(searchQuery)) || 
-        (d.memo && d.memo.toLowerCase().includes(searchQuery)) ||
-        (d.location && d.location.toLowerCase().includes(searchQuery))
-      )
-    : dateLogs;
-
   renderGroupedByTime(
-    'dateLogList', 
-    filtered, // 여기서 filtered를 써야 해!
+    'dateLogList',
+    dateLogs,
     item => item.date + 'T00:00:00',
     dateLogCardHTML,
     dateLogExpandedGroups,
-    '<div class="empty-state">검색 결과가 없어...</div>'
+    '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해봐.</div>'
   );
 }
 
@@ -882,18 +870,13 @@ function renderStamp(popId) {
   document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
   document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
 
-  // 검색 필터링
-  const filtered = searchQuery 
-    ? stamps.filter(s => (s.text && s.text.toLowerCase().includes(searchQuery)) || (s.person && s.person.toLowerCase().includes(searchQuery)))
-    : stamps;
-
   renderGroupedByTime(
-    'stampList', 
-    filtered, // 여기서 filtered를 써야 해!
+    'stampList',
+    stamps,
     item => item.createdAt || Date.now(),
     item => stampCardHTML(item, popId),
     stampExpandedGroups,
-    '<div class="empty-state">검색 결과가 없어...</div>'
+    '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
   );
 }
 
@@ -937,20 +920,13 @@ function renderStamp(popId) {
     </div>`;
   }
 function renderLetters() {
-  const filtered = searchQuery 
-    ? letters.filter(l => 
-        (l.title && l.title.toLowerCase().includes(searchQuery)) || 
-        (l.body && l.body.toLowerCase().includes(searchQuery))
-      )
-    : letters;
-
   renderGroupedByTime(
-    'letterList', 
-    filtered, // 여기서 filtered를 써야 해!
+    'letterList',
+    letters,
     item => item.createdAt || Date.now(),
     letterCardHTML,
     letterExpandedGroups,
-    '<div class="empty-state">검색 결과가 없어...</div>'
+    '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>'
   );
 }
 
@@ -1807,15 +1783,136 @@ function startWatchers(){
     }
   });
 
-document.getElementById('searchInput').addEventListener('input', (e) => {
-  searchQuery = e.target.value.toLowerCase();
-  // 검색어 입력 시 각 탭의 render 함수를 다시 실행해서 화면을 필터링함
-  renderSchedule(); 
-  renderWish();
-  renderDateLog();
-  renderStamp();
-  renderLetters();
-});
+  // ---- 검색 (헤더 버튼 → 전체화면 오버레이) ----
+  let searchCategory = 'all';
+  const SEARCH_CARD_SELECTOR = { schedule:'.item-card', wish:'.wish-card', datelog:'.item-card', letter:'.wish-card', stamp:'.stamp-card' };
+
+  function groupKeyForTimestamp(ts){
+    const now = new Date();
+    const curYear = now.getFullYear(), curMonth = now.getMonth();
+    const d = new Date(ts);
+    const y = d.getFullYear(), m = d.getMonth();
+    if(y === curYear){
+      if(m === curMonth) return null;
+      return `month-${m}`;
+    }
+    return `year-${y}`;
+  }
+
+  function buildSearchIndex(){
+    const items = [];
+    schedule.forEach(it => items.push({
+      tab:'schedule', label:'일정', ts: it.createdAt || new Date(it.date+'T00:00:00').getTime(),
+      title: it.title, sub: it.memo || fmtShortDate(it.date), item: it,
+      match: `${it.title||''} ${it.memo||''}`.toLowerCase()
+    }));
+    wishes.forEach(it => items.push({
+      tab:'wish', label:'위시', ts: it.createdAt || 0,
+      title: it.title, sub: it.body || '', item: it,
+      match: `${it.title||''} ${it.body||''}`.toLowerCase()
+    }));
+    dateLogs.forEach(it => items.push({
+      tab:'datelog', label:'데이트기록', ts: it.createdAt || new Date(it.date+'T00:00:00').getTime(),
+      title: it.title, sub: it.memo || it.location || '', item: it,
+      match: `${it.title||''} ${it.memo||''} ${it.location||''}`.toLowerCase()
+    }));
+    stamps.forEach(it => items.push({
+      tab:'stamp', label:'스탬프', ts: it.createdAt || 0,
+      title: it.text, sub: `${it.person} 스탬프`, item: it,
+      match: `${it.text||''} ${it.person||''}`.toLowerCase()
+    }));
+    letters.forEach(it => items.push({
+      tab:'letter', label:'편지', ts: it.createdAt || 0,
+      title: it.title || (it.body||'').slice(0,20), sub: it.body || '', item: it,
+      match: `${it.title||''} ${it.body||''}`.toLowerCase()
+    }));
+    return items;
+  }
+
+  function renderSearchResults(){
+    const container = document.getElementById('searchResults');
+    const q = searchQuery.trim();
+    if(!q){
+      container.innerHTML = '<div class="empty-state" style="padding:30px 10px;">검색어를 입력해봐</div>';
+      return;
+    }
+    let index = buildSearchIndex();
+    if(searchCategory !== 'all') index = index.filter(r => r.tab === searchCategory);
+    const results = index.filter(r => r.match.includes(q)).sort((a,b)=> b.ts - a.ts);
+    if(results.length === 0){
+      container.innerHTML = '<div class="empty-state" style="padding:30px 10px;">검색 결과가 없어.</div>';
+      return;
+    }
+    container.innerHTML = results.map((r,i) => `
+      <div class="search-result-item" data-result-idx="${i}">
+        <span class="search-result-label">${r.label}</span>
+        <div>
+          <div class="search-result-title">${escapeHTML(r.title || '')}</div>
+          ${r.sub ? `<div class="search-result-sub">${escapeHTML(r.sub.slice(0,44))}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.search-result-item').forEach((el,i)=>{
+      el.addEventListener('click', ()=> navigateToSearchResult(results[i]));
+    });
+  }
+
+  function navigateToSearchResult(result){
+    closeSearchOverlay();
+    activateTab(result.tab);
+
+    if(result.tab === 'datelog'){
+      const key = groupKeyForTimestamp(new Date(result.item.date + 'T00:00:00').getTime());
+      if(key) dateLogExpandedGroups.add(key);
+    } else if(result.tab === 'letter'){
+      const key = groupKeyForTimestamp(result.item.createdAt || Date.now());
+      if(key) letterExpandedGroups.add(key);
+    } else if(result.tab === 'stamp'){
+      const key = groupKeyForTimestamp(result.item.createdAt || Date.now());
+      if(key) stampExpandedGroups.add(key);
+    } else if(result.tab === 'wish' && result.item.done){
+      showDoneWishes = true;
+    }
+
+    renderSchedule(); renderWish(); renderDateLog(); renderStamp(); renderLetters();
+
+    setTimeout(()=>{
+      const btn = document.querySelector(`[data-edit-${result.tab}="${result.item.id}"]`);
+      const card = btn ? btn.closest(SEARCH_CARD_SELECTOR[result.tab]) : null;
+      if(card){
+        card.scrollIntoView({behavior:'smooth', block:'center'});
+        card.classList.add('search-flash');
+        setTimeout(()=> card.classList.remove('search-flash'), 1600);
+      }
+    }, 150);
+  }
+
+  function openSearchOverlay(){
+    document.getElementById('searchOverlay').classList.remove('hidden');
+    document.getElementById('searchInput').value = '';
+    searchQuery = '';
+    searchCategory = 'all';
+    document.querySelectorAll('.search-cat-btn').forEach(b=> b.classList.toggle('active', b.dataset.cat === 'all'));
+    renderSearchResults();
+    setTimeout(()=> document.getElementById('searchInput').focus(), 50);
+  }
+  function closeSearchOverlay(){
+    document.getElementById('searchOverlay').classList.add('hidden');
+  }
+  document.getElementById('searchOpenBtn').addEventListener('click', openSearchOverlay);
+  document.getElementById('searchCloseBtn').addEventListener('click', closeSearchOverlay);
+  document.getElementById('searchInput').addEventListener('input', (e)=>{
+    searchQuery = e.target.value.toLowerCase();
+    renderSearchResults();
+  });
+  document.querySelectorAll('.search-cat-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.search-cat-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      searchCategory = btn.dataset.cat;
+      renderSearchResults();
+    });
+  });
 
   
   function init(){
@@ -1848,14 +1945,15 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
   }
     // [삭제 도우미]
   async function deleteItem(col, id, item) {
-    if (!confirm('이 내용을 정말 삭제할까?')) return;
-    try {
-      if (item.photos) await deletePhotosFromStorage(item.photos);
-      await db.collection(col).doc(id).delete();
-    } catch (err) {
-      console.error('삭제 실패:', err);
-      alert('삭제 중 오류가 발생했어.');
-    }
+    askDeleteConfirm(async () => {
+      try {
+        if (item.photos) await deletePhotosFromStorage(item.photos);
+        await db.collection(col).doc(id).delete();
+      } catch (err) {
+        console.error('삭제 실패:', err);
+        alert('삭제 중 오류가 발생했어.');
+      }
+    });
   }
 
   // [저장 도우미]

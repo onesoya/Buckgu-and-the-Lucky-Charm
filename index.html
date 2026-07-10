@@ -22,15 +22,14 @@
       </div>
       <div class="dday-pill" id="ddayPill"></div>
     </div>
-    <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="home-btn" id="searchOpenBtn" title="검색">🔍</button>
+      <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
+    </div>
   </header>
 
   <main>
 
-    <div class="search-box">
-       <input type="text" id="searchInput" placeholder="추억이나 일정을 검색해봐...">
-    </div>
-    
     <section class="tab-panel active" id="panel-home">
       <div class="home-today" id="homeToday"></div>
       <div class="home-mascot-row">
@@ -271,6 +270,22 @@
   <div class="lightbox hidden" id="dateMapModal">
     <button class="lightbox-close" id="dateMapClose">✕</button>
     <div id="dateMapContainer" style="width:100%;height:100%;"></div>
+  </div>
+
+  <div class="search-overlay hidden" id="searchOverlay">
+    <div class="search-overlay-header">
+      <input type="text" id="searchInput" placeholder="추억이나 일정을 검색해봐...">
+      <button id="searchCloseBtn">✕</button>
+    </div>
+    <div class="search-category-row" id="searchCategoryRow">
+      <button class="search-cat-btn active" data-cat="all">전체</button>
+      <button class="search-cat-btn" data-cat="schedule">일정</button>
+      <button class="search-cat-btn" data-cat="wish">위시</button>
+      <button class="search-cat-btn" data-cat="datelog">데이트</button>
+      <button class="search-cat-btn" data-cat="letter">편지</button>
+      <button class="search-cat-btn" data-cat="stamp">스탬프</button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
   </div>
 
   <div class="lightbox hidden" id="photoLightbox">

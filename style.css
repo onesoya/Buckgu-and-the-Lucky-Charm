@@ -650,19 +650,51 @@
     }
   }
 
-/* 검색창 스타일 */
-.search-box {
-  padding: 10px;
-  background: #fff;
-  position: sticky; /* 화면을 내려도 검색창이 따라오게 함 */
-  top: 0;
-  z-index: 100;
-  border-bottom: 1px solid #eee;
+/* 검색 */
+.search-overlay{
+  position:fixed; inset:0; background:var(--cream); z-index:250;
+  display:flex; flex-direction:column;
 }
-#searchInput {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  box-sizing: border-box;
+.search-overlay-header{
+  display:flex; align-items:center; gap:8px;
+  padding:calc(14px + env(safe-area-inset-top)) 20px 12px;
+  background:var(--cream); border-bottom:1px solid rgba(74,53,72,0.08);
 }
+.search-overlay-header input{
+  flex:1; border:1.5px solid #F0E4E9; background:var(--white);
+  border-radius:14px; padding:11px 14px; font-size:14px;
+  font-family:'Pretendard',sans-serif; color:var(--plum); outline:none;
+}
+.search-overlay-header input:focus{ border-color:var(--pink); }
+.search-overlay-header button{
+  background:var(--white); border:none; border-radius:50%; width:36px; height:36px;
+  font-size:15px; color:var(--plum-soft); cursor:pointer; flex-shrink:0;
+  box-shadow:0 2px 6px rgba(74,53,72,0.08);
+}
+.search-category-row{
+  display:flex; gap:8px; padding:12px 20px; overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.search-cat-btn{
+  flex-shrink:0; background:var(--white); border:1.5px solid #F0E4E9; border-radius:16px;
+  padding:7px 14px; font-size:12.5px; color:var(--plum-soft); cursor:pointer;
+  font-family:'Pretendard',sans-serif;
+}
+.search-cat-btn.active{ background:var(--pink); border-color:var(--pink); color:var(--white); font-weight:600; }
+.search-results{ flex:1; overflow-y:auto; padding:4px 20px 24px; }
+.search-result-item{
+  display:flex; align-items:flex-start; gap:10px;
+  background:var(--white); border-radius:14px; padding:12px 14px; margin-bottom:8px;
+  cursor:pointer; box-shadow:0 3px 10px rgba(74,53,72,0.05);
+}
+.search-result-label{
+  font-family:'Jua',sans-serif; font-size:10.5px; color:var(--plum-soft);
+  background:var(--pink-soft); padding:3px 8px; border-radius:8px; flex-shrink:0; margin-top:1px;
+}
+.search-result-title{ font-size:13.5px; font-weight:600; color:var(--plum); word-break:break-word; }
+.search-result-sub{ font-size:11.5px; color:var(--plum-soft); margin-top:2px; word-break:break-word; }
+@keyframes searchFlash{
+  0%{ box-shadow:0 0 0 3px var(--pink); }
+  100%{ box-shadow:0 3px 10px rgba(74,53,72,0.05); }
+}
+.search-flash{ animation:searchFlash 1.6s ease; }
