@@ -1305,76 +1305,40 @@ function renderCalendar(){
     document.getElementById('wishLink').value = item.link || '';
     pendingWishPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
+// 게시하기 / 수정 완료 버튼
     document.getElementById('wishAddBtn').textContent = '수정 완료';
     document.getElementById('wishCancelBtn').classList.remove('hidden');
     document.getElementById('wishAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
-  function resetWishForm(){
-    editingWishId = null;
-    document.getElementById('wishTitle').value='';
-    document.getElementById('wishBody').value='';
-    document.getElementById('wishLink').value='';
-    pendingWishPhotos = [];
-    renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
-    document.getElementById('wishAddBtn').textContent = '게시하기';
-    document.getElementById('wishCancelBtn').classList.add('hidden');
-  }
-  document.getElementById('wishCancelBtn').addEventListener('click', resetWishForm);
-  document.getElementById('wishAddBtn').addEventListener('click', async ()=>{
-    const title = document.getElementById('wishTitle').value.trim();
-    if(!title) return;
-    const body = document.getElementById('wishBody').value.trim();
-    const link = document.getElementById('wishLink').value.trim();
-    const wasEditing = !!editingWishId;
-    await saveWithPhotoFallback(
-      async (withPhotos)=>{
-        const photos = withPhotos ? await uploadPhotos(pendingWishPhotos) : pendingWishPhotos.filter(p => typeof p === 'string');
-        if(wasEditing){
-          await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos, photo: firebase.firestore.FieldValue.delete() });
-        } else {
-          await db.collection('wishlist').doc(genId()).set({
-            title, body, link, photos, done: false, author: identity, createdAt: Date.now()
-          });
-        }
-      },
-      ()=>{
-        if(wasEditing){
-          resetWishForm();
-        } else {
-          document.getElementById('wishTitle').value='';
-          document.getElementById('wishBody').value='';
-          document.getElementById('wishLink').value='';
-          pendingWishPhotos = [];
-          renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
-        }
-      }
-    );
-  });
-  function handleWishClick(e){
-    const editId = e.target.dataset && e.target.dataset.editWish;
-    const delId = e.target.dataset && e.target.dataset.delWish;
-    const checkId = e.target.dataset && e.target.dataset.checkWish;
-    if(editId){
-      const item = wishes.find(s=>s.id===editId);
-      if(item) startEditWish(item);
-  } else if(delId){
-    const item = wishes.find(s=>s.id===delId); // 지울 글 찾기
-    askDeleteConfirm(async ()=>{ 
-      if(item && item.photos) await deletePhotosFromStorage(item.photos); // 사진부터 지우기!
-      await db.collection('wishlist').doc(delId).delete(); 
+    document.getElementById('wishAddBtn').addEventListener('click', async () => {
+      const title = document.getElementById('wishTitle').value.trim();
+      if (!title) return;
+    
+      await saveItem(
+        'wishlist',
+        !!editingWishId,
+        editingWishId,
+        { 
+          title, 
+          body: document.getElementById('wishBody').value.trim(), 
+          link: document.getElementById('wishLink').value.trim(), 
+          done: false 
+        },
+        pendingWishPhotos,
+        resetWishForm
+      );
     });
-  } else if(checkId){
-      const item = wishes.find(s=>s.id===checkId);
-      if(item) db.collection('wishlist').doc(checkId).update({ done: !item.done }).catch(err=>console.error(err));
-    }
-  }
-  document.getElementById('wishList').addEventListener('click', handleWishClick);
-  document.getElementById('doneWishSection').addEventListener('click', handleWishClick);
-  document.getElementById('toggleDoneWishBtn').addEventListener('click', ()=>{
-    showDoneWishes = !showDoneWishes;
-    renderWish();
-  });
 
+  // 클릭 이벤트 (수정/삭제/체크)
+  document.getElementById('wishList').addEventListener('click', (e) => {
+    const editId = e.target.dataset.editWish;
+    const delId = e.target.dataset.delWish;
+    const checkId = e.target.dataset.checkWish;
+
+    if (editId) startEditWish(wishes.find(s => s.id === editId));
+    else if (delId) deleteItem('wishlist', delId, wishes.find(s => s.id === delId));
+    else if (checkId) db.collection('wishlist').doc(checkId).update({ done: !wishes.find(s => s.id === checkId).done }).catch(err=>console.error(err));
+  });
 
   // ---- 데이트 기록 ----
   let editingDatelogId = null;
@@ -1480,96 +1444,57 @@ function renderCalendar(){
     });
   });
   document.getElementById('dateLogCancelBtn').addEventListener('click', resetDatelogForm);
-  document.getElementById('dateLogAddBtn').addEventListener('click', async ()=>{
-    const date = document.getElementById('dateLogDate').value;
+// 1. 기록하기 / 수정 완료 버튼
+  document.getElementById('dateLogAddBtn').addEventListener('click', async () => {
     const title = document.getElementById('dateLogTitle').value.trim();
-    if(!date || !title) return;
-    const memo = document.getElementById('dateLogMemo').value.trim();
+    const date = document.getElementById('dateLogDate').value;
     const location = document.getElementById('dateLogLocation').value.trim();
-    const time = document.getElementById('dateLogTime').value || null;
-    let endDate = document.getElementById('dateLogEndDate').value || null;
-    if(endDate && endDate < date) endDate = date;
-    const endTime = endDate ? (document.getElementById('dateLogEndTime').value || null) : null;
-    const wasEditing = !!editingDatelogId;
+    
+    if (!title || !date) return;
 
-    const addBtn = document.getElementById('dateLogAddBtn');
-    const originalBtnText = addBtn.textContent;
-    const statusEl = document.getElementById('dateLogLocationStatus');
+    // 위치 검색 로직 (기존 거 그대로!)
     let geo = pendingDateLogGeo;
-    if(!geo && location){
-      addBtn.disabled = true;
-      addBtn.textContent = '위치 찾는 중...';
-      statusEl.classList.add('hidden');
+    if (!geo && location) {
       const results = await searchLocations(location);
       geo = results[0] ? { lat: results[0].lat, lng: results[0].lng } : null;
-      addBtn.disabled = false;
-      addBtn.textContent = originalBtnText;
-      statusEl.classList.remove('hidden');
-      if(geo){
-        statusEl.textContent = '✅ 위치를 찾았어! 지도에 표시될 거야.';
-        statusEl.style.color = '#4A9B6E';
-      } else {
-        statusEl.textContent = '⚠️ 이 위치를 못 찾았어. "🔍 검색"으로 직접 골라보거나 다른 이름으로 시도해봐.';
-        statusEl.style.color = '#C24065';
-      }
     }
-
-    await saveWithPhotoFallback(
-      async (withPhotos)=>{
-        const photos = withPhotos ? await uploadPhotos(pendingDateLogPhotos) : pendingDateLogPhotos.filter(p => typeof p === 'string');
-        const locData = {
-          location: location || null,
-          lat: geo ? geo.lat : null,
-          lng: geo ? geo.lng : null
-        };
-        if(wasEditing){
-          await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos, ...locData, photo: firebase.firestore.FieldValue.delete() });
-        } else {
-          await db.collection('datelog').doc(genId()).set({
-            date, endDate, time, endTime, title, memo, photos, ...locData, author: identity, createdAt: Date.now()
-          });
-        }
+    
+    // 이제 saveItem 하나로 끝!
+    await saveItem(
+      'datelog',
+      !!editingDatelogId,
+      editingDatelogId,
+      { 
+        title, 
+        date,
+        memo: document.getElementById('dateLogMemo').value.trim(),
+        location: location,
+        time: document.getElementById('dateLogTime').value || null,
+        endDate: document.getElementById('dateLogEndDate').value || null,
+        endTime: document.getElementById('dateLogEndTime').value || null,
+        lat: geo ? geo.lat : null,
+        lng: geo ? geo.lng : null
       },
-      ()=>{
-        if(wasEditing){
-          resetDatelogForm();
-        } else {
-          document.getElementById('dateLogTitle').value='';
-          document.getElementById('dateLogLocation').value='';
-          document.getElementById('dateLogLocationStatus').classList.add('hidden');
-          document.getElementById('dateLogLocationResults').classList.add('hidden');
-          pendingDateLogGeo = null;
-          document.getElementById('dateLogMemo').value='';
-          document.getElementById('dateLogTime').value='';
-          document.getElementById('dateLogEndDate').value='';
-          document.getElementById('dateLogEndTime').value='';
-          setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
-          pendingDateLogPhotos = [];
-          renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
-        }
-      }
+      pendingDateLogPhotos,
+      resetDatelogForm
     );
   });
-  document.getElementById('dateLogList').addEventListener('click', (e)=>{
-    const editId = e.target.dataset && e.target.dataset.editDatelog;
-    const delId = e.target.dataset && e.target.dataset.delDatelog;
-    if(editId){
-      const item = dateLogs.find(s=>s.id===editId);
-      if(item) startEditDatelog(item);
-  } else if(delId){
-      const item = dateLogs.find(s=>s.id===delId); 
-      askDeleteConfirm(async ()=>{ 
-        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
-        await db.collection('datelog').doc(delId).delete(); 
-      });
-    }
+  
+// 2. 클릭 이벤트 (수정/삭제)
+  document.getElementById('dateLogList').addEventListener('click', (e) => {
+    const editId = e.target.dataset.editDatelog;
+    const delId = e.target.dataset.delDatelog;
 
+    if (editId) startEditDatelog(dateLogs.find(s => s.id === editId));
+    else if (delId) deleteItem('datelog', delId, dateLogs.find(s => s.id === delId));
+  });
 
   // ---- 스탬프 ----
   let editingStampId = null;
   setupPhotoPicker('stampPhotoInput','stampPhotoBtn','stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
   document.getElementById('pickSojeong').addEventListener('click', ()=>{ stampPerson='소정'; renderStamp(); });
   document.getElementById('pickSeonho').addEventListener('click', ()=>{ stampPerson='선호'; renderStamp(); });
+
   function startEditStamp(item){
     editingStampId = item.id;
     stampPerson = item.person;
@@ -1577,128 +1502,56 @@ function renderCalendar(){
     pendingStampPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
+
     document.getElementById('stampAddBtn').textContent = '수정 완료';
     document.getElementById('stampCancelBtn').classList.remove('hidden');
     document.getElementById('stampAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
-  function resetStampForm(){
-    editingStampId = null;
-    document.getElementById('stampText').value='';
-    pendingStampPhotos = [];
-    renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
-    document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
-    document.getElementById('stampCancelBtn').classList.add('hidden');
-    stampPerson = null;
-    renderStamp();
-  }
-  document.getElementById('stampCancelBtn').addEventListener('click', resetStampForm);
-  document.getElementById('stampAddBtn').addEventListener('click', async ()=>{
+    
+ // 버튼 이벤트는 함수 바깥에 딱 한 번만 정의해!
+  document.getElementById('stampAddBtn').addEventListener('click', async () => {
     const text = document.getElementById('stampText').value.trim();
-    if(!text || !stampPerson) return;
-    const wasEditing = !!editingStampId;
-    const newId = genId();
-    await saveWithPhotoFallback(
-      async (withPhotos)=>{
-        const photos = withPhotos ? await uploadPhotos(pendingStampPhotos) : pendingStampPhotos.filter(p => typeof p === 'string');
-        if(wasEditing){
-          await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photos, photo: firebase.firestore.FieldValue.delete() });
-        } else {
-          await db.collection('stamps').doc(newId).set({
-            person: stampPerson, text, photos, author: identity, createdAt: Date.now()
-          });
-        }
-      },
-      ()=>{
-        if(wasEditing){
-          resetStampForm();
-        } else {
-          document.getElementById('stampText').value='';
-          pendingStampPhotos = [];
-          renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
-          renderStamp(newId);
-        }
-      }
-    );
+    if (!text || !stampPerson) return;
+    await saveItem('stamps', !!editingStampId, editingStampId, { person: stampPerson, text }, pendingStampPhotos, resetStampForm);
   });
-  document.getElementById('stampList').addEventListener('click', (e)=>{
-    const editId = e.target.dataset && e.target.dataset.editStamp;
-    const delId = e.target.dataset && e.target.dataset.delStamp;
-    if(editId){
-      const item = stamps.find(s=>s.id===editId);
-      if(item) startEditStamp(item);
-  } else if(delId){
-      const item = stamps.find(s=>s.id===delId); 
-      askDeleteConfirm(async ()=>{ 
-        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
-        await db.collection('stamps').doc(delId).delete(); 
-      });
-    }
+
+  document.getElementById('stampList').addEventListener('click', (e) => {
+    const editId = e.target.dataset.editStamp;
+    const delId = e.target.dataset.delStamp;
+    if (editId) startEditStamp(stamps.find(s => s.id === editId));
+    else if (delId) deleteItem('stamps', delId, stamps.find(s => s.id === delId));
+  });
 
 
   // ---- 편지 ----
   let editingLetterId = null;
   setupPhotoPicker('letterPhotoInput','letterPhotoBtn','letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+ 
   function startEditLetter(item){
     editingLetterId = item.id;
     document.getElementById('letterTitle').value = item.title || '';
     document.getElementById('letterBody').value = item.body || '';
     pendingLetterPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+
     document.getElementById('letterAddBtn').textContent = '수정 완료';
     document.getElementById('letterCancelBtn').classList.remove('hidden');
     document.getElementById('letterAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
-  function resetLetterForm(){
-    editingLetterId = null;
-    document.getElementById('letterTitle').value='';
-    document.getElementById('letterBody').value='';
-    pendingLetterPhotos = [];
-    renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
-    document.getElementById('letterAddBtn').textContent = '편지 보내기';
-    document.getElementById('letterCancelBtn').classList.add('hidden');
-  }
-  document.getElementById('letterCancelBtn').addEventListener('click', resetLetterForm);
-  document.getElementById('letterAddBtn').addEventListener('click', async ()=>{
+    
+// 버튼 이벤트는 함수 바깥에!
+  document.getElementById('letterAddBtn').addEventListener('click', async () => {
     const body = document.getElementById('letterBody').value.trim();
-    if(!body) return;
-    const title = document.getElementById('letterTitle').value.trim();
-    const wasEditing = !!editingLetterId;
-    await saveWithPhotoFallback(
-      async (withPhotos)=>{
-        const photos = withPhotos ? await uploadPhotos(pendingLetterPhotos) : pendingLetterPhotos.filter(p => typeof p === 'string');
-        if(wasEditing){
-          await db.collection('letters').doc(editingLetterId).update({ title, body, photos, photo: firebase.firestore.FieldValue.delete() });
-        } else {
-          await db.collection('letters').doc(genId()).set({
-            title, body, photos, author: identity, createdAt: Date.now()
-          });
-        }
-      },
-      ()=>{
-        if(wasEditing){
-          resetLetterForm();
-        } else {
-          document.getElementById('letterTitle').value='';
-          document.getElementById('letterBody').value='';
-          pendingLetterPhotos = [];
-          renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
-        }
-      }
-    );
+    if (!body) return;
+    await saveItem('letters', !!editingLetterId, editingLetterId, { title: document.getElementById('letterTitle').value.trim(), body: body }, pendingLetterPhotos, resetLetterForm);
   });
-  document.getElementById('letterList').addEventListener('click', (e)=>{
-    const editId = e.target.dataset && e.target.dataset.editLetter;
-    const delId = e.target.dataset && e.target.dataset.delLetter;
-    if(editId){
-      const item = letters.find(s=>s.id===editId);
-      if(item) startEditLetter(item);
-  } else if(delId){
-      const item = letters.find(s=>s.id===delId); 
-      askDeleteConfirm(async ()=>{ 
-        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
-        await db.collection('letters').doc(delId).delete(); 
-      });
-    }
+
+  document.getElementById('letterList').addEventListener('click', (e) => {
+    const editId = e.target.dataset.editLetter;
+    const delId = e.target.dataset.delLetter;
+    if (editId) startEditLetter(letters.find(s => s.id === editId));
+    else if (delId) deleteItem('letters', delId, letters.find(s => s.id === delId));
+  });
 
 
 function watch(query, collectionName, onData){
@@ -1952,6 +1805,33 @@ function startWatchers(){
         showGate('소정, 선호만 쓸 수 있는 앱이야.<br>구글 계정으로 로그인해줘.');
       }
     });
+  }
+    // [삭제 도우미]
+  async function deleteItem(col, id, item) {
+    if (!confirm('이 내용을 정말 삭제할까?')) return;
+    try {
+      if (item.photos) await deletePhotosFromStorage(item.photos);
+      await db.collection(col).doc(id).delete();
+    } catch (err) {
+      console.error('삭제 실패:', err);
+      alert('삭제 중 오류가 발생했어.');
+    }
+  }
+
+  // [저장 도우미]
+  async function saveItem(col, isEditing, id, data, pendingPhotos, onReset) {
+    await saveWithPhotoFallback(
+      async (withPhotos) => {
+        const photos = withPhotos ? await uploadPhotos(pendingPhotos) : pendingPhotos.filter(p => typeof p === 'string');
+        const payload = { ...data, photos };
+        if (isEditing) payload.photo = firebase.firestore.FieldValue.delete();
+        else payload.createdAt = Date.now();
+        
+        if (isEditing) await db.collection(col).doc(id).update(payload);
+        else await db.collection(col).doc(genId()).set({ ...payload, author: identity });
+      },
+      onReset
+    );
   }
   init();
 })();
