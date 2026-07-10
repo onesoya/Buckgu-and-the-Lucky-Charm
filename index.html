@@ -2614,8 +2614,8 @@ function letterCardHTML(item){
     watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); renderHome(); });
   }
 
-  // ---- 좋아요 버튼 클릭 이벤트 ----
-  document.querySelector('main').addEventListener('click', async (e) => {
+// ---- 좋아요 버튼 클릭 이벤트 ----
+  document.querySelector('main').addEventListener('click', (e) => {
     const likeBtn = e.target.closest('.like-btn');
     if (!likeBtn) return;
     
@@ -2632,29 +2632,37 @@ function letterCardHTML(item){
     const item = list.find(x => x.id === id);
     if (!item || !identity) return; // 로그인 안 되어 있으면 무시
     
-    // 하트 통통 튀는 애니메이션 임시 추가
-    likeBtn.classList.add('like-pop');
-    setTimeout(() => likeBtn.classList.remove('like-pop'), 300);
-    
     const currentLikes = item.likes || [];
     const hasLiked = currentLikes.includes(identity);
     
-    try {
-      if (hasLiked) {
-        // 이미 눌렀으면 '내 이름' 빼기 (좋아요 취소)
-        await db.collection(col).doc(id).update({ 
-          likes: firebase.firestore.FieldValue.arrayRemove(identity) 
-        });
-      } else {
-        // 안 눌렀으면 '내 이름' 추가 (좋아요)
-        await db.collection(col).doc(id).update({ 
-          likes: firebase.firestore.FieldValue.arrayUnion(identity) 
-        });
-      }
-    } catch(err) {
-      console.error('좋아요 업데이트 실패:', err);
+    // 1. 화면상에서 먼저 하트를 칠하고 통통 튀게 만들기 (미리 보여주기)
+    likeBtn.classList.add('like-pop');
+    if (!hasLiked) {
+      likeBtn.classList.add('liked');
+      likeBtn.querySelector('.heart-icon').textContent = '❤️';
     }
+    
+    // 2. 0.3초(300ms) 동안 애니메이션이 끝나길 기다렸다가 DB에 저장!
+    setTimeout(async () => {
+      likeBtn.classList.remove('like-pop');
+      try {
+        if (hasLiked) {
+          // 이미 눌렀으면 '내 이름' 빼기 (좋아요 취소)
+          await db.collection(col).doc(id).update({ 
+            likes: firebase.firestore.FieldValue.arrayRemove(identity) 
+          });
+        } else {
+          // 안 눌렀으면 '내 이름' 추가 (좋아요)
+          await db.collection(col).doc(id).update({ 
+            likes: firebase.firestore.FieldValue.arrayUnion(identity) 
+          });
+        }
+      } catch(err) {
+        console.error('좋아요 업데이트 실패:', err);
+      }
+    }, 300);
   });
+  
   
   function init(){
     renderDday();
