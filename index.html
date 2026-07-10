@@ -55,6 +55,12 @@
     gap:10px;
     border-bottom:1px solid rgba(74,53,72,0.08);
   }
+  .app-title-row{ display:flex; align-items:center; gap:6px; }
+  .home-btn{
+    background:var(--white); border:none; border-radius:50%; width:26px; height:26px;
+    font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 2px 6px rgba(74,53,72,0.08); flex-shrink:0; padding:0;
+  }
   .app-title{
     font-family:'Jua',sans-serif;
     font-size:19px;
@@ -96,6 +102,49 @@
   .tab-panel{display:none;}
   .tab-panel.active{display:block;animation:fadeIn .25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .home-today{ text-align:center; font-size:12px; color:var(--plum-soft); padding-top:8px; }
+  .home-hero{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:8px 0 20px;
+  }
+  .home-mascot{ width:180px; height:180px; object-fit:contain; margin-bottom:14px; }
+  .home-dday-card{
+    background:var(--white); border-radius:20px; padding:16px 28px;
+    box-shadow:0 4px 14px rgba(74,53,72,0.08);
+  }
+  .home-dday-label{ font-size:11px; color:var(--plum-soft); }
+  .home-dday-num{ font-family:'Jua',sans-serif; font-size:32px; color:var(--pink); margin:2px 0; }
+  .home-mini-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .home-mini-card{
+    background:var(--white); border-radius:16px; padding:14px; text-align:center;
+    box-shadow:0 3px 10px rgba(74,53,72,0.05);
+  }
+  .home-mini-label{ font-size:10.5px; color:var(--plum-soft); margin-bottom:4px; }
+  .home-mini-dday{ font-family:'Jua',sans-serif; font-size:18px; color:var(--pink); }
+  .home-mini-sub{ font-size:10.5px; color:var(--plum-soft); margin-top:2px; word-break:break-word; }
+  .home-next-card{
+    background:var(--white); border-radius:18px; padding:16px; margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(74,53,72,0.06);
+  }
+  .home-next-label{ font-size:11px; color:var(--plum-soft); margin-bottom:6px; }
+  .home-next-title{ font-family:'Jua',sans-serif; font-size:15px; }
+  .home-next-sub{ font-size:12px; color:var(--plum-soft); margin-top:2px; }
+  .home-throwback-card{
+    background:linear-gradient(135deg, var(--pink-soft), var(--yellow-soft));
+    border-radius:18px; padding:16px; margin-bottom:14px; cursor:pointer;
+    display:flex; gap:12px; align-items:center;
+  }
+  .home-throwback-photo{ width:56px; height:56px; border-radius:12px; object-fit:cover; flex-shrink:0; }
+  .home-throwback-label{ font-size:11px; color:#8A5A6A; margin-bottom:3px; }
+  .home-throwback-title{ font-family:'Jua',sans-serif; font-size:14px; color:var(--plum); }
+  .home-stats-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .home-stat-tile{
+    background:var(--white); border-radius:16px; padding:14px; text-align:center;
+    box-shadow:0 3px 10px rgba(74,53,72,0.05);
+  }
+  .home-stat-num{ font-family:'Jua',sans-serif; font-size:20px; }
+  .home-stat-label{ font-size:10.5px; color:var(--plum-soft); margin-top:2px; }
 
   .section-title{
     font-family:'Jua',sans-serif;
@@ -282,6 +331,16 @@
   }
   .past{opacity:0.5;}
 
+  .group-toggle{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:var(--white); border:none; border-radius:14px; padding:12px 16px;
+    font-family:'Jua',sans-serif; font-size:13px; color:var(--plum); cursor:pointer;
+    box-shadow:0 3px 10px rgba(74,53,72,0.05); margin-bottom:10px;
+  }
+  .group-toggle .group-count{ font-family:'Pretendard',sans-serif; font-size:11px; color:var(--plum-soft); font-weight:400; }
+  .group-content{ display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+  .group-content.wish-group{ gap:0; }
+
   .filter-notice{
     display:flex; align-items:center; justify-content:space-between;
     background:var(--pink-soft); border-radius:12px; padding:10px 14px; margin-bottom:12px;
@@ -298,24 +357,25 @@
   .calendar-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
   .calendar-month-label{ font-family:'Jua',sans-serif; font-size:15px; }
   .calendar-nav-btn{ background:none; border:none; font-size:18px; color:var(--plum-soft); cursor:pointer; padding:2px 12px; }
-  .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
+  .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center; }
   .calendar-weekday{ font-size:10px; color:var(--plum-soft); padding-bottom:6px; }
   .calendar-day{
-    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
-    border-radius:10px; font-size:12px; cursor:pointer; color:var(--plum);
+    position:relative; min-height:50px; display:flex; flex-direction:column; align-items:center;
+    padding:3px 1px 2px; border-radius:8px; cursor:pointer; color:var(--plum); overflow:hidden;
   }
   .calendar-day.empty{ cursor:default; }
-  .calendar-day.today{ font-weight:700; color:var(--pink); }
-  .calendar-day.selected{ background:var(--pink); color:var(--white); }
-  .calendar-day .dot{
-    position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
-    width:5px; height:5px; border-radius:50%; background:var(--yellow);
+  .cal-daynum{ font-size:11px; line-height:1.2; }
+  .calendar-day.today .cal-daynum{ font-weight:700; color:var(--pink); }
+  .calendar-day.selected{ background:var(--pink-soft); }
+  .cal-events{ display:flex; flex-direction:column; gap:1px; width:100%; margin-top:1px; }
+  .cal-event-pill{
+    font-size:7px; line-height:1.5; padding:0 2px; border-radius:3px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; width:100%; color:#4A3548; font-weight:600; text-align:left;
   }
-  .calendar-day.selected .dot{ background:var(--white); }
-  .calendar-day .cal-heart{
-    position:absolute; bottom:0px; left:50%; transform:translateX(-50%);
-    font-size:8px; line-height:1;
-  }
+  .cal-event-pill.empty-label{ text-indent:-999px; }
+  .cal-event-pill.person-sojeong{ background:var(--pink-soft); }
+  .cal-event-pill.person-seonho{ background:var(--yellow-soft); }
+  .cal-event-more{ font-size:7px; color:var(--plum-soft); margin-top:1px; }
 
   .empty-state{
     text-align:center;
@@ -343,6 +403,22 @@
     padding-top:10px;border-top:1px solid #F5EBEE;
   }
   .wish-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--plum-soft);}
+  .wish-card.wish-done{opacity:0.55;}
+  .wish-card.wish-done .wish-title{text-decoration:line-through;}
+  .wish-check{
+    background:none;border:1.5px solid #F0E4E9;border-radius:10px;padding:5px 10px;
+    font-size:11px;color:var(--plum-soft);cursor:pointer;font-family:'Pretendard',sans-serif;
+  }
+  .wish-check.checked{background:var(--sage);border-color:var(--sage);color:var(--white);}
+  .letter-to{
+    display:inline-flex;align-items:center;gap:4px;font-family:'Jua',sans-serif;font-size:13px;
+    padding:5px 12px;border-radius:10px;margin-bottom:8px;
+  }
+  .letter-to.to-sojeong{background:var(--pink-soft);color:#C24065;}
+  .letter-to.to-seonho{background:var(--yellow-soft);color:#8A6600;}
+  .letter-from{font-family:'Jua',sans-serif;font-size:11px;padding:3px 9px;border-radius:8px;}
+  .letter-from.from-sojeong{background:var(--pink-soft);color:#C24065;}
+  .letter-from.from-seonho{background:var(--yellow-soft);color:#8A6600;}
 
   .stat-row{display:flex;gap:10px;margin-bottom:16px;}
   .stat-card{
@@ -396,11 +472,11 @@
     z-index:30;
   }
   .tab-btn{
-    flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;
-    padding:6px 0;cursor:pointer;color:#C9BAC2;font-family:'Pretendard',sans-serif;font-size:10px;
+    flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:6px 0;cursor:pointer;color:#C9BAC2;font-family:'Pretendard',sans-serif;font-size:9px;
   }
   .tab-btn.active{color:var(--pink);}
-  .tab-btn svg{width:22px;height:22px;}
+  .tab-btn svg{width:19px;height:19px;}
 
   .modal-overlay{
     position:fixed;inset:0;background:rgba(74,53,72,0.45);z-index:100;
@@ -479,14 +555,36 @@
 <div class="app-shell">
   <header class="app-header">
     <div>
-      <div class="app-title">🐶벅구와 복덩어리💝</div>
+      <div class="app-title-row">
+        <button class="home-btn" id="homeBtn" title="홈으로">🏠</button>
+        <div class="app-title">🐶벅구와 복덩어리💝</div>
+      </div>
       <div class="dday-pill" id="ddayPill"></div>
     </div>
     <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
   </header>
 
   <main>
-    <section class="tab-panel active" id="panel-schedule">
+    <section class="tab-panel active" id="panel-home">
+      <div class="home-today" id="homeToday"></div>
+      <div class="home-hero">
+        <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩어리" onerror="this.style.display='none'">
+        <div class="home-dday-card">
+          <div class="home-dday-label">2026.02.02부터</div>
+          <div class="home-dday-num" id="homeDdayNum">D+0</div>
+          <div class="home-dday-label">함께한 날</div>
+        </div>
+      </div>
+      <div class="home-mini-row">
+        <div class="home-mini-card" id="homeNextDateCard"></div>
+        <div class="home-mini-card" id="homeAnnivCard"></div>
+      </div>
+      <div class="home-next-card" id="homeNextCard"></div>
+      <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
+      <div class="home-stats-grid" id="homeStatsGrid"></div>
+    </section>
+
+    <section class="tab-panel" id="panel-schedule">
       <div class="section-title">일정 공유</div>
       <div class="calendar-card" id="scheduleCalendar"></div>
       <div class="add-card">
@@ -555,10 +653,13 @@
         <button class="cancel-edit-btn hidden" id="wishCancelBtn">수정 취소</button>
       </div>
       <div id="wishList"></div>
+      <button class="toggle-past-btn hidden" id="toggleDoneWishBtn">완료한 위시 보기</button>
+      <div class="hidden" id="doneWishSection" style="margin-top:10px;"></div>
     </section>
 
     <section class="tab-panel" id="panel-datelog">
       <div class="section-title">데이트 기록</div>
+      <button type="button" class="link-toggle-btn" id="dateMapOpenBtn">🗺️ 우리가 간 곳 지도로 보기</button>
       <div class="add-card">
         <div class="datetime-row">
           <div class="field-group date-field">
@@ -583,6 +684,9 @@
         <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (선택)</button>
         <div class="add-row">
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
+        </div>
+        <div class="add-row">
+          <input type="text" id="dateLogLocation" placeholder="📍 위치 검색 (선택, 지도에 표시하려면 입력)">
         </div>
         <div class="add-row">
           <textarea id="dateLogMemo" placeholder="오늘 어땠어?"></textarea>
@@ -658,7 +762,7 @@
   </main>
 
   <nav class="tabbar">
-    <button class="tab-btn active" data-tab="schedule">
+    <button class="tab-btn" data-tab="schedule">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
       일정
     </button>
@@ -702,6 +806,11 @@
     <div class="push-toast-body" id="pushToastBody"></div>
   </div>
 
+  <div class="lightbox hidden" id="dateMapModal">
+    <button class="lightbox-close" id="dateMapClose">✕</button>
+    <div id="dateMapContainer" style="width:100%;height:100%;"></div>
+  </div>
+
   <div class="lightbox hidden" id="photoLightbox">
     <button class="lightbox-close" id="lightboxClose">✕</button>
     <div class="lightbox-counter hidden" id="lightboxCounter"></div>
@@ -728,6 +837,8 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (function(){
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -748,6 +859,18 @@
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
   let stampPerson = null;
   let pendingWishPhotos = [], pendingDateLogPhotos = [], pendingStampPhotos = [], pendingLetterPhotos = [];
+
+  async function geocodeLocation(query){
+    if(!query) return null;
+    try{
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if(data && data[0]){
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    }catch(e){ console.error('지오코딩 실패', e); }
+    return null;
+  }
 
   function resizeImage(file){
     return new Promise((resolve, reject)=>{
@@ -895,6 +1018,63 @@
     return `<div class="card-photos">${photos.map(p=>`<img src="${p}">`).join('')}</div>`;
   }
 
+  // ---- 연/월별 그룹 정리 (데이트기록/편지/스탬프 공용) ----
+  function renderGroupedByTime(containerId, items, getTs, cardRenderer, expandedSet, emptyHTML){
+    const container = document.getElementById(containerId);
+    if(items.length === 0){
+      container.innerHTML = emptyHTML;
+      return;
+    }
+    const now = new Date();
+    const curYear = now.getFullYear(), curMonth = now.getMonth();
+    const currentMonthItems = [];
+    const monthGroups = {};
+    const yearGroups = {};
+
+    items.forEach(item=>{
+      const d = new Date(getTs(item));
+      const y = d.getFullYear(), m = d.getMonth();
+      if(y === curYear){
+        if(m === curMonth) currentMonthItems.push(item);
+        else { (monthGroups[m] = monthGroups[m] || []).push(item); }
+      } else {
+        (yearGroups[y] = yearGroups[y] || []).push(item);
+      }
+    });
+
+    let html = currentMonthItems.map(cardRenderer).join('');
+
+    Object.keys(monthGroups).map(Number).sort((a,b)=>b-a).forEach(m=>{
+      const key = `month-${m}`;
+      const isOpen = expandedSet.has(key);
+      html += `<button class="group-toggle" data-group-key="${key}" data-container="${containerId}">${m+1}월 <span class="group-count">${monthGroups[m].length}개</span> ${isOpen?'▲':'▼'}</button>`;
+      html += `<div class="group-content ${isOpen?'':'hidden'}" data-group-content="${key}">${monthGroups[m].map(cardRenderer).join('')}</div>`;
+    });
+
+    Object.keys(yearGroups).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      const key = `year-${y}`;
+      const isOpen = expandedSet.has(key);
+      html += `<button class="group-toggle" data-group-key="${key}" data-container="${containerId}">${y}년 <span class="group-count">${yearGroups[y].length}개</span> ${isOpen?'▲':'▼'}</button>`;
+      html += `<div class="group-content ${isOpen?'':'hidden'}" data-group-content="${key}">${yearGroups[y].map(cardRenderer).join('')}</div>`;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('[data-group-key]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const key = btn.dataset.groupKey;
+        const content = container.querySelector(`[data-group-content="${key}"]`);
+        const isOpen = expandedSet.has(key);
+        if(isOpen){ expandedSet.delete(key); content.classList.add('hidden'); }
+        else { expandedSet.add(key); content.classList.remove('hidden'); }
+        btn.innerHTML = btn.innerHTML.replace(isOpen ? '▲' : '▼', isOpen ? '▼' : '▲');
+      });
+    });
+  }
+  let dateLogExpandedGroups = new Set();
+  let letterExpandedGroups = new Set();
+  let stampExpandedGroups = new Set();
+
   // ---- 사진 확대뷰 (핀치줌 / 팬 / 스와이프 넘기기 / 더블탭) ----
   (function(){
     const lightbox = document.getElementById('photoLightbox');
@@ -1035,6 +1215,46 @@
     });
   })();
 
+  // ---- 데이트기록 지도 ----
+  let dateLogMapInstance = null;
+  let dateLogMarkersLayer = null;
+  function openDateMap(){
+    document.getElementById('dateMapModal').classList.remove('hidden');
+    setTimeout(()=>{
+      if(!dateLogMapInstance){
+        dateLogMapInstance = L.map('dateMapContainer');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap',
+          maxZoom: 19
+        }).addTo(dateLogMapInstance);
+      }
+      const pts = dateLogs.filter(d => typeof d.lat === 'number' && typeof d.lng === 'number');
+      if(dateLogMarkersLayer) dateLogMapInstance.removeLayer(dateLogMarkersLayer);
+      dateLogMarkersLayer = L.layerGroup();
+      pts.forEach(item=>{
+        const photo = getItemPhotos(item)[0];
+        const marker = L.marker([item.lat, item.lng]);
+        marker.bindPopup(
+          `<b>${escapeHTML(item.title)}</b><br>${fmtShortDate(item.date)}` +
+          (photo ? `<br><img src="${photo}" style="width:100px;border-radius:8px;margin-top:4px;">` : '')
+        );
+        marker.addTo(dateLogMarkersLayer);
+      });
+      dateLogMarkersLayer.addTo(dateLogMapInstance);
+      dateLogMapInstance.invalidateSize();
+      if(pts.length > 0){
+        const bounds = L.latLngBounds(pts.map(p=>[p.lat, p.lng]));
+        dateLogMapInstance.fitBounds(bounds, { padding:[30,30] });
+      } else {
+        dateLogMapInstance.setView([37.5665, 126.9780], 11);
+      }
+    }, 50);
+  }
+  document.getElementById('dateMapOpenBtn').addEventListener('click', openDateMap);
+  document.getElementById('dateMapClose').addEventListener('click', ()=>{
+    document.getElementById('dateMapModal').classList.add('hidden');
+  });
+
 
   function scheduleCardHTML(item){
     const d = fmtDate(item.date);
@@ -1067,13 +1287,26 @@
     for(let i=0;i<startWeekday;i++) cells += `<div class="calendar-day empty"></div>`;
     for(let day=1; day<=daysInMonth; day++){
       const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const hasDatePlan = schedule.some(item => itemCoversDate(item, dateStr) && item.isDate);
-      const hasEvent = !hasDatePlan && schedule.some(item => itemCoversDate(item, dateStr));
+      const dayEvents = schedule.filter(item => itemCoversDate(item, dateStr));
       const classes = ['calendar-day'];
       if(dateStr === todayStr) classes.push('today');
       if(dateStr === calendarFilterDate) classes.push('selected');
-      const marker = hasDatePlan ? '<span class="cal-heart">❤️</span>' : (hasEvent ? '<span class="dot"></span>' : '');
-      cells += `<div class="${classes.join(' ')}" data-cal-date="${dateStr}">${day}${marker}</div>`;
+
+      let eventsHTML = '';
+      const shown = dayEvents.slice(0, 2);
+      shown.forEach(ev=>{
+        const personClass = ev.author === '소정' ? 'person-sojeong' : 'person-seonho';
+        const isStart = ev.date === dateStr;
+        const label = isStart ? `${ev.isDate ? '💛' : ''}${escapeHTML(ev.title)}` : '';
+        eventsHTML += `<div class="cal-event-pill ${personClass} ${label ? '' : 'empty-label'}">${label || '&nbsp;'}</div>`;
+      });
+      const moreCount = dayEvents.length - shown.length;
+      if(moreCount > 0) eventsHTML += `<div class="cal-event-more">+${moreCount}</div>`;
+
+      cells += `<div class="${classes.join(' ')}" data-cal-date="${dateStr}">
+        <div class="cal-daynum">${day}</div>
+        <div class="cal-events">${eventsHTML}</div>
+      </div>`;
     }
 
     const cal = document.getElementById('scheduleCalendar');
@@ -1146,58 +1379,97 @@
   }
 
 
-  function renderWish(){
-    const list = document.getElementById('wishList');
-    if(wishes.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어.<br>버킷리스트를 적어볼까?</div>';
-      return;
-    }
-    list.innerHTML = wishes.map(item => {
-      const dt = new Date(item.createdAt || Date.now());
-      const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
-      return `<div class="wish-card">
-        <div class="wish-content">
-          <div class="wish-title">${escapeHTML(item.title)}</div>
-          ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
-          ${cardPhotosHTML(item)}
-          ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
-          <div class="wish-footer">
-            <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
-            ${isMine(item) ? `<div>
-              <button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
-              <button class="del-btn" data-del-wish="${item.id}">✕</button>
-            </div>` : ''}
+  function wishCardHTML(item){
+    const dt = new Date(item.createdAt || Date.now());
+    const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+    return `<div class="wish-card ${item.done?'wish-done':''}">
+      <div class="wish-content">
+        <div class="wish-title">${escapeHTML(item.title)}</div>
+        ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
+        ${cardPhotosHTML(item)}
+        ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
+        <div class="wish-footer">
+          <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
+            ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
+            <button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
           </div>
         </div>
-      </div>`;
-    }).join('');
+      </div>
+    </div>`;
   }
+  function renderWish(){
+    const list = document.getElementById('wishList');
+    const toggleBtn = document.getElementById('toggleDoneWishBtn');
+    const doneSection = document.getElementById('doneWishSection');
 
-  function renderDateLog(){
-    const list = document.getElementById('dateLogList');
-    if(dateLogs.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해봐.</div>';
+    if(wishes.length === 0){
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어.<br>버킷리스트를 적어볼까?</div>';
+      toggleBtn.classList.add('hidden');
+      doneSection.classList.add('hidden');
       return;
     }
-    list.innerHTML = dateLogs.map(item => {
-      const d = fmtDate(item.date);
-      const extraLabel = formatScheduleRange(item);
-      const hasExtra = extraLabel !== fmtShortDate(item.date);
-      return `<div class="item-card">
-        <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
-        <div class="item-body">
-          <div class="item-title">${escapeHTML(item.title)}</div>
-          ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
-          ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
-          ${cardPhotosHTML(item)}
-          <div class="item-meta">${authorTagHTML(item.author)}</div>
-        </div>
-        ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
-        <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
-      </div>`;
-    }).join('');
+    const active = wishes.filter(w=>!w.done);
+    const done = wishes.filter(w=>w.done);
+
+    list.innerHTML = active.length === 0
+      ? '<div class="empty-state"><span class="empty-emoji">🎉</span>다 완료했어! 새로운 위시를 적어볼까?</div>'
+      : active.map(wishCardHTML).join('');
+
+    if(done.length > 0){
+      toggleBtn.classList.remove('hidden');
+      toggleBtn.textContent = showDoneWishes ? '완료한 위시 숨기기' : `완료한 위시 ${done.length}개 보기`;
+      doneSection.classList.toggle('hidden', !showDoneWishes);
+      doneSection.innerHTML = done.map(wishCardHTML).join('');
+    } else {
+      toggleBtn.classList.add('hidden');
+      doneSection.classList.add('hidden');
+    }
   }
 
+  function dateLogCardHTML(item){
+    const d = fmtDate(item.date);
+    const extraLabel = formatScheduleRange(item);
+    const hasExtra = extraLabel !== fmtShortDate(item.date);
+    return `<div class="item-card">
+      <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
+      <div class="item-body">
+        <div class="item-title">${escapeHTML(item.title)}</div>
+        ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
+        ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
+        ${cardPhotosHTML(item)}
+        <div class="item-meta">${authorTagHTML(item.author)}</div>
+      </div>
+      ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
+      <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
+    </div>`;
+  }
+  function renderDateLog(){
+    renderGroupedByTime(
+      'dateLogList', dateLogs,
+      item => item.date + 'T00:00:00',
+      dateLogCardHTML,
+      dateLogExpandedGroups,
+      '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해봐.</div>'
+    );
+  }
+
+  function stampCardHTML(item, popId){
+    const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
+    const dt = new Date(item.createdAt || Date.now());
+    const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
+    return `<div class="stamp-card">
+      <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
+      <div class="stamp-body">
+        <div class="stamp-text">${escapeHTML(item.text)}</div>
+        ${cardPhotosHTML(item)}
+        <div class="stamp-date">${dateStr}</div>
+      </div>
+      ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
+      <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
+    </div>`;
+  }
   function renderStamp(popId){
     const sojeongCount = stamps.filter(s=>s.person==='소정').length;
     const seonhoCount = stamps.filter(s=>s.person==='선호').length;
@@ -1207,52 +1479,44 @@
     document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
     document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
 
-    const list = document.getElementById('stampList');
-    if(stamps.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>';
-      return;
-    }
-    list.innerHTML = stamps.map(item => {
-      const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
-      const dt = new Date(item.createdAt || Date.now());
-      const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
-      return `<div class="stamp-card">
-        <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
-        <div class="stamp-body">
-          <div class="stamp-text">${escapeHTML(item.text)}</div>
-          ${cardPhotosHTML(item)}
-          <div class="stamp-date">${dateStr}</div>
-        </div>
-        ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
-        <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
-      </div>`;
-    }).join('');
+    renderGroupedByTime(
+      'stampList', stamps,
+      item => item.createdAt || Date.now(),
+      item => stampCardHTML(item, popId),
+      stampExpandedGroups,
+      '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
+    );
   }
 
-  function renderLetters(){
-    const list = document.getElementById('letterList');
-    if(letters.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>';
-      return;
-    }
-    list.innerHTML = letters.map(item => {
-      const dateStr = formatDateTimeKR(item.createdAt || Date.now());
-      return `<div class="wish-card">
-        <div class="wish-content">
-          <div class="section-sub" style="margin-bottom:4px;">To. ${otherPerson(item.author)}</div>
-          ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
-          <div class="wish-body">${escapeHTML(item.body)}</div>
-          ${cardPhotosHTML(item)}
-          <div class="wish-footer">
-            <div class="wish-meta">From. ${item.author || ''} · ${dateStr}</div>
-            ${isMine(item) ? `<div>
-              <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
-              <button class="del-btn" data-del-letter="${item.id}">✕</button>
-            </div>` : ''}
-          </div>
+  function letterCardHTML(item){
+    const dateStr = formatDateTimeKR(item.createdAt || Date.now());
+    const to = otherPerson(item.author);
+    const toClass = to === '소정' ? 'to-sojeong' : 'to-seonho';
+    const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
+    return `<div class="wish-card">
+      <div class="wish-content">
+        <div class="letter-to ${toClass}">💌 To. ${to}</div>
+        ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
+        <div class="wish-body">${escapeHTML(item.body)}</div>
+        ${cardPhotosHTML(item)}
+        <div class="wish-footer">
+          <div class="wish-meta"><span class="letter-from ${fromClass}">From. ${item.author||''}</span> <span>${dateStr}</span></div>
+          ${isMine(item) ? `<div>
+            <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
+            <button class="del-btn" data-del-letter="${item.id}">✕</button>
+          </div>` : ''}
         </div>
-      </div>`;
-    }).join('');
+      </div>
+    </div>`;
+  }
+  function renderLetters(){
+    renderGroupedByTime(
+      'letterList', letters,
+      item => item.createdAt || Date.now(),
+      letterCardHTML,
+      letterExpandedGroups,
+      '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>'
+    );
   }
 
   function renderDday(){
@@ -1262,14 +1526,146 @@
     document.getElementById('ddayPill').innerHTML = `2026.02.02부터 &nbsp;<b>D+${diffDays}</b>일째`;
   }
 
+  function findNextSchedule(){
+    const upcoming = schedule.filter(item => !isPast(item)).sort((a,b)=> a.date.localeCompare(b.date));
+    return upcoming[0] || null;
+  }
+  function findNextDatePlan(){
+    const upcoming = schedule.filter(item => item.isDate && !isPast(item)).sort((a,b)=> a.date.localeCompare(b.date));
+    return upcoming[0] || null;
+  }
+  function formatTodayKR(){
+    const days = ['일','월','화','수','목','금','토'];
+    const d = new Date();
+    return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]}요일`;
+  }
+  function nextAnniversary(){
+    const anniv = new Date(ANNIV + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    let n = 1;
+    let candidate = new Date(anniv.getFullYear()+n, anniv.getMonth(), anniv.getDate());
+    while(candidate < today){
+      n++;
+      candidate = new Date(anniv.getFullYear()+n, anniv.getMonth(), anniv.getDate());
+    }
+    const diffDays = Math.round((candidate - today) / 86400000);
+    return { n, diffDays };
+  }
+
+  function findThrowback(){
+    const today = new Date();
+    const mm = today.getMonth(), dd = today.getDate(), curYear = today.getFullYear();
+    const candidates = [];
+    dateLogs.forEach(item=>{
+      if(!item.date) return;
+      const d = new Date(item.date + 'T00:00:00');
+      if(d.getMonth() === mm && d.getDate() === dd && d.getFullYear() < curYear){
+        candidates.push({ type:'datelog', yearsAgo: curYear - d.getFullYear(), item });
+      }
+    });
+    letters.forEach(item=>{
+      const d = new Date(item.createdAt || 0);
+      if(d.getMonth() === mm && d.getDate() === dd && d.getFullYear() < curYear && d.getFullYear() > 2000){
+        candidates.push({ type:'letter', yearsAgo: curYear - d.getFullYear(), item });
+      }
+    });
+    if(candidates.length === 0) return null;
+    candidates.sort((a,b)=> a.yearsAgo - b.yearsAgo);
+    return candidates[0];
+  }
+
+  function renderHome(){
+    const anniv = new Date(ANNIV + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = Math.floor((today - anniv) / 86400000) + 1;
+    const ddayEl = document.getElementById('homeDdayNum');
+    if(ddayEl) ddayEl.textContent = `D+${diffDays}`;
+
+    const todayEl = document.getElementById('homeToday');
+    if(todayEl) todayEl.textContent = formatTodayKR();
+
+    const nextDateCard = document.getElementById('homeNextDateCard');
+    if(nextDateCard){
+      const nextDate = findNextDatePlan();
+      if(nextDate){
+        const dDiff = Math.round((new Date(nextDate.date+'T00:00:00') - today) / 86400000);
+        nextDateCard.innerHTML = `
+          <div class="home-mini-label">💛 다음 데이트</div>
+          <div class="home-mini-dday">${dDiff === 0 ? '오늘!' : 'D-' + dDiff}</div>
+          <div class="home-mini-sub">${escapeHTML(nextDate.title)}</div>
+        `;
+      } else {
+        nextDateCard.innerHTML = `<div class="home-mini-label">💛 다음 데이트</div><div class="home-mini-sub">예정된 데이트가 없어</div>`;
+      }
+    }
+
+    const annivCard = document.getElementById('homeAnnivCard');
+    if(annivCard){
+      const anv = nextAnniversary();
+      annivCard.innerHTML = `
+        <div class="home-mini-label">🎉 ${anv.n}주년까지</div>
+        <div class="home-mini-dday">${anv.diffDays === 0 ? '오늘!' : 'D-' + anv.diffDays}</div>
+        <div class="home-mini-sub">&nbsp;</div>
+      `;
+    }
+
+    const nextCard = document.getElementById('homeNextCard');
+    if(nextCard){
+      const next = findNextSchedule();
+      if(next){
+        const extraLabel = formatScheduleRange(next);
+        nextCard.innerHTML = `
+          <div class="home-next-label">📅 다음 일정</div>
+          <div class="home-next-title">${escapeHTML(next.title)}${next.isDate ? ' 💛' : ''}</div>
+          <div class="home-next-sub">${extraLabel}</div>
+        `;
+      } else {
+        nextCard.innerHTML = `<div class="home-next-label">📅 다음 일정</div><div class="home-next-sub">등록된 다가오는 일정이 없어</div>`;
+      }
+    }
+
+    const throwbackCard = document.getElementById('homeThrowbackCard');
+    if(throwbackCard){
+      const tb = findThrowback();
+      if(tb){
+        const photo = getItemPhotos(tb.item)[0];
+        const title = tb.type === 'datelog' ? tb.item.title : (tb.item.title || tb.item.body.slice(0,20));
+        throwbackCard.classList.remove('hidden');
+        throwbackCard.dataset.tabTarget = tb.type === 'datelog' ? 'datelog' : 'letter';
+        throwbackCard.innerHTML = `
+          ${photo ? `<img class="home-throwback-photo" src="${photo}">` : '<div style="font-size:28px;">💭</div>'}
+          <div>
+            <div class="home-throwback-label">${tb.yearsAgo}년 전 오늘</div>
+            <div class="home-throwback-title">${escapeHTML(title)}</div>
+          </div>
+        `;
+      } else {
+        throwbackCard.classList.add('hidden');
+      }
+    }
+
+    const statsGrid = document.getElementById('homeStatsGrid');
+    if(statsGrid){
+      const sojeongStamps = stamps.filter(s=>s.person==='소정').length;
+      const seonhoStamps = stamps.filter(s=>s.person==='선호').length;
+      const wishDone = wishes.filter(w=>w.done).length;
+      statsGrid.innerHTML = `
+        <div class="home-stat-tile"><div class="home-stat-num" style="color:var(--pink);">${sojeongStamps}</div><div class="home-stat-label">소정 스탬프</div></div>
+        <div class="home-stat-tile"><div class="home-stat-num" style="color:var(--yellow);">${seonhoStamps}</div><div class="home-stat-label">선호 스탬프</div></div>
+        <div class="home-stat-tile"><div class="home-stat-num">${dateLogs.length}</div><div class="home-stat-label">데이트 기록</div></div>
+        <div class="home-stat-tile"><div class="home-stat-num">${wishDone}/${wishes.length}</div><div class="home-stat-label">위시 완료</div></div>
+      `;
+    }
+  }
+
   function activateTab(tabName){
-    const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
     const panel = document.getElementById('panel-'+tabName);
-    if(!btn || !panel) return;
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    if(!panel) return;
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
     panel.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b=>{
+      b.classList.toggle('active', b.dataset.tab === tabName);
+    });
   }
   function activateTabFromHash(){
     const hash = window.location.hash.replace('#','');
@@ -1277,6 +1673,11 @@
   }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> activateTab(btn.dataset.tab));
+  });
+  document.getElementById('homeBtn').addEventListener('click', ()=> activateTab('home'));
+  document.getElementById('homeThrowbackCard').addEventListener('click', ()=>{
+    const target = document.getElementById('homeThrowbackCard').dataset.tabTarget;
+    if(target) activateTab(target);
   });
   window.addEventListener('hashchange', activateTabFromHash);
 
@@ -1446,6 +1847,7 @@
 
   // ---- 하고 싶은 일 ----
   let editingWishId = null;
+  let showDoneWishes = false;
   setupPhotoPicker('wishPhotoInput','wishPhotoBtn','wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
   function startEditWish(item){
     editingWishId = item.id;
@@ -1482,7 +1884,7 @@
           await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos, photo: firebase.firestore.FieldValue.delete() });
         } else {
           await db.collection('wishlist').doc(genId()).set({
-            title, body, link, photos, author: identity, createdAt: Date.now()
+            title, body, link, photos, done: false, author: identity, createdAt: Date.now()
           });
         }
       },
@@ -1499,15 +1901,25 @@
       }
     );
   });
-  document.getElementById('wishList').addEventListener('click', (e)=>{
+  function handleWishClick(e){
     const editId = e.target.dataset && e.target.dataset.editWish;
     const delId = e.target.dataset && e.target.dataset.delWish;
+    const checkId = e.target.dataset && e.target.dataset.checkWish;
     if(editId){
       const item = wishes.find(s=>s.id===editId);
       if(item) startEditWish(item);
     } else if(delId){
       askDeleteConfirm(async ()=>{ await db.collection('wishlist').doc(delId).delete(); });
+    } else if(checkId){
+      const item = wishes.find(s=>s.id===checkId);
+      if(item) db.collection('wishlist').doc(checkId).update({ done: !item.done }).catch(err=>console.error(err));
     }
+  }
+  document.getElementById('wishList').addEventListener('click', handleWishClick);
+  document.getElementById('doneWishSection').addEventListener('click', handleWishClick);
+  document.getElementById('toggleDoneWishBtn').addEventListener('click', ()=>{
+    showDoneWishes = !showDoneWishes;
+    renderWish();
   });
 
 
@@ -1532,6 +1944,7 @@
     document.getElementById('dateLogDate').value = item.date;
     document.getElementById('dateLogTime').value = item.time || '';
     document.getElementById('dateLogTitle').value = item.title;
+    document.getElementById('dateLogLocation').value = item.location || '';
     document.getElementById('dateLogMemo').value = item.memo || '';
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('dateLogEndDate').value = item.endDate;
@@ -1551,6 +1964,7 @@
   function resetDatelogForm(){
     editingDatelogId = null;
     document.getElementById('dateLogTitle').value='';
+    document.getElementById('dateLogLocation').value='';
     document.getElementById('dateLogMemo').value='';
     document.getElementById('dateLogTime').value='';
     document.getElementById('dateLogEndDate').value='';
@@ -1568,19 +1982,37 @@
     const title = document.getElementById('dateLogTitle').value.trim();
     if(!date || !title) return;
     const memo = document.getElementById('dateLogMemo').value.trim();
+    const location = document.getElementById('dateLogLocation').value.trim();
     const time = document.getElementById('dateLogTime').value || null;
     let endDate = document.getElementById('dateLogEndDate').value || null;
     if(endDate && endDate < date) endDate = date;
     const endTime = endDate ? (document.getElementById('dateLogEndTime').value || null) : null;
     const wasEditing = !!editingDatelogId;
+
+    const addBtn = document.getElementById('dateLogAddBtn');
+    const originalBtnText = addBtn.textContent;
+    let geo = null;
+    if(location){
+      addBtn.disabled = true;
+      addBtn.textContent = '위치 찾는 중...';
+      geo = await geocodeLocation(location);
+      addBtn.disabled = false;
+      addBtn.textContent = originalBtnText;
+    }
+
     await saveWithPhotoFallback(
       async (withPhotos)=>{
         const photos = withPhotos ? pendingDateLogPhotos : [];
+        const locData = {
+          location: location || null,
+          lat: geo ? geo.lat : null,
+          lng: geo ? geo.lng : null
+        };
         if(wasEditing){
-          await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos, photo: firebase.firestore.FieldValue.delete() });
+          await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos, ...locData, photo: firebase.firestore.FieldValue.delete() });
         } else {
           await db.collection('datelog').doc(genId()).set({
-            date, endDate, time, endTime, title, memo, photos, author: identity
+            date, endDate, time, endTime, title, memo, photos, ...locData, author: identity
           });
         }
       },
@@ -1589,6 +2021,7 @@
           resetDatelogForm();
         } else {
           document.getElementById('dateLogTitle').value='';
+          document.getElementById('dateLogLocation').value='';
           document.getElementById('dateLogMemo').value='';
           document.getElementById('dateLogTime').value='';
           document.getElementById('dateLogEndDate').value='';
@@ -1821,15 +2254,16 @@
   function startWatchers(){
     if(watchersStarted) return;
     watchersStarted = true;
-    watch('schedule', 'date', 'asc', items=>{ schedule = items; renderSchedule(); renderCalendar(); });
-    watch('wishlist', 'createdAt', 'desc', items=>{ wishes = items; renderWish(); });
-    watch('datelog', 'date', 'desc', items=>{ dateLogs = items; renderDateLog(); });
-    watch('stamps', 'createdAt', 'desc', items=>{ stamps = items; renderStamp(); });
-    watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); });
+    watch('schedule', 'date', 'asc', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
+    watch('wishlist', 'createdAt', 'desc', items=>{ wishes = items; renderWish(); renderHome(); });
+    watch('datelog', 'date', 'desc', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
+    watch('stamps', 'createdAt', 'desc', items=>{ stamps = items; renderStamp(); renderHome(); });
+    watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); renderHome(); });
   }
 
   function init(){
     renderDday();
+    renderHome();
     renderCalendar();
     document.getElementById('schedDate').value = localDateStr();
     document.getElementById('dateLogDate').value = localDateStr();
