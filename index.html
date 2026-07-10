@@ -173,7 +173,7 @@
   .card-photos img{
     width:140px; height:140px; object-fit:cover; border-radius:12px; flex-shrink:0; background:#F5EBEE;
   }
-  .field-group{ display:flex; flex-direction:column; gap:4px; }
+  .field-group{ display:flex; flex-direction:column; gap:4px; min-width:0; }
   .field-label{ font-size:10px; color:var(--plum-soft); padding-left:2px; }
   .link-toggle-btn{
     display:block; background:none; border:none; color:var(--pink); font-size:12px;
@@ -416,26 +416,26 @@
       <div class="calendar-card" id="scheduleCalendar"></div>
       <div class="add-card">
         <div class="add-row">
-          <div class="field-group" style="max-width:150px;">
+          <div class="field-group" style="flex:0 0 150px;">
             <label class="field-label">📅 날짜</label>
             <input type="date" id="schedDate">
           </div>
-          <div class="field-group" style="max-width:120px;">
+          <div class="field-group" style="flex:0 0 120px;">
             <label class="field-label">🕐 시간 (선택)</label>
             <input type="time" id="schedTime">
           </div>
         </div>
         <div class="add-row hidden" id="schedEndDateRow">
-          <div class="field-group" style="max-width:150px;">
+          <div class="field-group" style="flex:0 0 150px;">
             <label class="field-label">📅 종료일</label>
             <input type="date" id="schedEndDate">
           </div>
-          <div class="field-group" style="max-width:120px;">
+          <div class="field-group" style="flex:0 0 120px;">
             <label class="field-label">🕐 종료 시간 (선택)</label>
             <input type="time" id="schedEndTime">
           </div>
         </div>
-        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (선택)</button>
         <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
@@ -471,7 +471,7 @@
         </div>
         <div class="add-row">
           <input type="file" accept="image/*" id="wishPhotoInput" class="hidden" multiple>
-          <button class="btn-photo" id="wishPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
+          <button class="btn-photo" id="wishPhotoBtn">📷 사진 추가 (선택)</button>
         </div>
         <div class="photo-preview-grid hidden" id="wishPhotoPreviewWrap"></div>
         <div class="add-row">
@@ -486,26 +486,26 @@
       <div class="section-title">데이트 기록</div>
       <div class="add-card">
         <div class="add-row">
-          <div class="field-group" style="max-width:150px;">
+          <div class="field-group" style="flex:0 0 150px;">
             <label class="field-label">📅 날짜</label>
             <input type="date" id="dateLogDate">
           </div>
-          <div class="field-group" style="max-width:120px;">
+          <div class="field-group" style="flex:0 0 120px;">
             <label class="field-label">🕐 시간 (선택)</label>
             <input type="time" id="dateLogTime">
           </div>
         </div>
         <div class="add-row hidden" id="dateLogEndDateRow">
-          <div class="field-group" style="max-width:150px;">
+          <div class="field-group" style="flex:0 0 150px;">
             <label class="field-label">📅 종료일</label>
             <input type="date" id="dateLogEndDate">
           </div>
-          <div class="field-group" style="max-width:120px;">
+          <div class="field-group" style="flex:0 0 120px;">
             <label class="field-label">🕐 종료 시간 (선택)</label>
             <input type="time" id="dateLogEndTime">
           </div>
         </div>
-        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (선택)</button>
         <div class="add-row">
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
         </div>
@@ -514,7 +514,7 @@
         </div>
         <div class="add-row">
           <input type="file" accept="image/*" id="dateLogPhotoInput" class="hidden" multiple>
-          <button class="btn-photo" id="dateLogPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
+          <button class="btn-photo" id="dateLogPhotoBtn">📷 사진 추가 (선택)</button>
         </div>
         <div class="photo-preview-grid hidden" id="dateLogPhotoPreviewWrap"></div>
         <div class="add-row">
@@ -536,7 +536,7 @@
         </div>
         <div class="add-row">
           <input type="file" accept="image/*" id="letterPhotoInput" class="hidden" multiple>
-          <button class="btn-photo" id="letterPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
+          <button class="btn-photo" id="letterPhotoBtn">📷 사진 추가 (선택)</button>
         </div>
         <div class="photo-preview-grid hidden" id="letterPhotoPreviewWrap"></div>
         <div class="add-row">
@@ -560,7 +560,7 @@
         </div>
       </div>
       <div class="add-card">
-        <div class="section-sub" style="margin-bottom:8px;">누가 잘했나요?</div>
+        <div class="section-sub" style="margin-bottom:8px;">누가 잘했어?</div>
         <div class="person-toggle">
           <button class="person-btn" id="pickSojeong">소정이 잘함 🌷</button>
           <button class="person-btn" id="pickSeonho">선호가 잘함 🌻</button>
@@ -570,7 +570,7 @@
         </div>
         <div class="add-row">
           <input type="file" accept="image/*" id="stampPhotoInput" class="hidden" multiple>
-          <button class="btn-photo" id="stampPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
+          <button class="btn-photo" id="stampPhotoBtn">📷 사진 추가 (선택)</button>
         </div>
         <div class="photo-preview-grid hidden" id="stampPhotoPreviewWrap"></div>
         <div class="add-row">
@@ -619,7 +619,7 @@
   <div class="modal-overlay hidden" id="loginGate">
     <div class="modal-card">
       <div class="modal-title">🐶🍀</div>
-      <div class="modal-sub" id="loginGateMsg">소정, 선호만 쓸 수 있는 앱이에요.<br>구글 계정으로 로그인해줘.</div>
+      <div class="modal-sub" id="loginGateMsg">소정, 선호만 쓸 수 있는 앱이야.<br>구글 계정으로 로그인해줘.</div>
       <div class="modal-btns">
         <button class="btn" id="googleLoginBtn" style="width:100%;">Google로 로그인</button>
       </div>
@@ -782,6 +782,10 @@
     if(author === '선호') return '소정';
     return '상대방';
   }
+  function isMine(item){
+    if(item.author === undefined || item.author === null) return true;
+    return item.author === identity;
+  }
   function getItemPhotos(item){
     if(item.photos && item.photos.length) return item.photos;
     if(item.photo) return [item.photo];
@@ -806,8 +810,8 @@
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         <div class="item-meta">${authorTagHTML(item.author)}</div>
       </div>
-      <button class="edit-btn" data-edit-schedule="${item.id}">✏️</button>
-      <button class="del-btn" data-del-schedule="${item.id}">✕</button>
+      ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">✏️</button>
+      <button class="del-btn" data-del-schedule="${item.id}">✕</button>` : ''}
     </div>`;
   }
   let showPastSchedule = false;
@@ -871,7 +875,7 @@
       filterNotice.querySelector('span').textContent = `${fmtShortDate(calendarFilterDate)} 일정만 보는 중`;
       list.innerHTML = filtered.length
         ? filtered.map(scheduleCardHTML).join('')
-        : '<div class="empty-state">이 날짜엔 일정이 없어요.</div>';
+        : '<div class="empty-state">이 날짜엔 일정이 없어.</div>';
       toggleBtn.classList.add('hidden');
       pastSection.classList.add('hidden');
       return;
@@ -879,7 +883,7 @@
     filterNotice.classList.add('hidden');
 
     if(schedule.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🗓️</span>아직 등록된 일정이 없어요.<br>첫 일정을 추가해볼까요?</div>';
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🗓️</span>아직 등록된 일정이 없어.<br>첫 일정을 추가해볼까?</div>';
       toggleBtn.classList.add('hidden');
       pastSection.classList.add('hidden');
       return;
@@ -889,7 +893,7 @@
     const past = [...schedule.filter(item => isPast(item))].reverse();
 
     list.innerHTML = upcoming.length === 0
-      ? '<div class="empty-state"><span class="empty-emoji">✅</span>다가오는 일정이 없어요.</div>'
+      ? '<div class="empty-state"><span class="empty-emoji">✅</span>다가오는 일정이 없어.</div>'
       : upcoming.map(scheduleCardHTML).join('');
 
     if(past.length > 0){
@@ -907,7 +911,7 @@
   function renderWish(){
     const list = document.getElementById('wishList');
     if(wishes.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어요.<br>버킷리스트를 적어볼까?</div>';
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어.<br>버킷리스트를 적어볼까?</div>';
       return;
     }
     list.innerHTML = wishes.map(item => {
@@ -921,10 +925,10 @@
           ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
           <div class="wish-footer">
             <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
-            <div>
+            ${isMine(item) ? `<div>
               <button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
               <button class="del-btn" data-del-wish="${item.id}">✕</button>
-            </div>
+            </div>` : ''}
           </div>
         </div>
       </div>`;
@@ -934,7 +938,7 @@
   function renderDateLog(){
     const list = document.getElementById('dateLogList');
     if(dateLogs.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해보세요.</div>';
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해봐.</div>';
       return;
     }
     list.innerHTML = dateLogs.map(item => {
@@ -950,8 +954,8 @@
           ${cardPhotosHTML(item)}
           <div class="item-meta">${authorTagHTML(item.author)}</div>
         </div>
-        <button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
-        <button class="del-btn" data-del-datelog="${item.id}">✕</button>
+        ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
+        <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
       </div>`;
     }).join('');
   }
@@ -967,7 +971,7 @@
 
     const list = document.getElementById('stampList');
     if(stamps.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨보세요!</div>';
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>';
       return;
     }
     list.innerHTML = stamps.map(item => {
@@ -981,8 +985,8 @@
           ${cardPhotosHTML(item)}
           <div class="stamp-date">${dateStr}</div>
         </div>
-        <button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
-        <button class="del-btn" data-del-stamp="${item.id}">✕</button>
+        ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
+        <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
       </div>`;
     }).join('');
   }
@@ -990,7 +994,7 @@
   function renderLetters(){
     const list = document.getElementById('letterList');
     if(letters.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어요.<br>짧은 편지 한 통 써볼까?</div>';
+      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>';
       return;
     }
     list.innerHTML = letters.map(item => {
@@ -1003,10 +1007,10 @@
           ${cardPhotosHTML(item)}
           <div class="wish-footer">
             <div class="wish-meta">From. ${item.author || ''} · ${dateStr}</div>
-            <div>
+            ${isMine(item) ? `<div>
               <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
               <button class="del-btn" data-del-letter="${item.id}">✕</button>
-            </div>
+            </div>` : ''}
           </div>
         </div>
       </div>`;
@@ -1062,6 +1066,27 @@
     if(action){ try{ await action(); }catch(err){ console.error(err); } }
   });
 
+  // ---- 저장 실패시 쓴 내용을 지키면서 사진 없이 재시도 ----
+  async function saveWithPhotoFallback(doSave, onSuccess){
+    try{
+      await doSave(true);
+      onSuccess();
+    }catch(e){
+      console.error('저장 실패', e);
+      const retry = confirm('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.\n\n사진 없이 다시 저장할까? (쓴 내용은 그대로 남아있어)');
+      if(retry){
+        try{
+          await doSave(false);
+          onSuccess();
+          alert('사진 없이 저장했어. 사진은 조금 작은 걸로 다시 추가해봐도 좋아.');
+        }catch(e2){
+          console.error('재시도도 실패', e2);
+          alert('다시 시도했는데도 실패했어. 인터넷 연결을 확인해줘. 쓴 내용은 그대로 남아있어.');
+        }
+      }
+    }
+  }
+
   // ---- 일정 ----
   let editingScheduleId = null;
   let schedIsDatePlan = false;
@@ -1074,7 +1099,7 @@
   });
   function setRangeToggleState(rowId, btnId, show){
     document.getElementById(rowId).classList.toggle('hidden', !show);
-    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (여행 등 여러 날 일정)';
+    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (선택)';
   }
   document.getElementById('schedRangeToggleBtn').addEventListener('click', ()=>{
     const row = document.getElementById('schedEndDateRow');
@@ -1202,21 +1227,30 @@
     if(!title) return;
     const body = document.getElementById('wishBody').value.trim();
     const link = document.getElementById('wishLink').value.trim();
-    try{
-      if(editingWishId){
-        await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos: pendingWishPhotos, photo: firebase.firestore.FieldValue.delete() });
-        resetWishForm();
-      } else {
-        await db.collection('wishlist').doc(genId()).set({
-          title, body, link, photos: pendingWishPhotos, author: identity, createdAt: Date.now()
-        });
-        document.getElementById('wishTitle').value='';
-        document.getElementById('wishBody').value='';
-        document.getElementById('wishLink').value='';
-        pendingWishPhotos = [];
-        renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
+    const wasEditing = !!editingWishId;
+    await saveWithPhotoFallback(
+      async (withPhotos)=>{
+        const photos = withPhotos ? pendingWishPhotos : [];
+        if(wasEditing){
+          await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos, photo: firebase.firestore.FieldValue.delete() });
+        } else {
+          await db.collection('wishlist').doc(genId()).set({
+            title, body, link, photos, author: identity, createdAt: Date.now()
+          });
+        }
+      },
+      ()=>{
+        if(wasEditing){
+          resetWishForm();
+        } else {
+          document.getElementById('wishTitle').value='';
+          document.getElementById('wishBody').value='';
+          document.getElementById('wishLink').value='';
+          pendingWishPhotos = [];
+          renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
+        }
       }
-    }catch(e){ console.error('위시 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
+    );
   });
   document.getElementById('wishList').addEventListener('click', (e)=>{
     const editId = e.target.dataset && e.target.dataset.editWish;
@@ -1291,24 +1325,33 @@
     let endDate = document.getElementById('dateLogEndDate').value || null;
     if(endDate && endDate < date) endDate = date;
     const endTime = endDate ? (document.getElementById('dateLogEndTime').value || null) : null;
-    try{
-      if(editingDatelogId){
-        await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos: pendingDateLogPhotos, photo: firebase.firestore.FieldValue.delete() });
-        resetDatelogForm();
-      } else {
-        await db.collection('datelog').doc(genId()).set({
-          date, endDate, time, endTime, title, memo, photos: pendingDateLogPhotos, author: identity
-        });
-        document.getElementById('dateLogTitle').value='';
-        document.getElementById('dateLogMemo').value='';
-        document.getElementById('dateLogTime').value='';
-        document.getElementById('dateLogEndDate').value='';
-        document.getElementById('dateLogEndTime').value='';
-        setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
-        pendingDateLogPhotos = [];
-        renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
+    const wasEditing = !!editingDatelogId;
+    await saveWithPhotoFallback(
+      async (withPhotos)=>{
+        const photos = withPhotos ? pendingDateLogPhotos : [];
+        if(wasEditing){
+          await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos, photo: firebase.firestore.FieldValue.delete() });
+        } else {
+          await db.collection('datelog').doc(genId()).set({
+            date, endDate, time, endTime, title, memo, photos, author: identity
+          });
+        }
+      },
+      ()=>{
+        if(wasEditing){
+          resetDatelogForm();
+        } else {
+          document.getElementById('dateLogTitle').value='';
+          document.getElementById('dateLogMemo').value='';
+          document.getElementById('dateLogTime').value='';
+          document.getElementById('dateLogEndDate').value='';
+          document.getElementById('dateLogEndTime').value='';
+          setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
+          pendingDateLogPhotos = [];
+          renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
+        }
       }
-    }catch(e){ console.error('데이트기록 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
+    );
   });
   document.getElementById('dateLogList').addEventListener('click', (e)=>{
     const editId = e.target.dataset && e.target.dataset.editDatelog;
@@ -1352,21 +1395,30 @@
   document.getElementById('stampAddBtn').addEventListener('click', async ()=>{
     const text = document.getElementById('stampText').value.trim();
     if(!text || !stampPerson) return;
-    try{
-      if(editingStampId){
-        await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photos: pendingStampPhotos, photo: firebase.firestore.FieldValue.delete() });
-        resetStampForm();
-      } else {
-        const id = genId();
-        await db.collection('stamps').doc(id).set({
-          person: stampPerson, text, photos: pendingStampPhotos, createdAt: Date.now()
-        });
-        document.getElementById('stampText').value='';
-        pendingStampPhotos = [];
-        renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
-        renderStamp(id);
+    const wasEditing = !!editingStampId;
+    const newId = genId();
+    await saveWithPhotoFallback(
+      async (withPhotos)=>{
+        const photos = withPhotos ? pendingStampPhotos : [];
+        if(wasEditing){
+          await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photos, photo: firebase.firestore.FieldValue.delete() });
+        } else {
+          await db.collection('stamps').doc(newId).set({
+            person: stampPerson, text, photos, author: identity, createdAt: Date.now()
+          });
+        }
+      },
+      ()=>{
+        if(wasEditing){
+          resetStampForm();
+        } else {
+          document.getElementById('stampText').value='';
+          pendingStampPhotos = [];
+          renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
+          renderStamp(newId);
+        }
       }
-    }catch(e){ console.error('스탬프 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
+    );
   });
   document.getElementById('stampList').addEventListener('click', (e)=>{
     const editId = e.target.dataset && e.target.dataset.editStamp;
@@ -1407,20 +1459,29 @@
     const body = document.getElementById('letterBody').value.trim();
     if(!body) return;
     const title = document.getElementById('letterTitle').value.trim();
-    try{
-      if(editingLetterId){
-        await db.collection('letters').doc(editingLetterId).update({ title, body, photos: pendingLetterPhotos, photo: firebase.firestore.FieldValue.delete() });
-        resetLetterForm();
-      } else {
-        await db.collection('letters').doc(genId()).set({
-          title, body, photos: pendingLetterPhotos, author: identity, createdAt: Date.now()
-        });
-        document.getElementById('letterTitle').value='';
-        document.getElementById('letterBody').value='';
-        pendingLetterPhotos = [];
-        renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+    const wasEditing = !!editingLetterId;
+    await saveWithPhotoFallback(
+      async (withPhotos)=>{
+        const photos = withPhotos ? pendingLetterPhotos : [];
+        if(wasEditing){
+          await db.collection('letters').doc(editingLetterId).update({ title, body, photos, photo: firebase.firestore.FieldValue.delete() });
+        } else {
+          await db.collection('letters').doc(genId()).set({
+            title, body, photos, author: identity, createdAt: Date.now()
+          });
+        }
+      },
+      ()=>{
+        if(wasEditing){
+          resetLetterForm();
+        } else {
+          document.getElementById('letterTitle').value='';
+          document.getElementById('letterBody').value='';
+          pendingLetterPhotos = [];
+          renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+        }
       }
-    }catch(e){ console.error('편지 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
+    );
   });
   document.getElementById('letterList').addEventListener('click', (e)=>{
     const editId = e.target.dataset && e.target.dataset.editLetter;
@@ -1483,9 +1544,9 @@
         startWatchers();
       } else if(user && !EMAIL_MAP[user.email]){
         firebase.auth().signOut();
-        showGate('이 구글 계정은 사용할 수 없어요.<br>소정, 선호 계정으로만 로그인해줘.');
+        showGate('이 구글 계정은 사용할 수 없어.<br>소정, 선호 계정으로만 로그인해줘.');
       } else {
-        showGate('소정, 선호만 쓸 수 있는 앱이에요.<br>구글 계정으로 로그인해줘.');
+        showGate('소정, 선호만 쓸 수 있는 앱이야.<br>구글 계정으로 로그인해줘.');
       }
     });
   }
