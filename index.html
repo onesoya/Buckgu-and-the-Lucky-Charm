@@ -1075,6 +1075,22 @@ async function uploadPhotos(photosArray) {
     }
     return uploadedUrls;
   }
+
+// Storage에서 실제 이미지 파일 삭제하는 함수
+  async function deletePhotosFromStorage(photosArray) {
+    if (!photosArray || photosArray.length === 0) return;
+    for (const url of photosArray) {
+      try {
+        // Firebase Storage URL인 경우에만 삭제 시도
+        if (typeof url === 'string' && url.includes('firebasestorage')) {
+          const ref = storage.refFromURL(url); // URL로 파일 위치 바로 찾기
+          await ref.delete(); // 실제 파일 삭제!
+        }
+      } catch (e) {
+        console.error('Storage 이미지 삭제 실패:', e);
+      }
+    }
+  }
   
   function setupPhotoPicker(inputId, btnId, wrapId, getPhotos, setPhotos){
     const input = document.getElementById(inputId);
@@ -2284,9 +2300,13 @@ function renderCalendar(){
     if(editId){
       const item = wishes.find(s=>s.id===editId);
       if(item) startEditWish(item);
-    } else if(delId){
-      askDeleteConfirm(async ()=>{ await db.collection('wishlist').doc(delId).delete(); });
-    } else if(checkId){
+  } else if(delId){
+    const item = wishes.find(s=>s.id===delId); // 지울 글 찾기
+    askDeleteConfirm(async ()=>{ 
+      if(item && item.photos) await deletePhotosFromStorage(item.photos); // 사진부터 지우기!
+      await db.collection('wishlist').doc(delId).delete(); 
+    });
+  } else if(checkId){
       const item = wishes.find(s=>s.id===checkId);
       if(item) db.collection('wishlist').doc(checkId).update({ done: !item.done }).catch(err=>console.error(err));
     }
@@ -2479,10 +2499,13 @@ function renderCalendar(){
     if(editId){
       const item = dateLogs.find(s=>s.id===editId);
       if(item) startEditDatelog(item);
-    } else if(delId){
-      askDeleteConfirm(async ()=>{ await db.collection('datelog').doc(delId).delete(); });
+  } else if(delId){
+      const item = dateLogs.find(s=>s.id===delId); 
+      askDeleteConfirm(async ()=>{ 
+        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
+        await db.collection('datelog').doc(delId).delete(); 
+      });
     }
-  });
 
 
   // ---- 스탬프 ----
@@ -2546,10 +2569,13 @@ function renderCalendar(){
     if(editId){
       const item = stamps.find(s=>s.id===editId);
       if(item) startEditStamp(item);
-    } else if(delId){
-      askDeleteConfirm(async ()=>{ await db.collection('stamps').doc(delId).delete(); });
+  } else if(delId){
+      const item = stamps.find(s=>s.id===delId); 
+      askDeleteConfirm(async ()=>{ 
+        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
+        await db.collection('stamps').doc(delId).delete(); 
+      });
     }
-  });
 
 
   // ---- 편지 ----
@@ -2609,10 +2635,13 @@ function renderCalendar(){
     if(editId){
       const item = letters.find(s=>s.id===editId);
       if(item) startEditLetter(item);
-    } else if(delId){
-      askDeleteConfirm(async ()=>{ await db.collection('letters').doc(delId).delete(); });
+  } else if(delId){
+      const item = letters.find(s=>s.id===delId); 
+      askDeleteConfirm(async ()=>{ 
+        if(item && item.photos) await deletePhotosFromStorage(item.photos); 
+        await db.collection('letters').doc(delId).delete(); 
+      });
     }
-  });
 
 
 function watch(query, collectionName, onData){
