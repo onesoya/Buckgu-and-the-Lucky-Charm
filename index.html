@@ -156,16 +156,26 @@
     padding:9px 12px;font-size:12.5px;color:var(--plum-soft);cursor:pointer;
     font-family:'Pretendard',sans-serif;width:100%;
   }
-  .photo-preview-wrap{position:relative;margin-top:8px;}
-  .photo-preview{width:100%;max-height:160px;object-fit:cover;border-radius:12px;display:block;}
-  .photo-preview-wrap .rm-photo{
-    position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.9);border:none;
-    border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-    font-size:12px;cursor:pointer;color:var(--plum);
+  .photo-preview-grid{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;
   }
-  .item-photo{
-    width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin-top:8px;display:block;
-    background:#F5EBEE;
+  .photo-thumb{ position:relative; width:84px; height:84px; }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; border-radius:10px; display:block; background:#F5EBEE; }
+  .rm-photo-thumb{
+    position:absolute; top:-6px; right:-6px; background:var(--white); border:none;
+    border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+    font-size:11px; cursor:pointer; color:var(--plum); box-shadow:0 1px 4px rgba(74,53,72,0.2);
+  }
+  .card-photos{
+    display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    margin-top:8px; padding-bottom:2px;
+  }
+  .card-photos img{
+    width:140px; height:140px; object-fit:cover; border-radius:12px; flex-shrink:0; background:#F5EBEE;
+  }
+  .link-toggle-btn{
+    display:block; background:none; border:none; color:var(--pink); font-size:12px;
+    text-align:left; padding:2px 2px 10px; cursor:pointer; font-weight:700; font-family:'Pretendard',sans-serif;
   }
 
   .list{display:flex;flex-direction:column;gap:10px;}
@@ -216,6 +226,37 @@
     padding:8px 16px;font-size:12px;color:var(--plum-soft);box-shadow:0 2px 8px rgba(74,53,72,0.06);cursor:pointer;
   }
   .past{opacity:0.5;}
+
+  .filter-notice{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--pink-soft); border-radius:12px; padding:10px 14px; margin-bottom:12px;
+    font-size:12px; color:#C24065;
+  }
+  .filter-notice button{
+    background:none; border:none; color:#C24065; font-weight:700; font-size:12px; cursor:pointer; text-decoration:underline;
+  }
+
+  .calendar-card{
+    background:var(--white); border-radius:18px; padding:16px; margin-bottom:18px;
+    box-shadow:0 4px 14px rgba(74,53,72,0.06);
+  }
+  .calendar-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .calendar-month-label{ font-family:'Jua',sans-serif; font-size:15px; }
+  .calendar-nav-btn{ background:none; border:none; font-size:18px; color:var(--plum-soft); cursor:pointer; padding:2px 12px; }
+  .calendar-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
+  .calendar-weekday{ font-size:10px; color:var(--plum-soft); padding-bottom:6px; }
+  .calendar-day{
+    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; font-size:12px; cursor:pointer; color:var(--plum);
+  }
+  .calendar-day.empty{ cursor:default; }
+  .calendar-day.today{ font-weight:700; color:var(--pink); }
+  .calendar-day.selected{ background:var(--pink); color:var(--white); }
+  .calendar-day .dot{
+    position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
+    width:5px; height:5px; border-radius:50%; background:var(--yellow);
+  }
+  .calendar-day.selected .dot{ background:var(--white); }
 
   .empty-state{
     text-align:center;
@@ -281,13 +322,15 @@
   .stamp-date{font-size:11px;color:var(--plum-soft);margin-top:3px;}
 
   .tabbar{
-    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
-    width:100%;max-width:430px;
+    position:fixed;
+    bottom:max(14px, calc(env(safe-area-inset-bottom) + 8px));
+    left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:398px;
     background:var(--white);
     display:flex;
-    box-shadow:0 -4px 16px rgba(74,53,72,0.08);
-    border-radius:22px 22px 0 0;
-    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 6px 20px rgba(74,53,72,0.16);
+    border-radius:24px;
+    padding:9px 4px;
     z-index:30;
   }
   .tab-btn{
@@ -358,9 +401,17 @@
   <main>
     <section class="tab-panel active" id="panel-schedule">
       <div class="section-title">일정 공유</div>
+      <div class="calendar-card" id="scheduleCalendar"></div>
       <div class="add-card">
         <div class="add-row">
           <input type="date" id="schedDate" style="max-width:150px;">
+          <input type="time" id="schedTime" style="max-width:120px;">
+        </div>
+        <div class="add-row hidden" id="schedEndDateRow">
+          <input type="date" id="schedEndDate">
+        </div>
+        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
         <div class="add-row">
@@ -370,6 +421,10 @@
           <button class="btn" id="schedAddBtn" style="width:100%;">추가하기</button>
         </div>
         <button class="cancel-edit-btn hidden" id="schedCancelBtn">수정 취소</button>
+      </div>
+      <div class="filter-notice hidden" id="scheduleFilterNotice">
+        <span></span>
+        <button id="clearCalFilterBtn">전체 보기</button>
       </div>
       <div class="list" id="scheduleList"></div>
       <button class="toggle-past-btn hidden" id="togglePastBtn">지난 일정 보기</button>
@@ -389,13 +444,10 @@
           <input type="url" id="wishLink" placeholder="링크 (선택)">
         </div>
         <div class="add-row">
-          <input type="file" accept="image/*" id="wishPhotoInput" class="hidden">
-          <button class="btn-photo" id="wishPhotoBtn">📷 사진 추가 (선택)</button>
+          <input type="file" accept="image/*" id="wishPhotoInput" class="hidden" multiple>
+          <button class="btn-photo" id="wishPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
         </div>
-        <div class="photo-preview-wrap hidden" id="wishPhotoPreviewWrap">
-          <img class="photo-preview" id="wishPhotoPreview">
-          <button class="rm-photo" id="wishPhotoRemove">✕</button>
-        </div>
+        <div class="photo-preview-grid hidden" id="wishPhotoPreviewWrap"></div>
         <div class="add-row">
           <button class="btn" id="wishAddBtn" style="width:100%;">게시하기</button>
         </div>
@@ -409,19 +461,23 @@
       <div class="add-card">
         <div class="add-row">
           <input type="date" id="dateLogDate" style="max-width:150px;">
+          <input type="time" id="dateLogTime" style="max-width:120px;">
+        </div>
+        <div class="add-row hidden" id="dateLogEndDateRow">
+          <input type="date" id="dateLogEndDate">
+        </div>
+        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <div class="add-row">
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
         </div>
         <div class="add-row">
           <textarea id="dateLogMemo" placeholder="오늘 어땠어?"></textarea>
         </div>
         <div class="add-row">
-          <input type="file" accept="image/*" id="dateLogPhotoInput" class="hidden">
-          <button class="btn-photo" id="dateLogPhotoBtn">📷 사진 추가 (선택)</button>
+          <input type="file" accept="image/*" id="dateLogPhotoInput" class="hidden" multiple>
+          <button class="btn-photo" id="dateLogPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
         </div>
-        <div class="photo-preview-wrap hidden" id="dateLogPhotoPreviewWrap">
-          <img class="photo-preview" id="dateLogPhotoPreview">
-          <button class="rm-photo" id="dateLogPhotoRemove">✕</button>
-        </div>
+        <div class="photo-preview-grid hidden" id="dateLogPhotoPreviewWrap"></div>
         <div class="add-row">
           <button class="btn" id="dateLogAddBtn" style="width:100%;">기록하기</button>
         </div>
@@ -440,13 +496,10 @@
           <textarea id="letterBody" placeholder="하고 싶은 말을 편지처럼 적어봐" style="min-height:120px;"></textarea>
         </div>
         <div class="add-row">
-          <input type="file" accept="image/*" id="letterPhotoInput" class="hidden">
-          <button class="btn-photo" id="letterPhotoBtn">📷 사진 추가 (선택)</button>
+          <input type="file" accept="image/*" id="letterPhotoInput" class="hidden" multiple>
+          <button class="btn-photo" id="letterPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
         </div>
-        <div class="photo-preview-wrap hidden" id="letterPhotoPreviewWrap">
-          <img class="photo-preview" id="letterPhotoPreview">
-          <button class="rm-photo" id="letterPhotoRemove">✕</button>
-        </div>
+        <div class="photo-preview-grid hidden" id="letterPhotoPreviewWrap"></div>
         <div class="add-row">
           <button class="btn" id="letterAddBtn" style="width:100%;">편지 보내기</button>
         </div>
@@ -477,13 +530,10 @@
           <textarea id="stampText" placeholder="어떤 점이 좋았어?"></textarea>
         </div>
         <div class="add-row">
-          <input type="file" accept="image/*" id="stampPhotoInput" class="hidden">
-          <button class="btn-photo" id="stampPhotoBtn">📷 사진 추가 (선택)</button>
+          <input type="file" accept="image/*" id="stampPhotoInput" class="hidden" multiple>
+          <button class="btn-photo" id="stampPhotoBtn">📷 사진 추가 (여러 장 가능)</button>
         </div>
-        <div class="photo-preview-wrap hidden" id="stampPhotoPreviewWrap">
-          <img class="photo-preview" id="stampPhotoPreview">
-          <button class="rm-photo" id="stampPhotoRemove">✕</button>
-        </div>
+        <div class="photo-preview-grid hidden" id="stampPhotoPreviewWrap"></div>
         <div class="add-row">
           <button class="btn btn-yellow" id="stampAddBtn" style="width:100%;">도장 쾅! 찍기</button>
         </div>
@@ -560,7 +610,7 @@
   let identity = null;
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
   let stampPerson = null;
-  let pendingWishPhoto = null, pendingDateLogPhoto = null, pendingStampPhoto = null, pendingLetterPhoto = null;
+  let pendingWishPhotos = [], pendingDateLogPhotos = [], pendingStampPhotos = [], pendingLetterPhotos = [];
 
   function resizeImage(file){
     return new Promise((resolve, reject)=>{
@@ -587,34 +637,84 @@
     });
   }
 
-  function setupPhotoPicker(inputId, btnId, wrapId, previewId, removeId, onChange){
+  function renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos){
+    const wrap = document.getElementById(wrapId);
+    const photos = getPhotos();
+    if(!photos || photos.length === 0){
+      wrap.innerHTML = '';
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = photos.map((p,i)=>`
+      <div class="photo-thumb">
+        <img src="${p}">
+        <button type="button" class="rm-photo-thumb" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.rm-photo-thumb').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx);
+        const updated = getPhotos().slice();
+        updated.splice(idx, 1);
+        setPhotos(updated);
+        renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos);
+      });
+    });
+  }
+  function setupPhotoPicker(inputId, btnId, wrapId, getPhotos, setPhotos){
     const input = document.getElementById(inputId);
     document.getElementById(btnId).addEventListener('click', ()=> input.click());
     input.addEventListener('change', async ()=>{
-      if(!input.files || !input.files[0]) return;
+      if(!input.files || !input.files.length) return;
       try{
-        const dataUrl = await resizeImage(input.files[0]);
-        onChange(dataUrl);
-        document.getElementById(previewId).src = dataUrl;
-        document.getElementById(wrapId).classList.remove('hidden');
+        const files = Array.from(input.files);
+        const newPhotos = await Promise.all(files.map(f=>resizeImage(f)));
+        setPhotos(getPhotos().concat(newPhotos));
+        renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos);
       }catch(e){ console.error('사진 처리 실패', e); }
       input.value = '';
     });
-    document.getElementById(removeId).addEventListener('click', ()=>{
-      onChange(null);
-      document.getElementById(wrapId).classList.add('hidden');
-    });
   }
 
+  function localDateStr(d){
+    d = d || new Date();
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
   function fmtDate(d){
     if(!d) return {day:'-', mon:''};
     const dt = new Date(d + 'T00:00:00');
     return { day: dt.getDate(), mon: (dt.getMonth()+1) + '월' };
   }
-  function isPast(d){
+  function fmtShortDate(d){
+    if(!d) return '';
+    const dt = new Date(d + 'T00:00:00');
+    return `${dt.getMonth()+1}.${dt.getDate()}`;
+  }
+  function isPast(item){
+    const d = item && item.endDate ? item.endDate : (item && item.date);
     if(!d) return false;
     const today = new Date(); today.setHours(0,0,0,0);
     return new Date(d + 'T00:00:00') < today;
+  }
+  function itemCoversDate(item, dateStr){
+    const end = item.endDate || item.date;
+    return dateStr >= item.date && dateStr <= end;
+  }
+  function formatTimeKR(t){
+    if(!t) return '';
+    const [h,m] = t.split(':').map(Number);
+    const period = h < 12 ? '오전' : '오후';
+    let h12 = h % 12; if(h12 === 0) h12 = 12;
+    return `${period} ${h12}:${String(m).padStart(2,'0')}`;
+  }
+  function formatDateTimeKR(ts){
+    const dt = new Date(ts);
+    const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), d = String(dt.getDate()).padStart(2,'0');
+    let h = dt.getHours(); const mm = String(dt.getMinutes()).padStart(2,'0');
+    const period = h < 12 ? '오전' : '오후'; let h12 = h % 12; if(h12 === 0) h12 = 12;
+    return `${y}.${m}.${d} ${period} ${h12}:${mm}`;
   }
   function authorTagHTML(author){
     if(author === '소정') return '<span class="author-tag author-sojeong">소정</span>';
@@ -632,13 +732,27 @@
     if(author === '선호') return '소정';
     return '상대방';
   }
+  function getItemPhotos(item){
+    if(item.photos && item.photos.length) return item.photos;
+    if(item.photo) return [item.photo];
+    return [];
+  }
+  function cardPhotosHTML(item){
+    const photos = getItemPhotos(item);
+    if(photos.length === 0) return '';
+    return `<div class="card-photos">${photos.map(p=>`<img src="${p}">`).join('')}</div>`;
+  }
+
 
   function scheduleCardHTML(item){
     const d = fmtDate(item.date);
-    return `<div class="item-card ${isPast(item.date)?'past':''}">
+    const rangeStr = (item.endDate && item.endDate !== item.date) ? ` ~ ${fmtShortDate(item.endDate)}` : '';
+    const timeStr = item.time ? formatTimeKR(item.time) : '';
+    return `<div class="item-card ${isPast(item)?'past':''}">
       <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}</div>
+        ${(rangeStr || timeStr) ? `<div class="item-memo">${rangeStr ? `${fmtShortDate(item.date)}${rangeStr}` : ''}${rangeStr && timeStr ? ' · ' : ''}${timeStr}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         <div class="item-meta">${authorTagHTML(item.author)}</div>
       </div>
@@ -647,10 +761,70 @@
     </div>`;
   }
   let showPastSchedule = false;
+  let calendarMonth = new Date();
+  let calendarFilterDate = null;
+
+  function renderCalendar(){
+    const y = calendarMonth.getFullYear(), m = calendarMonth.getMonth();
+    const firstDay = new Date(y, m, 1);
+    const startWeekday = firstDay.getDay();
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const todayStr = localDateStr();
+
+    let cells = '';
+    for(let i=0;i<startWeekday;i++) cells += `<div class="calendar-day empty"></div>`;
+    for(let day=1; day<=daysInMonth; day++){
+      const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const hasEvent = schedule.some(item => itemCoversDate(item, dateStr));
+      const classes = ['calendar-day'];
+      if(dateStr === todayStr) classes.push('today');
+      if(dateStr === calendarFilterDate) classes.push('selected');
+      cells += `<div class="${classes.join(' ')}" data-cal-date="${dateStr}">${day}${hasEvent ? '<span class="dot"></span>' : ''}</div>`;
+    }
+
+    const cal = document.getElementById('scheduleCalendar');
+    cal.innerHTML = `
+      <div class="calendar-header">
+        <button class="calendar-nav-btn" id="calPrevBtn" type="button">‹</button>
+        <div class="calendar-month-label">${y}년 ${m+1}월</div>
+        <button class="calendar-nav-btn" id="calNextBtn" type="button">›</button>
+      </div>
+      <div class="calendar-grid">
+        <div class="calendar-weekday">일</div><div class="calendar-weekday">월</div><div class="calendar-weekday">화</div>
+        <div class="calendar-weekday">수</div><div class="calendar-weekday">목</div><div class="calendar-weekday">금</div>
+        <div class="calendar-weekday">토</div>
+        ${cells}
+      </div>`;
+    document.getElementById('calPrevBtn').addEventListener('click', ()=>{ calendarMonth = new Date(y, m-1, 1); renderCalendar(); });
+    document.getElementById('calNextBtn').addEventListener('click', ()=>{ calendarMonth = new Date(y, m+1, 1); renderCalendar(); });
+    cal.querySelectorAll('[data-cal-date]').forEach(cell=>{
+      cell.addEventListener('click', ()=>{
+        const d = cell.dataset.calDate;
+        calendarFilterDate = (calendarFilterDate === d) ? null : d;
+        renderCalendar();
+        renderSchedule();
+      });
+    });
+  }
+
   function renderSchedule(){
     const list = document.getElementById('scheduleList');
     const toggleBtn = document.getElementById('togglePastBtn');
     const pastSection = document.getElementById('pastScheduleSection');
+    const filterNotice = document.getElementById('scheduleFilterNotice');
+
+    if(calendarFilterDate){
+      const filtered = schedule.filter(item => itemCoversDate(item, calendarFilterDate));
+      filterNotice.classList.remove('hidden');
+      filterNotice.querySelector('span').textContent = `${fmtShortDate(calendarFilterDate)} 일정만 보는 중`;
+      list.innerHTML = filtered.length
+        ? filtered.map(scheduleCardHTML).join('')
+        : '<div class="empty-state">이 날짜엔 일정이 없어요.</div>';
+      toggleBtn.classList.add('hidden');
+      pastSection.classList.add('hidden');
+      return;
+    }
+    filterNotice.classList.add('hidden');
 
     if(schedule.length === 0){
       list.innerHTML = '<div class="empty-state"><span class="empty-emoji">🗓️</span>아직 등록된 일정이 없어요.<br>첫 일정을 추가해볼까요?</div>';
@@ -659,8 +833,8 @@
       return;
     }
 
-    const upcoming = schedule.filter(item => !isPast(item.date));
-    const past = [...schedule.filter(item => isPast(item.date))].reverse();
+    const upcoming = schedule.filter(item => !isPast(item));
+    const past = [...schedule.filter(item => isPast(item))].reverse();
 
     list.innerHTML = upcoming.length === 0
       ? '<div class="empty-state"><span class="empty-emoji">✅</span>다가오는 일정이 없어요.</div>'
@@ -677,6 +851,7 @@
     }
   }
 
+
   function renderWish(){
     const list = document.getElementById('wishList');
     if(wishes.length === 0){
@@ -687,10 +862,10 @@
       const dt = new Date(item.createdAt || Date.now());
       const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
       return `<div class="wish-card">
-        ${item.photo ? `<img class="wish-photo" src="${item.photo}">` : ''}
         <div class="wish-content">
           <div class="wish-title">${escapeHTML(item.title)}</div>
           ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
+          ${cardPhotosHTML(item)}
           ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
           <div class="wish-footer">
             <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
@@ -712,12 +887,15 @@
     }
     list.innerHTML = dateLogs.map(item => {
       const d = fmtDate(item.date);
+      const rangeStr = (item.endDate && item.endDate !== item.date) ? ` ~ ${fmtShortDate(item.endDate)}` : '';
+      const timeStr = item.time ? formatTimeKR(item.time) : '';
       return `<div class="item-card">
         <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
         <div class="item-body">
           <div class="item-title">${escapeHTML(item.title)}</div>
+          ${(rangeStr || timeStr) ? `<div class="item-memo">${rangeStr ? `${fmtShortDate(item.date)}${rangeStr}` : ''}${rangeStr && timeStr ? ' · ' : ''}${timeStr}</div>` : ''}
           ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
-          ${item.photo ? `<img class="item-photo" src="${item.photo}">` : ''}
+          ${cardPhotosHTML(item)}
           <div class="item-meta">${authorTagHTML(item.author)}</div>
         </div>
         <button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
@@ -748,7 +926,7 @@
         <div class="stamp-badge ${pClass} ${item.id===popId?'stamp-pop':''}">참잘했어요<br>${item.person}</div>
         <div class="stamp-body">
           <div class="stamp-text">${escapeHTML(item.text)}</div>
-          ${item.photo ? `<img class="item-photo" src="${item.photo}">` : ''}
+          ${cardPhotosHTML(item)}
           <div class="stamp-date">${dateStr}</div>
         </div>
         <button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
@@ -764,14 +942,13 @@
       return;
     }
     list.innerHTML = letters.map(item => {
-      const dt = new Date(item.createdAt || Date.now());
-      const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+      const dateStr = formatDateTimeKR(item.createdAt || Date.now());
       return `<div class="wish-card">
-        ${item.photo ? `<img class="wish-photo" src="${item.photo}">` : ''}
         <div class="wish-content">
           <div class="section-sub" style="margin-bottom:4px;">To. ${otherPerson(item.author)}</div>
           ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
           <div class="wish-body">${escapeHTML(item.body)}</div>
+          ${cardPhotosHTML(item)}
           <div class="wish-footer">
             <div class="wish-meta">From. ${item.author || ''} · ${dateStr}</div>
             <div>
@@ -835,11 +1012,29 @@
 
   // ---- 일정 ----
   let editingScheduleId = null;
+  function setRangeToggleState(rowId, btnId, show){
+    document.getElementById(rowId).classList.toggle('hidden', !show);
+    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (여행 등 여러 날 일정)';
+  }
+  document.getElementById('schedRangeToggleBtn').addEventListener('click', ()=>{
+    const row = document.getElementById('schedEndDateRow');
+    const willShow = row.classList.contains('hidden');
+    setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', willShow);
+    if(!willShow) document.getElementById('schedEndDate').value = '';
+  });
   function startEditSchedule(item){
     editingScheduleId = item.id;
     document.getElementById('schedDate').value = item.date;
+    document.getElementById('schedTime').value = item.time || '';
     document.getElementById('schedTitle').value = item.title;
     document.getElementById('schedMemo').value = item.memo || '';
+    if(item.endDate && item.endDate !== item.date){
+      document.getElementById('schedEndDate').value = item.endDate;
+      setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', true);
+    } else {
+      document.getElementById('schedEndDate').value = '';
+      setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
+    }
     document.getElementById('schedAddBtn').textContent = '수정 완료';
     document.getElementById('schedCancelBtn').classList.remove('hidden');
     document.getElementById('schedAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
@@ -848,7 +1043,10 @@
     editingScheduleId = null;
     document.getElementById('schedTitle').value='';
     document.getElementById('schedMemo').value='';
-    document.getElementById('schedDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('schedTime').value='';
+    document.getElementById('schedEndDate').value='';
+    setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
+    document.getElementById('schedDate').value = localDateStr();
     document.getElementById('schedAddBtn').textContent = '추가하기';
     document.getElementById('schedCancelBtn').classList.add('hidden');
   }
@@ -858,14 +1056,20 @@
     const title = document.getElementById('schedTitle').value.trim();
     if(!date || !title) return;
     const memo = document.getElementById('schedMemo').value.trim();
+    const time = document.getElementById('schedTime').value || null;
+    let endDate = document.getElementById('schedEndDate').value || null;
+    if(endDate && endDate < date) endDate = date;
     try{
       if(editingScheduleId){
-        await db.collection('schedule').doc(editingScheduleId).update({ date, title, memo });
+        await db.collection('schedule').doc(editingScheduleId).update({ date, endDate, time, title, memo });
         resetScheduleForm();
       } else {
-        await db.collection('schedule').doc(genId()).set({ date, title, memo, author: identity });
+        await db.collection('schedule').doc(genId()).set({ date, endDate, time, title, memo, author: identity });
         document.getElementById('schedTitle').value='';
         document.getElementById('schedMemo').value='';
+        document.getElementById('schedTime').value='';
+        document.getElementById('schedEndDate').value='';
+        setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
       }
     }catch(e){ console.error('일정 저장 실패', e); alert('저장에 실패했어. 인터넷 연결을 확인해줘.'); }
   });
@@ -885,22 +1089,23 @@
     showPastSchedule = !showPastSchedule;
     renderSchedule();
   });
+  document.getElementById('clearCalFilterBtn').addEventListener('click', ()=>{
+    calendarFilterDate = null;
+    renderCalendar();
+    renderSchedule();
+  });
+
 
   // ---- 하고 싶은 일 ----
   let editingWishId = null;
-  setupPhotoPicker('wishPhotoInput','wishPhotoBtn','wishPhotoPreviewWrap','wishPhotoPreview','wishPhotoRemove', (v)=>{ pendingWishPhoto = v; });
+  setupPhotoPicker('wishPhotoInput','wishPhotoBtn','wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
   function startEditWish(item){
     editingWishId = item.id;
     document.getElementById('wishTitle').value = item.title;
     document.getElementById('wishBody').value = item.body || '';
     document.getElementById('wishLink').value = item.link || '';
-    pendingWishPhoto = item.photo || null;
-    if(item.photo){
-      document.getElementById('wishPhotoPreview').src = item.photo;
-      document.getElementById('wishPhotoPreviewWrap').classList.remove('hidden');
-    } else {
-      document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
-    }
+    pendingWishPhotos = getItemPhotos(item).slice();
+    renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
     document.getElementById('wishAddBtn').textContent = '수정 완료';
     document.getElementById('wishCancelBtn').classList.remove('hidden');
     document.getElementById('wishAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
@@ -910,8 +1115,8 @@
     document.getElementById('wishTitle').value='';
     document.getElementById('wishBody').value='';
     document.getElementById('wishLink').value='';
-    pendingWishPhoto = null;
-    document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+    pendingWishPhotos = [];
+    renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
     document.getElementById('wishAddBtn').textContent = '게시하기';
     document.getElementById('wishCancelBtn').classList.add('hidden');
   }
@@ -923,17 +1128,17 @@
     const link = document.getElementById('wishLink').value.trim();
     try{
       if(editingWishId){
-        await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photo: pendingWishPhoto || null });
+        await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos: pendingWishPhotos, photo: firebase.firestore.FieldValue.delete() });
         resetWishForm();
       } else {
         await db.collection('wishlist').doc(genId()).set({
-          title, body, link, photo: pendingWishPhoto || null, author: identity, createdAt: Date.now()
+          title, body, link, photos: pendingWishPhotos, author: identity, createdAt: Date.now()
         });
         document.getElementById('wishTitle').value='';
         document.getElementById('wishBody').value='';
         document.getElementById('wishLink').value='';
-        pendingWishPhoto = null;
-        document.getElementById('wishPhotoPreviewWrap').classList.add('hidden');
+        pendingWishPhotos = [];
+        renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
       }
     }catch(e){ console.error('위시 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
@@ -948,21 +1153,31 @@
     }
   });
 
+
   // ---- 데이트 기록 ----
   let editingDatelogId = null;
-  setupPhotoPicker('dateLogPhotoInput','dateLogPhotoBtn','dateLogPhotoPreviewWrap','dateLogPhotoPreview','dateLogPhotoRemove', (v)=>{ pendingDateLogPhoto = v; });
+  setupPhotoPicker('dateLogPhotoInput','dateLogPhotoBtn','dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
+  document.getElementById('dateLogRangeToggleBtn').addEventListener('click', ()=>{
+    const row = document.getElementById('dateLogEndDateRow');
+    const willShow = row.classList.contains('hidden');
+    setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', willShow);
+    if(!willShow) document.getElementById('dateLogEndDate').value = '';
+  });
   function startEditDatelog(item){
     editingDatelogId = item.id;
     document.getElementById('dateLogDate').value = item.date;
+    document.getElementById('dateLogTime').value = item.time || '';
     document.getElementById('dateLogTitle').value = item.title;
     document.getElementById('dateLogMemo').value = item.memo || '';
-    pendingDateLogPhoto = item.photo || null;
-    if(item.photo){
-      document.getElementById('dateLogPhotoPreview').src = item.photo;
-      document.getElementById('dateLogPhotoPreviewWrap').classList.remove('hidden');
+    if(item.endDate && item.endDate !== item.date){
+      document.getElementById('dateLogEndDate').value = item.endDate;
+      setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', true);
     } else {
-      document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+      document.getElementById('dateLogEndDate').value = '';
+      setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
     }
+    pendingDateLogPhotos = getItemPhotos(item).slice();
+    renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
     document.getElementById('dateLogAddBtn').textContent = '수정 완료';
     document.getElementById('dateLogCancelBtn').classList.remove('hidden');
     document.getElementById('dateLogAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
@@ -971,9 +1186,12 @@
     editingDatelogId = null;
     document.getElementById('dateLogTitle').value='';
     document.getElementById('dateLogMemo').value='';
-    document.getElementById('dateLogDate').value = new Date().toISOString().slice(0,10);
-    pendingDateLogPhoto = null;
-    document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+    document.getElementById('dateLogTime').value='';
+    document.getElementById('dateLogEndDate').value='';
+    setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
+    document.getElementById('dateLogDate').value = localDateStr();
+    pendingDateLogPhotos = [];
+    renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
     document.getElementById('dateLogAddBtn').textContent = '기록하기';
     document.getElementById('dateLogCancelBtn').classList.add('hidden');
   }
@@ -983,18 +1201,24 @@
     const title = document.getElementById('dateLogTitle').value.trim();
     if(!date || !title) return;
     const memo = document.getElementById('dateLogMemo').value.trim();
+    const time = document.getElementById('dateLogTime').value || null;
+    let endDate = document.getElementById('dateLogEndDate').value || null;
+    if(endDate && endDate < date) endDate = date;
     try{
       if(editingDatelogId){
-        await db.collection('datelog').doc(editingDatelogId).update({ date, title, memo, photo: pendingDateLogPhoto || null });
+        await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, title, memo, photos: pendingDateLogPhotos, photo: firebase.firestore.FieldValue.delete() });
         resetDatelogForm();
       } else {
         await db.collection('datelog').doc(genId()).set({
-          date, title, memo, photo: pendingDateLogPhoto || null, author: identity
+          date, endDate, time, title, memo, photos: pendingDateLogPhotos, author: identity
         });
         document.getElementById('dateLogTitle').value='';
         document.getElementById('dateLogMemo').value='';
-        pendingDateLogPhoto = null;
-        document.getElementById('dateLogPhotoPreviewWrap').classList.add('hidden');
+        document.getElementById('dateLogTime').value='';
+        document.getElementById('dateLogEndDate').value='';
+        setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
+        pendingDateLogPhotos = [];
+        renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
       }
     }catch(e){ console.error('데이트기록 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
@@ -1009,22 +1233,18 @@
     }
   });
 
+
   // ---- 스탬프 ----
   let editingStampId = null;
-  setupPhotoPicker('stampPhotoInput','stampPhotoBtn','stampPhotoPreviewWrap','stampPhotoPreview','stampPhotoRemove', (v)=>{ pendingStampPhoto = v; });
+  setupPhotoPicker('stampPhotoInput','stampPhotoBtn','stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
   document.getElementById('pickSojeong').addEventListener('click', ()=>{ stampPerson='소정'; renderStamp(); });
   document.getElementById('pickSeonho').addEventListener('click', ()=>{ stampPerson='선호'; renderStamp(); });
   function startEditStamp(item){
     editingStampId = item.id;
     stampPerson = item.person;
     document.getElementById('stampText').value = item.text;
-    pendingStampPhoto = item.photo || null;
-    if(item.photo){
-      document.getElementById('stampPhotoPreview').src = item.photo;
-      document.getElementById('stampPhotoPreviewWrap').classList.remove('hidden');
-    } else {
-      document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
-    }
+    pendingStampPhotos = getItemPhotos(item).slice();
+    renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
     document.getElementById('stampAddBtn').textContent = '수정 완료';
     document.getElementById('stampCancelBtn').classList.remove('hidden');
@@ -1033,8 +1253,8 @@
   function resetStampForm(){
     editingStampId = null;
     document.getElementById('stampText').value='';
-    pendingStampPhoto = null;
-    document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
+    pendingStampPhotos = [];
+    renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
     document.getElementById('stampCancelBtn').classList.add('hidden');
     stampPerson = null;
@@ -1046,16 +1266,16 @@
     if(!text || !stampPerson) return;
     try{
       if(editingStampId){
-        await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photo: pendingStampPhoto || null });
+        await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photos: pendingStampPhotos, photo: firebase.firestore.FieldValue.delete() });
         resetStampForm();
       } else {
         const id = genId();
         await db.collection('stamps').doc(id).set({
-          person: stampPerson, text, photo: pendingStampPhoto || null, createdAt: Date.now()
+          person: stampPerson, text, photos: pendingStampPhotos, createdAt: Date.now()
         });
         document.getElementById('stampText').value='';
-        pendingStampPhoto = null;
-        document.getElementById('stampPhotoPreviewWrap').classList.add('hidden');
+        pendingStampPhotos = [];
+        renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
         renderStamp(id);
       }
     }catch(e){ console.error('스탬프 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
@@ -1071,20 +1291,16 @@
     }
   });
 
+
   // ---- 편지 ----
   let editingLetterId = null;
-  setupPhotoPicker('letterPhotoInput','letterPhotoBtn','letterPhotoPreviewWrap','letterPhotoPreview','letterPhotoRemove', (v)=>{ pendingLetterPhoto = v; });
+  setupPhotoPicker('letterPhotoInput','letterPhotoBtn','letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
   function startEditLetter(item){
     editingLetterId = item.id;
     document.getElementById('letterTitle').value = item.title || '';
     document.getElementById('letterBody').value = item.body || '';
-    pendingLetterPhoto = item.photo || null;
-    if(item.photo){
-      document.getElementById('letterPhotoPreview').src = item.photo;
-      document.getElementById('letterPhotoPreviewWrap').classList.remove('hidden');
-    } else {
-      document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
-    }
+    pendingLetterPhotos = getItemPhotos(item).slice();
+    renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
     document.getElementById('letterAddBtn').textContent = '수정 완료';
     document.getElementById('letterCancelBtn').classList.remove('hidden');
     document.getElementById('letterAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1093,8 +1309,8 @@
     editingLetterId = null;
     document.getElementById('letterTitle').value='';
     document.getElementById('letterBody').value='';
-    pendingLetterPhoto = null;
-    document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
+    pendingLetterPhotos = [];
+    renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
     document.getElementById('letterCancelBtn').classList.add('hidden');
   }
@@ -1105,16 +1321,16 @@
     const title = document.getElementById('letterTitle').value.trim();
     try{
       if(editingLetterId){
-        await db.collection('letters').doc(editingLetterId).update({ title, body, photo: pendingLetterPhoto || null });
+        await db.collection('letters').doc(editingLetterId).update({ title, body, photos: pendingLetterPhotos, photo: firebase.firestore.FieldValue.delete() });
         resetLetterForm();
       } else {
         await db.collection('letters').doc(genId()).set({
-          title, body, photo: pendingLetterPhoto || null, author: identity, createdAt: Date.now()
+          title, body, photos: pendingLetterPhotos, author: identity, createdAt: Date.now()
         });
         document.getElementById('letterTitle').value='';
         document.getElementById('letterBody').value='';
-        pendingLetterPhoto = null;
-        document.getElementById('letterPhotoPreviewWrap').classList.add('hidden');
+        pendingLetterPhotos = [];
+        renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
       }
     }catch(e){ console.error('편지 저장 실패', e); alert('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.'); }
   });
@@ -1128,6 +1344,7 @@
       askDeleteConfirm(async ()=>{ await db.collection('letters').doc(delId).delete(); });
     }
   });
+
 
   function watch(collectionName, orderField, orderDir, onData){
     db.collection(collectionName).orderBy(orderField, orderDir).onSnapshot(snap=>{
@@ -1156,7 +1373,7 @@
   function startWatchers(){
     if(watchersStarted) return;
     watchersStarted = true;
-    watch('schedule', 'date', 'asc', items=>{ schedule = items; renderSchedule(); });
+    watch('schedule', 'date', 'asc', items=>{ schedule = items; renderSchedule(); renderCalendar(); });
     watch('wishlist', 'createdAt', 'desc', items=>{ wishes = items; renderWish(); });
     watch('datelog', 'date', 'desc', items=>{ dateLogs = items; renderDateLog(); });
     watch('stamps', 'createdAt', 'desc', items=>{ stamps = items; renderStamp(); });
@@ -1165,9 +1382,9 @@
 
   function init(){
     renderDday();
-    const today = new Date();
-    document.getElementById('schedDate').value = today.toISOString().slice(0,10);
-    document.getElementById('dateLogDate').value = today.toISOString().slice(0,10);
+    renderCalendar();
+    document.getElementById('schedDate').value = localDateStr();
+    document.getElementById('dateLogDate').value = localDateStr();
     document.querySelector('.app-shell').style.visibility = 'hidden';
 
     firebase.auth().onAuthStateChanged(user=>{
