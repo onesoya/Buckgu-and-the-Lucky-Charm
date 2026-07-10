@@ -374,10 +374,13 @@
   }
   .stamp-badge.p-sojeong{color:#C24065;}
   .stamp-badge.p-seonho{color:#8A6600;}
+  .stamp-badge-img{
+    flex-shrink:0;width:56px;height:56px;object-fit:contain;
+  }
   .stamp-pop{animation:stampPop .45s cubic-bezier(.34,1.56,.64,1);}
   @keyframes stampPop{0%{transform:scale(0) rotate(-30deg);opacity:0;}70%{transform:scale(1.15) rotate(-8deg);opacity:1;}100%{transform:scale(1) rotate(-8deg);}}
   .stamp-body{flex:1;min-width:0;}
-  .stamp-text{font-size:13.5px;word-break:break-word;}
+  .stamp-text{font-size:13.5px;word-break:break-word;white-space:pre-wrap;}
   .stamp-date{font-size:11px;color:var(--plum-soft);margin-top:3px;}
 
   .tabbar{
@@ -1210,11 +1213,11 @@
       return;
     }
     list.innerHTML = stamps.map(item => {
-      const pClass = item.person === '소정' ? 'p-sojeong' : 'p-seonho';
+      const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
       const dt = new Date(item.createdAt || Date.now());
       const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
       return `<div class="stamp-card">
-        <div class="stamp-badge ${pClass} ${item.id===popId?'stamp-pop':''}">참잘했어요<br>${item.person}</div>
+        <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
         <div class="stamp-body">
           <div class="stamp-text">${escapeHTML(item.text)}</div>
           ${cardPhotosHTML(item)}
