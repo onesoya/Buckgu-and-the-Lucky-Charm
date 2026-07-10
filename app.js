@@ -1315,6 +1315,17 @@ function renderLetters() {
     document.getElementById('wishCancelBtn').classList.remove('hidden');
     document.getElementById('wishAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
+  function resetWishForm(){
+    editingWishId = null;
+    document.getElementById('wishTitle').value = '';
+    document.getElementById('wishBody').value = '';
+    document.getElementById('wishLink').value = '';
+    pendingWishPhotos = [];
+    renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
+    document.getElementById('wishAddBtn').textContent = '게시하기';
+    document.getElementById('wishCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('wishCancelBtn').addEventListener('click', resetWishForm);
     document.getElementById('wishAddBtn').addEventListener('click', async () => {
       const title = document.getElementById('wishTitle').value.trim();
       if (!title) return;
@@ -1512,6 +1523,17 @@ function renderLetters() {
     document.getElementById('stampCancelBtn').classList.remove('hidden');
     document.getElementById('stampAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
+  function resetStampForm(){
+    editingStampId = null;
+    stampPerson = null;
+    document.getElementById('stampText').value = '';
+    pendingStampPhotos = [];
+    renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
+    renderStamp();
+    document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
+    document.getElementById('stampCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('stampCancelBtn').addEventListener('click', resetStampForm);
     
  // 버튼 이벤트는 함수 바깥에 딱 한 번만 정의해!
   document.getElementById('stampAddBtn').addEventListener('click', async () => {
@@ -1543,6 +1565,16 @@ function renderLetters() {
     document.getElementById('letterCancelBtn').classList.remove('hidden');
     document.getElementById('letterAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
+  function resetLetterForm(){
+    editingLetterId = null;
+    document.getElementById('letterTitle').value = '';
+    document.getElementById('letterBody').value = '';
+    pendingLetterPhotos = [];
+    renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+    document.getElementById('letterAddBtn').textContent = '편지 보내기';
+    document.getElementById('letterCancelBtn').classList.add('hidden');
+  }
+  document.getElementById('letterCancelBtn').addEventListener('click', resetLetterForm);
     
 // 버튼 이벤트는 함수 바깥에!
   document.getElementById('letterAddBtn').addEventListener('click', async () => {
