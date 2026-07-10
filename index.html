@@ -105,26 +105,20 @@
 
   .home-today{ text-align:center; font-size:12px; color:var(--plum-soft); padding-top:8px; margin-bottom:4px; }
   .home-mascot-row{
-    display:flex; align-items:flex-start; justify-content:center; gap:14px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
     padding:6px 0 4px;
   }
   .home-mascot{ width:220px; height:220px; object-fit:contain; flex-shrink:0; }
-  .home-bubble-wrap{ position:relative; margin-top:22px; }
   .home-speech-bubble{
-    position:relative;
-    background:var(--white);
-    border-radius:22px;
-    padding:14px 16px;
-    font-size:12.5px; color:var(--plum); line-height:1.55; font-weight:600;
-    box-shadow:0 6px 16px rgba(74,53,72,0.14);
-    max-width:140px; text-align:left;
+    background-image:url('bubble.png');
+    background-size:contain; background-repeat:no-repeat; background-position:center;
+    width:196px; height:131px;
+    padding:30px 40px 42px 32px;
+    box-sizing:border-box;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:11.5px; color:#6B4423; font-weight:700; line-height:1.35;
+    flex-shrink:0;
   }
-  .home-bubble-dot{
-    position:absolute; background:var(--white); border-radius:50%;
-    box-shadow:0 4px 10px rgba(74,53,72,0.12);
-  }
-  .home-bubble-dot.dot1{ width:16px; height:16px; left:10px; bottom:-14px; }
-  .home-bubble-dot.dot2{ width:9px; height:9px; left:-2px; bottom:-24px; }
   .home-anniv-mini{ text-align:center; font-size:12px; color:var(--plum-soft); margin:-4px 0 18px; }
   .home-anniv-mini b{ color:var(--pink); font-family:'Jua',sans-serif; font-size:13px; }
   .home-next-card{
@@ -594,12 +588,8 @@
     <section class="tab-panel active" id="panel-home">
       <div class="home-today" id="homeToday"></div>
       <div class="home-mascot-row">
+        <div class="home-speech-bubble" id="homeSpeechBubble"></div>
         <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩어리" onerror="this.style.display='none'">
-        <div class="home-bubble-wrap">
-          <div class="home-speech-bubble" id="homeSpeechBubble"></div>
-          <div class="home-bubble-dot dot1"></div>
-          <div class="home-bubble-dot dot2"></div>
-        </div>
       </div>
       <div class="home-anniv-mini" id="homeAnnivMini"></div>
       <div class="home-next-card" id="homeNextDateCard"></div>
