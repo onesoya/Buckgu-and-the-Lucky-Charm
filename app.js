@@ -46,7 +46,7 @@ function resizeImage(file){
         const img = new Image();
         img.onload = ()=>{
           let w = img.width, h = img.height;
-          const maxDim = 1000;
+          const maxDim = 900;
           if(w > maxDim || h > maxDim){
             if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
             else { w = Math.round(w * maxDim / h); h = maxDim; }
@@ -61,7 +61,7 @@ function resizeImage(file){
           
           // PNG면 투명도 유지를 위해 PNG로, 아니면 용량을 위해 JPEG로 설정
           const outputType = isPng ? 'image/png' : 'image/jpeg';
-          const outputQuality = isPng ? undefined : 0.65; // PNG는 화질 옵션이 무시됨
+          const outputQuality = isPng ? undefined : 0.55; // PNG는 화질 옵션이 무시됨
 
           canvas.toBlob((blob) => {
             if(!blob) return reject('이미지 변환 실패');
@@ -113,25 +113,43 @@ function resizeImage(file){
     });
   }
 
-async function uploadPhotos(photosArray) {
-    const uploadedUrls = [];
-    for (const p of photosArray) {
+async function uploadPhotos(photosArray, onProgress) {
+    const newPhotos = photosArray.filter(p => p && p.blob);
+    const totalBytes = newPhotos.reduce((sum, p) => sum + p.blob.size, 0);
+    const transferredMap = new Map();
+
+    function reportProgress(){
+      if(!onProgress || totalBytes === 0) return;
+      let transferred = 0;
+      transferredMap.forEach(v => transferred += v);
+      onProgress(Math.min(100, Math.round((transferred / totalBytes) * 100)));
+    }
+
+    const uploadPromises = photosArray.map(async (p) => {
       if (typeof p === 'string') {
         // 이미 저장되어 있던 기존 사진 (수정 모드일 때)
-        uploadedUrls.push(p);
+        return p;
       } else if (p && p.blob) {
         // 새로 등록하는 사진 -> Storage 업로드
         // 파일 타입이 image/png면 확장자를 png로, 아니면 jpg로 설정!
         const ext = p.blob.type === 'image/png' ? 'png' : 'jpg';
         const fileName = `images/${identity || 'user'}_${Date.now()}_${Math.random().toString(36).substr(2,5)}.${ext}`;
-        
+
         const ref = storage.ref().child(fileName);
-        await ref.put(p.blob);
-        const url = await ref.getDownloadURL();
-        uploadedUrls.push(url);
+        const task = ref.put(p.blob);
+        task.on('state_changed', (snap)=>{
+          transferredMap.set(p, snap.bytesTransferred);
+          reportProgress();
+        });
+        await task;
+        transferredMap.set(p, p.blob.size);
+        reportProgress();
+        return await ref.getDownloadURL();
       }
-    }
-    return uploadedUrls;
+      return null;
+    });
+    const results = await Promise.all(uploadPromises);
+    return results.filter(url => url !== null);
   }
   
 // Storage에서 실제 이미지 파일 삭제하는 함수
@@ -155,12 +173,14 @@ async function uploadPhotos(photosArray) {
     document.getElementById(btnId).addEventListener('click', ()=> input.click());
     input.addEventListener('change', async ()=>{
       if(!input.files || !input.files.length) return;
+      showLoadingOverlay('사진 처리 중이야...<br>잠시만 기다려줘');
       try{
         const files = Array.from(input.files);
         const newPhotos = await Promise.all(files.map(f=>resizeImage(f)));
         setPhotos(getPhotos().concat(newPhotos));
         renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos);
       }catch(e){ console.error('사진 처리 실패', e); }
+      finally{ hideLoadingOverlay(); }
       input.value = '';
     });
   }
@@ -1361,7 +1381,7 @@ function renderLetters() {
     });
 
   // 클릭 이벤트 (수정/삭제/체크)
-  document.getElementById('wishList').addEventListener('click', (e) => {
+  function handleWishListClick(e) {
     const editId = e.target.dataset.editWish;
     const delId = e.target.dataset.delWish;
     const checkId = e.target.dataset.checkWish;
@@ -1369,6 +1389,12 @@ function renderLetters() {
     if (editId) startEditWish(wishes.find(s => s.id === editId));
     else if (delId) deleteItem('wishlist', delId, wishes.find(s => s.id === delId));
     else if (checkId) db.collection('wishlist').doc(checkId).update({ done: !wishes.find(s => s.id === checkId).done }).catch(err=>console.error(err));
+  }
+  document.getElementById('wishList').addEventListener('click', handleWishListClick);
+  document.getElementById('doneWishSection').addEventListener('click', handleWishListClick);
+  document.getElementById('toggleDoneWishBtn').addEventListener('click', ()=>{
+    showDoneWishes = !showDoneWishes;
+    renderWish();
   });
 
   // ---- 데이트 기록 ----
@@ -1442,14 +1468,26 @@ function renderLetters() {
     pendingDateLogGeo = null;
     document.getElementById('dateLogLocationStatus').classList.add('hidden');
   });
+  document.getElementById('dateLogLocation').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('dateLogLocationSearchBtn').click();
+    }
+  });
   document.getElementById('dateLogLocationSearchBtn').addEventListener('click', async ()=>{
     const query = document.getElementById('dateLogLocation').value.trim();
     if(!query) return;
     const resultsEl = document.getElementById('dateLogLocationResults');
     document.getElementById('dateLogLocationStatus').classList.add('hidden');
     resultsEl.classList.remove('hidden');
-    resultsEl.innerHTML = '<div class="location-result-item">검색 중...</div>';
-    const results = await searchLocations(query);
+    resultsEl.innerHTML = '';
+    showLoadingOverlay('위치 찾는 중이야...');
+    let results;
+    try{
+      results = await searchLocations(query);
+    } finally {
+      hideLoadingOverlay();
+    }
     if(results.length === 0){
       resultsEl.innerHTML = '<div class="location-result-item">검색 결과가 없어. 다른 이름으로 시도해봐.</div>';
       return;
@@ -1486,8 +1524,13 @@ function renderLetters() {
     // 위치 검색 로직 (기존 거 그대로!)
     let geo = pendingDateLogGeo;
     if (!geo && location) {
-      const results = await searchLocations(location);
-      geo = results[0] ? { lat: results[0].lat, lng: results[0].lng } : null;
+      showLoadingOverlay('위치 확인 중이야...');
+      try{
+        const results = await searchLocations(location);
+        geo = results[0] ? { lat: results[0].lat, lng: results[0].lng } : null;
+      } finally {
+        hideLoadingOverlay();
+      }
     }
     
     // 이제 saveItem 하나로 끝!
@@ -1678,7 +1721,12 @@ function watch(query, collectionName, onData){
   }
   document.getElementById('notifEnableBtn').addEventListener('click', async ()=>{
     document.getElementById('notifPrompt').classList.add('hidden');
-    await setupPushNotifications();
+    showLoadingOverlay('알림 설정 중이야...');
+    try{
+      await setupPushNotifications();
+    } finally {
+      hideLoadingOverlay();
+    }
   });
   document.getElementById('notifDismissBtn').addEventListener('click', ()=>{
     document.getElementById('notifPrompt').classList.add('hidden');
@@ -2009,7 +2057,9 @@ function startWatchers(){
   async function saveItem(col, isEditing, id, data, pendingPhotos, onReset) {
     await saveWithPhotoFallback(
       async (withPhotos) => {
-        const photos = withPhotos ? await uploadPhotos(pendingPhotos) : pendingPhotos.filter(p => typeof p === 'string');
+        const photos = withPhotos
+          ? await uploadPhotos(pendingPhotos, (pct) => showLoadingOverlay(`게시 중이야... ${pct}%<br>사진 업로드 중이야`))
+          : pendingPhotos.filter(p => typeof p === 'string');
         const payload = { ...data, photos };
         if (isEditing) payload.photo = firebase.firestore.FieldValue.delete();
         else payload.createdAt = Date.now();
