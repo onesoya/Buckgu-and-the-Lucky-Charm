@@ -110,13 +110,13 @@
   }
   .home-mascot{ width:220px; height:220px; object-fit:contain; flex-shrink:0; }
   .home-speech-bubble{
-    position:relative; background:var(--white); border-radius:16px; padding:12px 14px;
-    font-size:12.5px; color:var(--plum); line-height:1.4; box-shadow:0 4px 10px rgba(74,53,72,0.1);
-    max-width:130px; margin-top:28px; text-align:left;
-  }
-  .home-speech-bubble::before{
-    content:''; position:absolute; left:-9px; top:18px;
-    border-width:7px 9px 7px 0; border-style:solid; border-color:transparent var(--white) transparent transparent;
+    position:relative;
+    background:linear-gradient(135deg, #FFFFFF 55%, var(--pink-soft));
+    border-radius:6px 20px 20px 20px;
+    padding:14px 16px;
+    font-size:12.5px; color:var(--plum); line-height:1.55; font-weight:600;
+    box-shadow:0 6px 16px rgba(74,53,72,0.14);
+    max-width:140px; margin-top:26px; text-align:left;
   }
   .home-anniv-mini{ text-align:center; font-size:12px; color:var(--plum-soft); margin:-4px 0 18px; }
   .home-anniv-mini b{ color:var(--pink); font-family:'Jua',sans-serif; font-size:13px; }
@@ -839,6 +839,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-functions-compat.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -865,11 +866,10 @@
   async function geocodeLocation(query){
     if(!query) return null;
     try{
-      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=ko&lat=37.5665&lon=126.9780`);
-      const data = await res.json();
-      if(data && data.features && data.features[0]){
-        const [lon, lat] = data.features[0].geometry.coordinates;
-        return { lat, lng: lon };
+      const callable = firebase.app().functions('asia-northeast3').httpsCallable('geocodePlace');
+      const result = await callable({ query });
+      if(result.data && typeof result.data.lat === 'number'){
+        return { lat: result.data.lat, lng: result.data.lng };
       }
     }catch(e){ console.error('지오코딩 실패', e); }
     return null;
@@ -1622,15 +1622,15 @@
   function buildActivityFeed(){
     const items = [];
     schedule.forEach(it=>{
-      const ts = it.createdAt || new Date(it.date+'T00:00:00').getTime();
-      items.push({ ts, author: it.author, label:'일정', text: it.title, tab:'schedule' });
+      if(!it.createdAt) return;
+      items.push({ ts: it.createdAt, author: it.author, label:'일정', text: it.title, tab:'schedule' });
     });
     wishes.forEach(it=>{
       items.push({ ts: it.createdAt || 0, author: it.author, label:'위시', text: it.title, tab:'wish' });
     });
     dateLogs.forEach(it=>{
-      const ts = it.createdAt || new Date(it.date+'T00:00:00').getTime();
-      items.push({ ts, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
+      if(!it.createdAt) return;
+      items.push({ ts: it.createdAt, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
     });
     stamps.forEach(it=>{
       items.push({ ts: it.createdAt || 0, author: it.person, label:'스탬프', text: it.text, tab:'stamp' });
@@ -1638,7 +1638,7 @@
     letters.forEach(it=>{
       items.push({ ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
     });
-    return items.sort((a,b)=> b.ts - a.ts).slice(0, 5);
+    return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
   }
 
   function renderHome(){
