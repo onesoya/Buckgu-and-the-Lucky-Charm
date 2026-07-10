@@ -20,14 +20,34 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+const DEFAULT_LINK = 'https://onesoya.github.io/Buckgu-and-the-Lucky-Charm/';
 
 messaging.onBackgroundMessage((payload) => {
   const title = (payload.notification && payload.notification.title) || '벅구와 복덩어리';
+  const link = (payload.data && payload.data.link) || DEFAULT_LINK;
   const options = {
-    body: (payload.notification && payload.notification.body) || '',
     icon: 'icon-180.png',
     badge: 'favicon-32.png',
-    tag: 'bukgu-notification'
+    tag: 'bukgu-notification',
+    data: { link }
   };
   self.registration.showNotification(title, options);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = (event.notification.data && event.notification.data.link) || DEFAULT_LINK;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ('focus' in client) {
+          if ('navigate' in client) client.navigate(link);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(link);
+      }
+    })
+  );
 });
