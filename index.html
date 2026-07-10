@@ -175,7 +175,12 @@
   }
   .field-group{ display:flex; flex-direction:column; gap:4px; min-width:0; overflow:hidden; }
   .field-label{ font-size:10px; color:var(--plum-soft); padding-left:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .datetime-row{ display:grid; grid-template-columns:minmax(0,1fr) 104px; gap:10px; margin-bottom:8px; }
+  .datetime-row{
+    display:flex; gap:6px; margin-bottom:8px;
+    overflow:hidden; width:100%;
+  }
+  .datetime-row .field-group.date-field{ flex:1 1 auto; min-width:0; }
+  .datetime-row .field-group.time-field{ flex:0 0 92px; min-width:0; max-width:92px; }
   .datetime-row input{ width:100%; min-width:0; }
   .link-toggle-btn{
     display:block; background:none; border:none; color:var(--pink); font-size:12px;
@@ -398,6 +403,7 @@
 
   /* ---------- Desktop layout ---------- */
   @media (min-width: 700px){
+    .datetime-row .field-group.time-field{ flex:0 0 140px; max-width:140px; }
     .app-shell{
       max-width: 720px;
       padding-bottom: 40px;
@@ -442,21 +448,21 @@
       <div class="calendar-card" id="scheduleCalendar"></div>
       <div class="add-card">
         <div class="datetime-row">
-          <div class="field-group">
+          <div class="field-group date-field">
             <label class="field-label">📅 날짜</label>
             <input type="date" id="schedDate">
           </div>
-          <div class="field-group">
+          <div class="field-group time-field">
             <label class="field-label">🕐 시간</label>
             <input type="time" id="schedTime">
           </div>
         </div>
         <div class="datetime-row hidden" id="schedEndDateRow">
-          <div class="field-group">
+          <div class="field-group date-field">
             <label class="field-label">📅 종료일</label>
             <input type="date" id="schedEndDate">
           </div>
-          <div class="field-group">
+          <div class="field-group time-field">
             <label class="field-label">🕐 종료시간</label>
             <input type="time" id="schedEndTime">
           </div>
@@ -512,21 +518,21 @@
       <div class="section-title">데이트 기록</div>
       <div class="add-card">
         <div class="datetime-row">
-          <div class="field-group">
+          <div class="field-group date-field">
             <label class="field-label">📅 날짜</label>
             <input type="date" id="dateLogDate">
           </div>
-          <div class="field-group">
+          <div class="field-group time-field">
             <label class="field-label">🕐 시간</label>
             <input type="time" id="dateLogTime">
           </div>
         </div>
         <div class="datetime-row hidden" id="dateLogEndDateRow">
-          <div class="field-group">
+          <div class="field-group date-field">
             <label class="field-label">📅 종료일</label>
             <input type="date" id="dateLogEndDate">
           </div>
-          <div class="field-group">
+          <div class="field-group time-field">
             <label class="field-label">🕐 종료시간</label>
             <input type="time" id="dateLogEndTime">
           </div>
