@@ -596,6 +596,42 @@
   /* 하트 튀어오르는 애니메이션 */
   .like-pop .heart-icon { animation: heartPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   @keyframes heartPop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+/* --- 댓글 기능 CSS --- */
+  .comment-btn {
+    background: none; border: none; font-size: 12px; color: var(--plum-soft);
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 0;
+  }
+  .comment-btn .chat-icon { font-size: 14px; }
+  
+  .comment-section {
+    margin-top: 10px; padding-top: 10px; border-top: 1px dashed #F5EBEE;
+    display: none; /* 기본은 숨김 */
+  }
+  .comment-section.active { display: block; animation: fadeIn .25s ease; }
+  
+  .comment-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .comment-item { 
+    display: flex; align-items: flex-start; gap: 6px; font-size: 12px; 
+    background: #FDFBF9; padding: 8px 10px; border-radius: 12px; 
+  }
+  .comment-item .c-author { font-family: 'Jua', sans-serif; flex-shrink: 0; }
+  .comment-item .c-author.소정 { color: #C24065; }
+  .comment-item .c-author.선호 { color: #8A6600; }
+  .comment-item .c-text { flex: 1; color: var(--plum); word-break: break-word; white-space: pre-wrap; line-height: 1.4; }
+  .comment-item .c-del { background: none; border: none; font-size: 10px; color: #D8C7CE; cursor: pointer; padding: 0 2px; }
+  
+  .comment-input-row { display: flex; gap: 6px; }
+  .comment-input-row input { 
+    flex: 1; border: 1.5px solid #F0E4E9; background: var(--white); 
+    border-radius: 10px; padding: 8px 10px; font-size: 12px; 
+    font-family: 'Pretendard', sans-serif; outline: none; min-width: 0;
+  }
+  .comment-input-row input:focus { border-color: var(--pink); }
+  .comment-input-row button { 
+    font-family: 'Jua', sans-serif; background: var(--pink); color: var(--white); 
+    border: none; border-radius: 10px; padding: 0 14px; font-size: 12px; cursor: pointer; flex-shrink: 0;
+  }
   
   /* ---------- Desktop layout ---------- */
   @media (min-width: 700px){
@@ -1136,6 +1172,35 @@ async function uploadPhotos(photosArray) {
     return `<div class="card-photos">${photos.map(p=>`<img src="${p}">`).join('')}</div>`;
   }
 
+// 열려 있는 댓글창 ID를 기억하는 공간 (새로고침 시 닫힘 방지)
+  let openCommentSections = new Set();
+
+  // 댓글창 HTML을 그려주는 공통 함수
+  function renderCommentsHTML(item, colName) {
+    const comments = item.comments || [];
+    const isOpen = openCommentSections.has(`${colName}-${item.id}`);
+    
+    const commentListHTML = comments.map(c => `
+      <div class="comment-item">
+        <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
+        <span class="c-text">${escapeHTML(c.text)}</span>
+        ${c.author === identity ? `<button class="c-del" data-comment-col="${colName}" data-comment-id="${item.id}" data-comment-ts="${c.ts}">✕</button>` : ''}
+      </div>
+    `).join('');
+
+    return `
+      <div class="comment-section ${isOpen ? 'active' : ''}" id="comments-${colName}-${item.id}">
+        <div class="comment-list">
+          ${comments.length > 0 ? commentListHTML : '<div style="font-size:11px; color:#8A7A86; text-align:center; padding: 4px 0;">첫 번째 댓글을 남겨봐! 🐶</div>'}
+        </div>
+        <div class="comment-input-row">
+          <input type="text" placeholder="댓글을 입력해 봐" id="c-input-${colName}-${item.id}" onkeypress="if(event.key==='Enter') document.getElementById('c-btn-${colName}-${item.id}').click();">
+          <button id="c-btn-${colName}-${item.id}" class="c-submit" data-comment-submit-col="${colName}" data-comment-submit-id="${item.id}">작성</button>
+        </div>
+      </div>
+    `;
+  }
+  
   // ---- 연/월별 그룹 정리 (데이트기록/편지/스탬프 공용) ----
   function renderGroupedByTime(containerId, items, getTs, cardRenderer, expandedSet, emptyHTML){
     const container = document.getElementById(containerId);
@@ -1633,16 +1698,16 @@ function renderCalendar(){
     }
   }
 
-// 1. 데이트 기록 템플릿 교체
+// 1. 데이트 기록
   function dateLogCardHTML(item){
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
     
-    // 좋아요 데이터 가져오기
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = isLiked ? '❤️' : '🤍';
+    const commentCount = (item.comments || []).length;
 
     return `<div class="item-card">
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
@@ -1654,14 +1719,20 @@ function renderCalendar(){
         <div class="item-meta">${authorTagHTML(item.author)}</div>
         
         <div class="reaction-row">
-          <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
-            <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : '좋아요'}
-          </button>
+          <div style="display:flex; gap:10px;">
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : '좋아요'}
+            </button>
+            <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
+              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : '댓글'}
+            </button>
+          </div>
           <div class="reaction-row-right">
             ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
             <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
           </div>
         </div>
+        ${renderCommentsHTML(item, 'datelog')}
       </div>
     </div>`;
   }
@@ -1675,7 +1746,8 @@ function renderCalendar(){
     );
   }
 
-function stampCardHTML(item, popId){
+// 2. 스탬프
+  function stampCardHTML(item, popId){
     const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
@@ -1685,6 +1757,7 @@ function stampCardHTML(item, popId){
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = isLiked ? '❤️' : '🤍';
+    const commentCount = (item.comments || []).length;
 
     return `<div class="stamp-card">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
@@ -1695,14 +1768,20 @@ function stampCardHTML(item, popId){
         <div class="stamp-date">${item.author ? `<span class="letter-from ${fromClass}">From. ${item.author}</span> · ` : ''}${dateStr}</div>
         
         <div class="reaction-row">
-          <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="stamps" data-like-id="${item.id}">
-            <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
-          </button>
+          <div style="display:flex; gap:10px;">
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="stamps" data-like-id="${item.id}">
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+            </button>
+            <button class="comment-btn" data-toggle-comment="stamps" data-toggle-id="${item.id}">
+              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+            </button>
+          </div>
           <div class="reaction-row-right">
             ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
             <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
           </div>
         </div>
+        ${renderCommentsHTML(item, 'stamps')}
       </div>
     </div>`;
   }
@@ -1724,7 +1803,8 @@ function stampCardHTML(item, popId){
     );
   }
 
-function letterCardHTML(item){
+// 3. 편지
+  function letterCardHTML(item){
     const dateStr = formatDateTimeKR(item.createdAt || Date.now());
     const to = otherPerson(item.author);
     const toClass = to === '소정' ? 'to-sojeong' : 'to-seonho';
@@ -1733,6 +1813,7 @@ function letterCardHTML(item){
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = isLiked ? '❤️' : '🤍';
+    const commentCount = (item.comments || []).length;
 
     return `<div class="wish-card">
       <div class="wish-content">
@@ -1743,15 +1824,21 @@ function letterCardHTML(item){
         <div class="wish-footer">
           <div class="wish-meta"><span class="letter-from ${fromClass}">From. ${item.author||''}</span> <span>${dateStr}</span></div>
           <div style="display:flex; align-items:center; gap:8px;">
+            ${isMine(item) ? `<button class="edit-btn" data-edit-letter="${item.id}">✏️</button><button class="del-btn" data-del-letter="${item.id}">✕</button>` : ''}
+          </div>
+        </div>
+        
+        <div class="reaction-row">
+          <div style="display:flex; gap:10px;">
             <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="letters" data-like-id="${item.id}">
               <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
             </button>
-            ${isMine(item) ? `<div>
-              <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
-              <button class="del-btn" data-del-letter="${item.id}">✕</button>
-            </div>` : ''}
+            <button class="comment-btn" data-toggle-comment="letters" data-toggle-id="${item.id}">
+              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+            </button>
           </div>
         </div>
+        ${renderCommentsHTML(item, 'letters')}
       </div>
     </div>`;
   }
@@ -2528,19 +2615,21 @@ function letterCardHTML(item){
   });
 
 
-  function watch(collectionName, orderField, orderDir, onData){
-    db.collection(collectionName).orderBy(orderField, orderDir).onSnapshot(snap=>{
+function watch(query, collectionName, onData){
+    query.onSnapshot(snap=>{
       const items = [];
       snap.forEach(doc=> items.push({ id: doc.id, ...doc.data() }));
       onData(items);
     }, err=>{ console.error(collectionName+' 구독 오류', err); });
   }
 
+  let watchersStarted = false;
+
   const EMAIL_MAP = {
     'sjsj980415@gmail.com': '소정',
     'kkang59405@gmail.com': '선호'
   };
-  let watchersStarted = false;
+
 
   function showGate(message){
     document.getElementById('loginGateMsg').innerHTML = message;
@@ -2604,16 +2693,35 @@ function letterCardHTML(item){
     document.getElementById('notifPrompt').classList.add('hidden');
   });
 
-  function startWatchers(){
+function startWatchers(){
     if(watchersStarted) return;
     watchersStarted = true;
-    watch('schedule', 'date', 'asc', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
-    watch('wishlist', 'createdAt', 'desc', items=>{ wishes = items; renderWish(); renderHome(); });
-    watch('datelog', 'date', 'desc', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
-    watch('stamps', 'createdAt', 'desc', items=>{ stamps = items; renderStamp(); renderHome(); });
-    watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); renderHome(); });
-  }
 
+    // [일정] 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const pastDateStr = localDateStr(threeMonthsAgo);
+
+    const scheduleQuery = db.collection('schedule')
+                            .where('date', '>=', pastDateStr)
+                            .orderBy('date', 'asc');
+                            
+    watch(scheduleQuery, 'schedule', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
+
+    // [나머지] 최신순으로 딱 100개씩만 제한해서 불러오기
+    const wishQuery = db.collection('wishlist').orderBy('createdAt', 'desc').limit(100);
+    watch(wishQuery, 'wishlist', items=>{ wishes = items; renderWish(); renderHome(); });
+
+    const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
+    watch(dateLogQuery, 'datelog', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
+
+    const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
+    watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
+
+    const letterQuery = db.collection('letters').orderBy('createdAt', 'desc').limit(100);
+    watch(letterQuery, 'letters', items=>{ letters = items; renderLetters(); renderHome(); });
+  }
+  
 // ---- 좋아요 버튼 클릭 이벤트 ----
   document.querySelector('main').addEventListener('click', (e) => {
     const likeBtn = e.target.closest('.like-btn');
@@ -2662,7 +2770,74 @@ function letterCardHTML(item){
       }
     }, 300);
   });
-  
+
+  // ---- 댓글 버튼 이벤트 (열기 / 작성 / 삭제) ----
+  document.querySelector('main').addEventListener('click', (e) => {
+    // 1. 댓글창 열기/닫기 토글
+    const toggleBtn = e.target.closest('.comment-btn');
+    if (toggleBtn) {
+      const col = toggleBtn.dataset.toggleComment;
+      const id = toggleBtn.dataset.toggleId;
+      const sectionKey = `${col}-${id}`;
+      
+      if (openCommentSections.has(sectionKey)) {
+        openCommentSections.delete(sectionKey);
+      } else {
+        openCommentSections.add(sectionKey);
+      }
+      
+      const section = document.getElementById(`comments-${sectionKey}`);
+      if (section) section.classList.toggle('active');
+      return;
+    }
+
+    // 2. 댓글 작성
+    const submitBtn = e.target.closest('.c-submit');
+    if (submitBtn) {
+      const col = submitBtn.dataset.commentSubmitCol;
+      const id = submitBtn.dataset.commentSubmitId;
+      const input = document.getElementById(`c-input-${col}-${id}`);
+      const text = input.value.trim();
+      if (!text || !identity) return;
+      
+      const newComment = {
+        author: identity,
+        text: text,
+        ts: Date.now() // 고유 ID 역할
+      };
+      
+      db.collection(col).doc(id).update({
+        comments: firebase.firestore.FieldValue.arrayUnion(newComment)
+      }).catch(err => console.error('댓글 작성 실패:', err));
+      return;
+    }
+
+    // 3. 내 댓글 삭제
+    const delBtn = e.target.closest('.c-del');
+    if (delBtn) {
+      if (!confirm('이 댓글을 지울까?')) return;
+      const col = delBtn.dataset.commentCol;
+      const id = delBtn.dataset.commentId;
+      const ts = Number(delBtn.dataset.commentTs);
+      
+      // 어느 리스트에 있는지 찾기
+      let list = [];
+      if (col === 'datelog') list = dateLogs;
+      else if (col === 'letters') list = letters;
+      else if (col === 'stamps') list = stamps;
+      
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+      
+      // 삭제할 정확한 댓글 객체 찾기 (시간과 작성자가 동일한 것)
+      const targetComment = (item.comments || []).find(c => c.ts === ts && c.author === identity);
+      if (targetComment) {
+        db.collection(col).doc(id).update({
+          comments: firebase.firestore.FieldValue.arrayRemove(targetComment)
+        }).catch(err => console.error('댓글 삭제 실패:', err));
+      }
+    }
+  });
   
   function init(){
     renderDday();
