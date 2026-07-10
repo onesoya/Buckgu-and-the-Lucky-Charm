@@ -893,6 +893,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-functions-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-storage-compat.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -910,6 +911,7 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  const storage = firebase.storage();
 
   let identity = null;
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
@@ -926,7 +928,7 @@
     }catch(e){ console.error('위치 검색 실패', e); return []; }
   }
 
-  function resizeImage(file){
+function resizeImage(file){
     return new Promise((resolve, reject)=>{
       const reader = new FileReader();
       reader.onload = (e)=>{
@@ -941,7 +943,15 @@
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.65));
+          
+          // Base64 대신 파일(Blob) 형태로 압축
+          canvas.toBlob((blob) => {
+            if(!blob) return reject('이미지 변환 실패');
+            resolve({
+              url: URL.createObjectURL(blob), // 화면 미리보기용 가짜 URL
+              blob: blob // Storage 업로드용 진짜 파일 데이터
+            });
+          }, 'image/jpeg', 0.65);
         };
         img.onerror = reject;
         img.src = e.target.result;
@@ -960,22 +970,49 @@
       return;
     }
     wrap.classList.remove('hidden');
-    wrap.innerHTML = photos.map((p,i)=>`
-      <div class="photo-thumb">
-        <img src="${p}">
-        <button type="button" class="rm-photo-thumb" data-idx="${i}">✕</button>
-      </div>
-    `).join('');
+    wrap.innerHTML = photos.map((p,i)=>{
+      const src = typeof p === 'string' ? p : p.url; // 기존 사진은 string, 새 사진은 object
+      return `
+        <div class="photo-thumb">
+          <img src="${src}">
+          <button type="button" class="rm-photo-thumb" data-idx="${i}">✕</button>
+        </div>
+      `;
+    }).join('');
+    
     wrap.querySelectorAll('.rm-photo-thumb').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = Number(btn.dataset.idx);
         const updated = getPhotos().slice();
-        updated.splice(idx, 1);
+        const removed = updated.splice(idx, 1)[0];
+        
+        // 브라우저 메모리 누수 방지
+        if(typeof removed !== 'string' && removed.url) URL.revokeObjectURL(removed.url); 
+        
         setPhotos(updated);
         renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos);
       });
     });
   }
+
+async function uploadPhotos(photosArray) {
+    const uploadedUrls = [];
+    for (const p of photosArray) {
+      if (typeof p === 'string') {
+        // 이미 저장되어 있던 기존 사진 (수정 모드일 때)
+        uploadedUrls.push(p);
+      } else if (p && p.blob) {
+        // 새로 등록하는 사진 -> Storage 업로드
+        const fileName = `images/${identity || 'user'}_${Date.now()}_${Math.random().toString(36).substr(2,5)}.jpg`;
+        const ref = storage.ref().child(fileName);
+        await ref.put(p.blob);
+        const url = await ref.getDownloadURL();
+        uploadedUrls.push(url);
+      }
+    }
+    return uploadedUrls;
+  }
+  
   function setupPhotoPicker(inputId, btnId, wrapId, getPhotos, setPhotos){
     const input = document.getElementById(inputId);
     document.getElementById(btnId).addEventListener('click', ()=> input.click());
@@ -2066,7 +2103,7 @@ function renderCalendar(){
     const wasEditing = !!editingWishId;
     await saveWithPhotoFallback(
       async (withPhotos)=>{
-        const photos = withPhotos ? pendingWishPhotos : [];
+        const photos = withPhotos ? await uploadPhotos(pendingWishPhotos) : pendingWishPhotos.filter(p => typeof p === 'string');
         if(wasEditing){
           await db.collection('wishlist').doc(editingWishId).update({ title, body, link, photos, photo: firebase.firestore.FieldValue.delete() });
         } else {
@@ -2250,7 +2287,7 @@ function renderCalendar(){
 
     await saveWithPhotoFallback(
       async (withPhotos)=>{
-        const photos = withPhotos ? pendingDateLogPhotos : [];
+        const photos = withPhotos ? await uploadPhotos(pendingDateLogPhotos) : pendingDateLogPhotos.filter(p => typeof p === 'string');
         const locData = {
           location: location || null,
           lat: geo ? geo.lat : null,
@@ -2330,7 +2367,7 @@ function renderCalendar(){
     const newId = genId();
     await saveWithPhotoFallback(
       async (withPhotos)=>{
-        const photos = withPhotos ? pendingStampPhotos : [];
+        const photos = withPhotos ? await uploadPhotos(pendingStampPhotos) : pendingStampPhotos.filter(p => typeof p === 'string');
         if(wasEditing){
           await db.collection('stamps').doc(editingStampId).update({ person: stampPerson, text, photos, photo: firebase.firestore.FieldValue.delete() });
         } else {
@@ -2393,7 +2430,7 @@ function renderCalendar(){
     const wasEditing = !!editingLetterId;
     await saveWithPhotoFallback(
       async (withPhotos)=>{
-        const photos = withPhotos ? pendingLetterPhotos : [];
+        const photos = withPhotos ? await uploadPhotos(pendingLetterPhotos) : pendingLetterPhotos.filter(p => typeof p === 'string');
         if(wasEditing){
           await db.collection('letters').doc(editingLetterId).update({ title, body, photos, photo: firebase.firestore.FieldValue.delete() });
         } else {
