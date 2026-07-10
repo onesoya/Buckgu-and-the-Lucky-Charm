@@ -132,6 +132,10 @@
     color:var(--plum);
     outline:none;
   }
+  input[type="date"], input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
   input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="url"]:focus, textarea:focus{
     border-color:var(--pink);
   }
@@ -179,8 +183,8 @@
     display:flex; gap:6px; margin-bottom:8px;
     overflow:hidden; width:100%;
   }
-  .datetime-row .field-group.date-field{ flex:1 1 auto; min-width:0; }
-  .datetime-row .field-group.time-field{ flex:0 0 70px; min-width:0; max-width:70px; }
+  .datetime-row .field-group.date-field{ flex: 1 1 0%; min-width: 0; }
+  .datetime-row .field-group.time-field{ flex: 0 0 115px; min-width: 0; max-width: 115px; }
   .datetime-row input{ width:100%; min-width:0; }
   .link-toggle-btn{
     display:block; background:none; border:none; color:var(--pink); font-size:12px;
