@@ -1259,14 +1259,23 @@
     document.getElementById('ddayPill').innerHTML = `2026.02.02부터 &nbsp;<b>D+${diffDays}</b>일째`;
   }
 
+  function activateTab(tabName){
+    const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    const panel = document.getElementById('panel-'+tabName);
+    if(!btn || !panel) return;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    panel.classList.add('active');
+  }
+  function activateTabFromHash(){
+    const hash = window.location.hash.replace('#','');
+    if(hash) activateTab(hash);
+  }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
-    });
+    btn.addEventListener('click', ()=> activateTab(btn.dataset.tab));
   });
+  window.addEventListener('hashchange', activateTabFromHash);
 
   function updateIdentityChip(){
     document.getElementById('identityChip').textContent = identity ? `나는 ${identity}` : '나는 ...';
@@ -1756,9 +1765,11 @@
 
   const VAPID_KEY = 'BCfNXpOJT8bk0T6vQTI5PJsFW4PjVzTpKoxyOIV1tWvy6qfpeG0-7TOb0htBeAHwzzsZh_Xm4wkN-bf4XXh-2lQ';
   let pushToastTimer = null;
-  function showPushToast(title, body){
+  let pushToastTab = null;
+  function showPushToast(title, tab){
+    pushToastTab = tab || null;
     document.getElementById('pushToastTitle').textContent = title || '';
-    document.getElementById('pushToastBody').textContent = body || '';
+    document.getElementById('pushToastBody').textContent = '';
     const toast = document.getElementById('pushToast');
     toast.classList.remove('hidden');
     clearTimeout(pushToastTimer);
@@ -1767,6 +1778,7 @@
   document.getElementById('pushToast').addEventListener('click', ()=>{
     document.getElementById('pushToast').classList.add('hidden');
     clearTimeout(pushToastTimer);
+    if(pushToastTab) activateTab(pushToastTab);
   });
 
   async function setupPushNotifications(){
@@ -1783,7 +1795,7 @@
       messaging.onMessage((payload)=>{
         showPushToast(
           payload.notification && payload.notification.title,
-          payload.notification && payload.notification.body
+          payload.data && payload.data.tab
         );
       });
     }catch(e){
@@ -1826,6 +1838,7 @@
         updateIdentityChip();
         hideGate();
         startWatchers();
+        activateTabFromHash();
         if('Notification' in window && Notification.permission === 'granted'){
           setupPushNotifications();
         } else {
