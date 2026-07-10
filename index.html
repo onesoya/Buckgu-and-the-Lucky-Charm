@@ -421,7 +421,7 @@
           <input type="date" id="schedEndDate">
           <input type="time" id="schedEndTime" style="max-width:120px;">
         </div>
-        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가</button>
         <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
@@ -479,7 +479,7 @@
           <input type="date" id="dateLogEndDate">
           <input type="time" id="dateLogEndTime" style="max-width:120px;">
         </div>
-        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
+        <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가</button>
         <div class="add-row">
           <input type="text" id="dateLogTitle" placeholder="장소 / 제목">
         </div>
@@ -1048,7 +1048,7 @@
   });
   function setRangeToggleState(rowId, btnId, show){
     document.getElementById(rowId).classList.toggle('hidden', !show);
-    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (여행 등 여러 날 일정)';
+    document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가';
   }
   document.getElementById('schedRangeToggleBtn').addEventListener('click', ()=>{
     const row = document.getElementById('schedEndDateRow');
