@@ -527,7 +527,7 @@ async function uploadPhotos(photosArray) {
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
-    return `<div class="item-card ${isPast(item)?'past':''}">
+    return `<div class="item-card ${isPast(item)?'past':''}" data-item-id="${item.id}">
       <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' 💛' : ''}</div>
@@ -617,13 +617,13 @@ function renderCalendar(){
       for (let i = 0; i < MAX_SLOTS; i++) {
         const ev = slotsForDay[i];
         if (ev) {
-          const personClass = ev.author === '소정' ? 'person-sojeong' : 'person-seonho';
+          const personClass = ev.isDate ? 'date-plan-event' : (ev.author === '소정' ? 'person-sojeong' : 'person-seonho');
           const isActualStart = ev.date === dateStr;
           const isActualEnd = (ev.endDate || ev.date) === dateStr;
           
           // 일정의 첫 날에만 글씨 표시 (이전 달에서 이어져 온 일정은 1일에 표시)
           const showText = isActualStart || (dateStr === startDateStr && ev.date < startDateStr);
-          const label = showText ? `${ev.isDate ? '💛 ' : ''}${escapeHTML(ev.title)}` : '';
+          const label = showText ? `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}` : '';
           
           // 모양(클래스) 결정: 앞이 둥근지, 뒤가 둥근지, 중간인지
           const shapeClass = [];
@@ -726,7 +726,7 @@ function renderCalendar(){
   function wishCardHTML(item){
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
-    return `<div class="wish-card ${item.done?'wish-done':''}">
+    return `<div class="wish-card ${item.done?'wish-done':''}" data-item-id="${item.id}">
       <div class="wish-content">
         <div class="wish-title">${escapeHTML(item.title)}</div>
         ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
@@ -783,7 +783,7 @@ function renderCalendar(){
     const likeIcon = isLiked ? '❤️' : '🤍';
     const commentCount = (item.comments || []).length;
 
-    return `<div class="item-card">
+    return `<div class="item-card" data-item-id="${item.id}">
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}</div>
@@ -834,7 +834,7 @@ function renderDateLog() {
     const likeIcon = isLiked ? '❤️' : '🤍';
     const commentCount = (item.comments || []).length;
 
-    return `<div class="stamp-card">
+    return `<div class="stamp-card" data-item-id="${item.id}">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
       <div class="stamp-body">
         <div class="letter-to ${toClass}" style="margin-bottom:6px;font-size:11px;padding:3px 9px;">🏅 To. ${item.person}</div>
@@ -892,7 +892,7 @@ function renderStamp(popId) {
     const likeIcon = isLiked ? '❤️' : '🤍';
     const commentCount = (item.comments || []).length;
 
-    return `<div class="wish-card">
+    return `<div class="wish-card" data-item-id="${item.id}">
       <div class="wish-content">
         <div class="letter-to ${toClass}">💌 To. ${to}</div>
         ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
@@ -1785,7 +1785,7 @@ function startWatchers(){
 
   // ---- 검색 (헤더 버튼 → 전체화면 오버레이) ----
   let searchCategory = 'all';
-  const SEARCH_CARD_SELECTOR = { schedule:'.item-card', wish:'.wish-card', datelog:'.item-card', letter:'.wish-card', stamp:'.stamp-card' };
+
 
   function groupKeyForTimestamp(ts){
     const now = new Date();
@@ -1877,8 +1877,7 @@ function startWatchers(){
     renderSchedule(); renderWish(); renderDateLog(); renderStamp(); renderLetters();
 
     setTimeout(()=>{
-      const btn = document.querySelector(`[data-edit-${result.tab}="${result.item.id}"]`);
-      const card = btn ? btn.closest(SEARCH_CARD_SELECTOR[result.tab]) : null;
+      const card = document.querySelector(`[data-item-id="${result.item.id}"]`);
       if(card){
         card.scrollIntoView({behavior:'smooth', block:'center'});
         card.classList.add('search-flash');
