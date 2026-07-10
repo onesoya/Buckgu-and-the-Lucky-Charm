@@ -1005,16 +1005,23 @@ function resizeImage(file){
           }
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
           
-          // Base64 대신 파일(Blob) 형태로 압축
+          // 파일 원본이 PNG인지 확인!
+          const isPng = file.type === 'image/png';
+          
+          // PNG면 투명도 유지를 위해 PNG로, 아니면 용량을 위해 JPEG로 설정
+          const outputType = isPng ? 'image/png' : 'image/jpeg';
+          const outputQuality = isPng ? undefined : 0.65; // PNG는 화질 옵션이 무시됨
+
           canvas.toBlob((blob) => {
             if(!blob) return reject('이미지 변환 실패');
             resolve({
               url: URL.createObjectURL(blob), // 화면 미리보기용 가짜 URL
               blob: blob // Storage 업로드용 진짜 파일 데이터
             });
-          }, 'image/jpeg', 0.65);
+          }, outputType, outputQuality);
         };
         img.onerror = reject;
         img.src = e.target.result;
@@ -1023,7 +1030,7 @@ function resizeImage(file){
       reader.readAsDataURL(file);
     });
   }
-
+  
   function renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos){
     const wrap = document.getElementById(wrapId);
     const photos = getPhotos();
@@ -1066,7 +1073,10 @@ async function uploadPhotos(photosArray) {
         uploadedUrls.push(p);
       } else if (p && p.blob) {
         // 새로 등록하는 사진 -> Storage 업로드
-        const fileName = `images/${identity || 'user'}_${Date.now()}_${Math.random().toString(36).substr(2,5)}.jpg`;
+        // 파일 타입이 image/png면 확장자를 png로, 아니면 jpg로 설정!
+        const ext = p.blob.type === 'image/png' ? 'png' : 'jpg';
+        const fileName = `images/${identity || 'user'}_${Date.now()}_${Math.random().toString(36).substr(2,5)}.${ext}`;
+        
         const ref = storage.ref().child(fileName);
         await ref.put(p.blob);
         const url = await ref.getDownloadURL();
@@ -1075,7 +1085,7 @@ async function uploadPhotos(photosArray) {
     }
     return uploadedUrls;
   }
-
+  
 // Storage에서 실제 이미지 파일 삭제하는 함수
   async function deletePhotosFromStorage(photosArray) {
     if (!photosArray || photosArray.length === 0) return;
