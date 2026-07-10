@@ -837,7 +837,7 @@ function renderDateLog() {
     return `<div class="stamp-card" data-item-id="${item.id}">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
       <div class="stamp-body">
-        <div class="letter-to ${toClass}" style="margin-bottom:6px;font-size:11px;padding:3px 9px;">🏅 To. ${item.person}</div>
+        <div class="letter-to ${toClass}" style="margin-bottom:6px;padding:3px 9px;">🏅 To. ${item.person}</div>
         <div class="stamp-text">${escapeHTML(item.text)}</div>
         ${cardPhotosHTML(item)}
         <div class="stamp-date">${item.author ? `<span class="letter-from ${fromClass}">From. ${item.author}</span> · ` : ''}${dateStr}</div>
