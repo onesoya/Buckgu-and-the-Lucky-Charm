@@ -579,6 +579,24 @@
   .push-toast-title{ font-family:'Jua',sans-serif; font-size:13px; margin-bottom:2px; }
   .push-toast-body{ font-size:12px; color:var(--plum-soft); }
 
+/* --- 좋아요 반응 버튼 CSS --- */
+  .reaction-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; padding-top: 10px; border-top: 1px dashed #F5EBEE;
+  }
+  .reaction-row-right { display: flex; align-items: center; gap: 4px; }
+  
+  .like-btn {
+    background: none; border: none; font-size: 12px; color: var(--plum-soft);
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer; padding: 4px 0;
+  }
+  .like-btn.liked { color: #E5546F; font-weight: 700; }
+  .like-btn .heart-icon { font-size: 15px; display: inline-block; transition: transform 0.2s; }
+  
+  /* 하트 튀어오르는 애니메이션 */
+  .like-pop .heart-icon { animation: heartPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  @keyframes heartPop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+  
   /* ---------- Desktop layout ---------- */
   @media (min-width: 700px){
     .datetime-row .field-group.time-field{ flex:0 0 140px; max-width:140px; }
@@ -913,6 +931,15 @@
   const db = firebase.firestore();
   const storage = firebase.storage();
 
+db.enablePersistence()
+    .catch((err) => {
+      if (err.code == 'failed-precondition') {
+        console.warn('여러 탭이 열려 있어 오프라인 모드를 켤 수 없어.');
+      } else if (err.code == 'unimplemented') {
+        console.warn('이 브라우저는 오프라인 모드를 지원하지 않아.');
+      }
+    });
+  
   let identity = null;
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
   let stampPerson = null;
@@ -1606,10 +1633,17 @@ function renderCalendar(){
     }
   }
 
+// 1. 데이트 기록 템플릿 교체
   function dateLogCardHTML(item){
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
+    
+    // 좋아요 데이터 가져오기
+    const likes = item.likes || [];
+    const isLiked = likes.includes(identity);
+    const likeIcon = isLiked ? '❤️' : '🤍';
+
     return `<div class="item-card">
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
@@ -1618,9 +1652,17 @@ function renderCalendar(){
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         ${cardPhotosHTML(item)}
         <div class="item-meta">${authorTagHTML(item.author)}</div>
+        
+        <div class="reaction-row">
+          <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
+            <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : '좋아요'}
+          </button>
+          <div class="reaction-row-right">
+            ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
+            <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
+          </div>
+        </div>
       </div>
-      ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
-      <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
     </div>`;
   }
   function renderDateLog(){
@@ -1633,12 +1675,17 @@ function renderCalendar(){
     );
   }
 
-  function stampCardHTML(item, popId){
+function stampCardHTML(item, popId){
     const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
     const toClass = item.person === '소정' ? 'to-sojeong' : 'to-seonho';
     const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
+    
+    const likes = item.likes || [];
+    const isLiked = likes.includes(identity);
+    const likeIcon = isLiked ? '❤️' : '🤍';
+
     return `<div class="stamp-card">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
       <div class="stamp-body">
@@ -1646,9 +1693,17 @@ function renderCalendar(){
         <div class="stamp-text">${escapeHTML(item.text)}</div>
         ${cardPhotosHTML(item)}
         <div class="stamp-date">${item.author ? `<span class="letter-from ${fromClass}">From. ${item.author}</span> · ` : ''}${dateStr}</div>
+        
+        <div class="reaction-row">
+          <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="stamps" data-like-id="${item.id}">
+            <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+          </button>
+          <div class="reaction-row-right">
+            ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
+            <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
+          </div>
+        </div>
       </div>
-      ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
-      <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
     </div>`;
   }
   function renderStamp(popId){
@@ -1669,11 +1724,16 @@ function renderCalendar(){
     );
   }
 
-  function letterCardHTML(item){
+function letterCardHTML(item){
     const dateStr = formatDateTimeKR(item.createdAt || Date.now());
     const to = otherPerson(item.author);
     const toClass = to === '소정' ? 'to-sojeong' : 'to-seonho';
     const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
+    
+    const likes = item.likes || [];
+    const isLiked = likes.includes(identity);
+    const likeIcon = isLiked ? '❤️' : '🤍';
+
     return `<div class="wish-card">
       <div class="wish-content">
         <div class="letter-to ${toClass}">💌 To. ${to}</div>
@@ -1682,10 +1742,15 @@ function renderCalendar(){
         ${cardPhotosHTML(item)}
         <div class="wish-footer">
           <div class="wish-meta"><span class="letter-from ${fromClass}">From. ${item.author||''}</span> <span>${dateStr}</span></div>
-          ${isMine(item) ? `<div>
-            <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
-            <button class="del-btn" data-del-letter="${item.id}">✕</button>
-          </div>` : ''}
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="letters" data-like-id="${item.id}">
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+            </button>
+            ${isMine(item) ? `<div>
+              <button class="edit-btn" data-edit-letter="${item.id}">✏️</button>
+              <button class="del-btn" data-del-letter="${item.id}">✕</button>
+            </div>` : ''}
+          </div>
         </div>
       </div>
     </div>`;
@@ -2549,6 +2614,48 @@ function renderCalendar(){
     watch('letters', 'createdAt', 'desc', items=>{ letters = items; renderLetters(); renderHome(); });
   }
 
+  // ---- 좋아요 버튼 클릭 이벤트 ----
+  document.querySelector('main').addEventListener('click', async (e) => {
+    const likeBtn = e.target.closest('.like-btn');
+    if (!likeBtn) return;
+    
+    // 눌린 버튼의 컬렉션(datelog, stamps, letters)과 문서 ID 가져오기
+    const col = likeBtn.dataset.likeCol;
+    const id = likeBtn.dataset.likeId;
+    
+    // 현재 눌린 게시물 데이터 찾기
+    let list = [];
+    if (col === 'datelog') list = dateLogs;
+    else if (col === 'letters') list = letters;
+    else if (col === 'stamps') list = stamps;
+    
+    const item = list.find(x => x.id === id);
+    if (!item || !identity) return; // 로그인 안 되어 있으면 무시
+    
+    // 하트 통통 튀는 애니메이션 임시 추가
+    likeBtn.classList.add('like-pop');
+    setTimeout(() => likeBtn.classList.remove('like-pop'), 300);
+    
+    const currentLikes = item.likes || [];
+    const hasLiked = currentLikes.includes(identity);
+    
+    try {
+      if (hasLiked) {
+        // 이미 눌렀으면 '내 이름' 빼기 (좋아요 취소)
+        await db.collection(col).doc(id).update({ 
+          likes: firebase.firestore.FieldValue.arrayRemove(identity) 
+        });
+      } else {
+        // 안 눌렀으면 '내 이름' 추가 (좋아요)
+        await db.collection(col).doc(id).update({ 
+          likes: firebase.firestore.FieldValue.arrayUnion(identity) 
+        });
+      }
+    } catch(err) {
+      console.error('좋아요 업데이트 실패:', err);
+    }
+  });
+  
   function init(){
     renderDday();
     renderHome();
