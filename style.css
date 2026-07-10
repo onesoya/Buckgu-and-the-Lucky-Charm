@@ -649,3 +649,20 @@
       cursor: default;
     }
   }
+
+/* 검색창 스타일 */
+.search-box {
+  padding: 10px;
+  background: #fff;
+  position: sticky; /* 화면을 내려도 검색창이 따라오게 함 */
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid #eee;
+}
+#searchInput {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  box-sizing: border-box;
+}
