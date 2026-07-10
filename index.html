@@ -103,33 +103,48 @@
   .tab-panel.active{display:block;animation:fadeIn .25s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 
-  .home-today{ text-align:center; font-size:12px; color:var(--plum-soft); padding-top:8px; }
-  .home-hero{
-    display:flex; flex-direction:column; align-items:center; text-align:center;
-    padding:8px 0 20px;
+  .home-today{ text-align:center; font-size:12px; color:var(--plum-soft); padding-top:8px; margin-bottom:4px; }
+  .home-mascot-row{
+    display:flex; align-items:flex-start; justify-content:center; gap:10px;
+    padding:6px 0 4px;
   }
-  .home-mascot{ width:180px; height:180px; object-fit:contain; margin-bottom:14px; }
-  .home-dday-card{
-    background:var(--white); border-radius:20px; padding:16px 28px;
-    box-shadow:0 4px 14px rgba(74,53,72,0.08);
+  .home-mascot{ width:220px; height:220px; object-fit:contain; flex-shrink:0; }
+  .home-speech-bubble{
+    position:relative; background:var(--white); border-radius:16px; padding:12px 14px;
+    font-size:12.5px; color:var(--plum); line-height:1.4; box-shadow:0 4px 10px rgba(74,53,72,0.1);
+    max-width:130px; margin-top:28px; text-align:left;
   }
-  .home-dday-label{ font-size:11px; color:var(--plum-soft); }
-  .home-dday-num{ font-family:'Jua',sans-serif; font-size:32px; color:var(--pink); margin:2px 0; }
-  .home-mini-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
-  .home-mini-card{
-    background:var(--white); border-radius:16px; padding:14px; text-align:center;
-    box-shadow:0 3px 10px rgba(74,53,72,0.05);
+  .home-speech-bubble::before{
+    content:''; position:absolute; left:-9px; top:18px;
+    border-width:7px 9px 7px 0; border-style:solid; border-color:transparent var(--white) transparent transparent;
   }
-  .home-mini-label{ font-size:10.5px; color:var(--plum-soft); margin-bottom:4px; }
-  .home-mini-dday{ font-family:'Jua',sans-serif; font-size:18px; color:var(--pink); }
-  .home-mini-sub{ font-size:10.5px; color:var(--plum-soft); margin-top:2px; word-break:break-word; }
+  .home-anniv-mini{ text-align:center; font-size:12px; color:var(--plum-soft); margin:-4px 0 18px; }
+  .home-anniv-mini b{ color:var(--pink); font-family:'Jua',sans-serif; font-size:13px; }
   .home-next-card{
     background:var(--white); border-radius:18px; padding:16px; margin-bottom:14px;
-    box-shadow:0 4px 14px rgba(74,53,72,0.06);
+    box-shadow:0 4px 14px rgba(74,53,72,0.06); cursor:pointer;
   }
   .home-next-label{ font-size:11px; color:var(--plum-soft); margin-bottom:6px; }
   .home-next-title{ font-family:'Jua',sans-serif; font-size:15px; }
   .home-next-sub{ font-size:12px; color:var(--plum-soft); margin-top:2px; }
+  .home-feed-card{
+    background:var(--white); border-radius:18px; padding:16px; margin-bottom:14px;
+    box-shadow:0 4px 14px rgba(74,53,72,0.06);
+  }
+  .home-feed-item{
+    display:flex; align-items:center; gap:8px; padding:8px 0;
+    border-top:1px solid #F5EBEE; font-size:12.5px;
+  }
+  .home-feed-item:first-of-type{ border-top:none; padding-top:0; }
+  .home-feed-item:not(:last-child){ }
+  .home-feed-item{ cursor:pointer; }
+  .home-feed-author{
+    font-family:'Jua',sans-serif; font-size:11px; padding:2px 8px; border-radius:8px; flex-shrink:0;
+  }
+  .home-feed-author.author-sojeong{ background:var(--pink-soft); color:#C24065; }
+  .home-feed-author.author-seonho{ background:var(--yellow-soft); color:#8A6600; }
+  .home-feed-text{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--plum); }
+  .home-feed-time{ font-size:10.5px; color:var(--plum-soft); flex-shrink:0; }
   .home-throwback-card{
     background:linear-gradient(135deg, var(--pink-soft), var(--yellow-soft));
     border-radius:18px; padding:16px; margin-bottom:14px; cursor:pointer;
@@ -138,13 +153,6 @@
   .home-throwback-photo{ width:56px; height:56px; border-radius:12px; object-fit:cover; flex-shrink:0; }
   .home-throwback-label{ font-size:11px; color:#8A5A6A; margin-bottom:3px; }
   .home-throwback-title{ font-family:'Jua',sans-serif; font-size:14px; color:var(--plum); }
-  .home-stats-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-  .home-stat-tile{
-    background:var(--white); border-radius:16px; padding:14px; text-align:center;
-    box-shadow:0 3px 10px rgba(74,53,72,0.05);
-  }
-  .home-stat-num{ font-family:'Jua',sans-serif; font-size:20px; }
-  .home-stat-label{ font-size:10.5px; color:var(--plum-soft); margin-top:2px; }
 
   .section-title{
     font-family:'Jua',sans-serif;
@@ -567,21 +575,14 @@
   <main>
     <section class="tab-panel active" id="panel-home">
       <div class="home-today" id="homeToday"></div>
-      <div class="home-hero">
+      <div class="home-mascot-row">
         <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩어리" onerror="this.style.display='none'">
-        <div class="home-dday-card">
-          <div class="home-dday-label">2026.02.02부터</div>
-          <div class="home-dday-num" id="homeDdayNum">D+0</div>
-          <div class="home-dday-label">함께한 날</div>
-        </div>
+        <div class="home-speech-bubble" id="homeSpeechBubble"></div>
       </div>
-      <div class="home-mini-row">
-        <div class="home-mini-card" id="homeNextDateCard"></div>
-        <div class="home-mini-card" id="homeAnnivCard"></div>
-      </div>
-      <div class="home-next-card" id="homeNextCard"></div>
+      <div class="home-anniv-mini" id="homeAnnivMini"></div>
+      <div class="home-next-card" id="homeNextDateCard"></div>
+      <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
-      <div class="home-stats-grid" id="homeStatsGrid"></div>
     </section>
 
     <section class="tab-panel" id="panel-schedule">
@@ -688,6 +689,7 @@
         <div class="add-row">
           <input type="text" id="dateLogLocation" placeholder="📍 위치 검색 (선택, 지도에 표시하려면 입력)">
         </div>
+        <div class="field-label hidden" id="dateLogLocationStatus" style="margin:-4px 0 8px 2px;"></div>
         <div class="add-row">
           <textarea id="dateLogMemo" placeholder="오늘 어땠어?"></textarea>
         </div>
@@ -863,10 +865,11 @@
   async function geocodeLocation(query){
     if(!query) return null;
     try{
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=ko&lat=37.5665&lon=126.9780`);
       const data = await res.json();
-      if(data && data[0]){
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      if(data && data.features && data.features[0]){
+        const [lon, lat] = data.features[0].geometry.coordinates;
+        return { lat, lng: lon };
       }
     }catch(e){ console.error('지오코딩 실패', e); }
     return null;
@@ -1218,14 +1221,24 @@
   // ---- 데이트기록 지도 ----
   let dateLogMapInstance = null;
   let dateLogMarkersLayer = null;
+  function heartMarkerIcon(){
+    return L.divIcon({
+      className: '',
+      html: `<div style="font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px rgba(74,53,72,0.45));">❤️</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 24],
+      popupAnchor: [0, -22]
+    });
+  }
   function openDateMap(){
     document.getElementById('dateMapModal').classList.remove('hidden');
     setTimeout(()=>{
       if(!dateLogMapInstance){
-        dateLogMapInstance = L.map('dateMapContainer');
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap',
-          maxZoom: 19
+        dateLogMapInstance = L.map('dateMapContainer', { attributionControl: true });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap &copy; CARTO',
+          maxZoom: 20,
+          subdomains: 'abcd'
         }).addTo(dateLogMapInstance);
       }
       const pts = dateLogs.filter(d => typeof d.lat === 'number' && typeof d.lng === 'number');
@@ -1233,10 +1246,10 @@
       dateLogMarkersLayer = L.layerGroup();
       pts.forEach(item=>{
         const photo = getItemPhotos(item)[0];
-        const marker = L.marker([item.lat, item.lng]);
+        const marker = L.marker([item.lat, item.lng], { icon: heartMarkerIcon() });
         marker.bindPopup(
-          `<b>${escapeHTML(item.title)}</b><br>${fmtShortDate(item.date)}` +
-          (photo ? `<br><img src="${photo}" style="width:100px;border-radius:8px;margin-top:4px;">` : '')
+          `<b>${escapeHTML(item.title)}</b><br><span style="color:#8A7A86;font-size:11px;">${fmtShortDate(item.date)} · ${item.author||''}</span>` +
+          (photo ? `<br><img src="${photo}" style="width:110px;border-radius:8px;margin-top:4px;">` : '')
         );
         marker.addTo(dateLogMarkersLayer);
       });
@@ -1244,7 +1257,7 @@
       dateLogMapInstance.invalidateSize();
       if(pts.length > 0){
         const bounds = L.latLngBounds(pts.map(p=>[p.lat, p.lng]));
-        dateLogMapInstance.fitBounds(bounds, { padding:[30,30] });
+        dateLogMapInstance.fitBounds(bounds, { padding:[40,40], maxZoom:15 });
       } else {
         dateLogMapInstance.setView([37.5665, 126.9780], 11);
       }
@@ -1552,6 +1565,24 @@
     return { n, diffDays };
   }
 
+  const DAILY_MESSAGES = [
+    '뭐야... 귀여워 ㅋ', '사랑해!', '나 보고싶어서 왔어?',
+    '나랑 눈 마주쳤으면 한 번 웃기!!!', '안아줘~', '힘들면 나한테 전화해~',
+    '오늘 뭐했어?', '뽀뽀가 적다~~~!', '보고싶어!!!',
+    '굿모닝! 굿애프터눈! 굿나잇!', '노올자아~', '나를 따르라~',
+    '힘내는구야!', '전화하까? 헤헤~', '보고싶지? 히히',
+    '내 생각 중이야~?', '오늘 뭐 먹었어?', '내가 더 사랑해!!!',
+    '나만 믿어!!!', '알러뷰', '배고파~', '날 예뻐해라!',
+    '아이 예쁘다~', '신난다!!!', '뽀뽀해줘~', '넌 존재 자체가 사랑이야!', '넌 내 자랑이야!'
+  ];
+  function todayMessage(){
+    const start = new Date(2026,0,1);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dayOfYear = Math.floor((today - start) / 86400000);
+    const idx = ((dayOfYear % DAILY_MESSAGES.length) + DAILY_MESSAGES.length) % DAILY_MESSAGES.length;
+    return DAILY_MESSAGES[idx];
+  }
+
   function findThrowback(){
     const today = new Date();
     const mm = today.getMonth(), dd = today.getDate(), curYear = today.getFullYear();
@@ -1574,53 +1605,90 @@
     return candidates[0];
   }
 
-  function renderHome(){
-    const anniv = new Date(ANNIV + 'T00:00:00');
-    const today = new Date(); today.setHours(0,0,0,0);
-    const diffDays = Math.floor((today - anniv) / 86400000) + 1;
-    const ddayEl = document.getElementById('homeDdayNum');
-    if(ddayEl) ddayEl.textContent = `D+${diffDays}`;
+  function relativeTimeKR(ts){
+    if(!ts) return '';
+    const diffMs = Date.now() - ts;
+    const diffMin = Math.floor(diffMs / 60000);
+    if(diffMin < 1) return '방금 전';
+    if(diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if(diffHour < 24) return `${diffHour}시간 전`;
+    const diffDay = Math.floor(diffHour / 24);
+    if(diffDay < 7) return `${diffDay}일 전`;
+    const d = new Date(ts);
+    return `${d.getMonth()+1}.${d.getDate()}`;
+  }
 
+  function buildActivityFeed(){
+    const items = [];
+    schedule.forEach(it=>{
+      const ts = it.createdAt || new Date(it.date+'T00:00:00').getTime();
+      items.push({ ts, author: it.author, label:'일정', text: it.title, tab:'schedule' });
+    });
+    wishes.forEach(it=>{
+      items.push({ ts: it.createdAt || 0, author: it.author, label:'위시', text: it.title, tab:'wish' });
+    });
+    dateLogs.forEach(it=>{
+      const ts = it.createdAt || new Date(it.date+'T00:00:00').getTime();
+      items.push({ ts, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
+    });
+    stamps.forEach(it=>{
+      items.push({ ts: it.createdAt || 0, author: it.person, label:'스탬프', text: it.text, tab:'stamp' });
+    });
+    letters.forEach(it=>{
+      items.push({ ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
+    });
+    return items.sort((a,b)=> b.ts - a.ts).slice(0, 5);
+  }
+
+  function renderHome(){
     const todayEl = document.getElementById('homeToday');
     if(todayEl) todayEl.textContent = formatTodayKR();
+
+    const bubble = document.getElementById('homeSpeechBubble');
+    if(bubble) bubble.textContent = todayMessage();
+
+    const annivMini = document.getElementById('homeAnnivMini');
+    if(annivMini){
+      const anv = nextAnniversary();
+      annivMini.innerHTML = anv.diffDays === 0
+        ? `🎉 오늘은 <b>${anv.n}주년</b>이야!`
+        : `${anv.n}주년까지 <b>D-${anv.diffDays}</b>`;
+    }
 
     const nextDateCard = document.getElementById('homeNextDateCard');
     if(nextDateCard){
       const nextDate = findNextDatePlan();
+      const today = new Date(); today.setHours(0,0,0,0);
       if(nextDate){
         const dDiff = Math.round((new Date(nextDate.date+'T00:00:00') - today) / 86400000);
         nextDateCard.innerHTML = `
-          <div class="home-mini-label">💛 다음 데이트</div>
-          <div class="home-mini-dday">${dDiff === 0 ? '오늘!' : 'D-' + dDiff}</div>
-          <div class="home-mini-sub">${escapeHTML(nextDate.title)}</div>
+          <div class="home-next-label">💛 다음 데이트</div>
+          <div class="home-next-title">${dDiff === 0 ? '오늘이야!' : 'D-' + dDiff} · ${escapeHTML(nextDate.title)}</div>
         `;
       } else {
-        nextDateCard.innerHTML = `<div class="home-mini-label">💛 다음 데이트</div><div class="home-mini-sub">예정된 데이트가 없어</div>`;
+        nextDateCard.innerHTML = `<div class="home-next-label">💛 다음 데이트</div><div class="home-next-sub">예정된 데이트가 없어</div>`;
       }
     }
 
-    const annivCard = document.getElementById('homeAnnivCard');
-    if(annivCard){
-      const anv = nextAnniversary();
-      annivCard.innerHTML = `
-        <div class="home-mini-label">🎉 ${anv.n}주년까지</div>
-        <div class="home-mini-dday">${anv.diffDays === 0 ? '오늘!' : 'D-' + anv.diffDays}</div>
-        <div class="home-mini-sub">&nbsp;</div>
-      `;
-    }
-
-    const nextCard = document.getElementById('homeNextCard');
-    if(nextCard){
-      const next = findNextSchedule();
-      if(next){
-        const extraLabel = formatScheduleRange(next);
-        nextCard.innerHTML = `
-          <div class="home-next-label">📅 다음 일정</div>
-          <div class="home-next-title">${escapeHTML(next.title)}${next.isDate ? ' 💛' : ''}</div>
-          <div class="home-next-sub">${extraLabel}</div>
-        `;
+    const feedCard = document.getElementById('homeFeedCard');
+    if(feedCard){
+      const feed = buildActivityFeed();
+      if(feed.length === 0){
+        feedCard.innerHTML = `<div class="home-next-label">🕓 최근 활동</div><div class="home-next-sub">아직 활동이 없어</div>`;
       } else {
-        nextCard.innerHTML = `<div class="home-next-label">📅 다음 일정</div><div class="home-next-sub">등록된 다가오는 일정이 없어</div>`;
+        const authorClass = a => a === '소정' ? 'author-sojeong' : 'author-seonho';
+        feedCard.innerHTML = `
+          <div class="home-next-label">🕓 최근 활동</div>
+          ${feed.map(f => `<div class="home-feed-item" data-tab-target="${f.tab}">
+            <span class="home-feed-author ${authorClass(f.author)}">${f.author||''}</span>
+            <span class="home-feed-text">${f.label} · ${escapeHTML((f.text||'').slice(0,24))}</span>
+            <span class="home-feed-time">${relativeTimeKR(f.ts)}</span>
+          </div>`).join('')}
+        `;
+        feedCard.querySelectorAll('.home-feed-item').forEach(el=>{
+          el.addEventListener('click', ()=> activateTab(el.dataset.tabTarget));
+        });
       }
     }
 
@@ -1642,19 +1710,6 @@
       } else {
         throwbackCard.classList.add('hidden');
       }
-    }
-
-    const statsGrid = document.getElementById('homeStatsGrid');
-    if(statsGrid){
-      const sojeongStamps = stamps.filter(s=>s.person==='소정').length;
-      const seonhoStamps = stamps.filter(s=>s.person==='선호').length;
-      const wishDone = wishes.filter(w=>w.done).length;
-      statsGrid.innerHTML = `
-        <div class="home-stat-tile"><div class="home-stat-num" style="color:var(--pink);">${sojeongStamps}</div><div class="home-stat-label">소정 스탬프</div></div>
-        <div class="home-stat-tile"><div class="home-stat-num" style="color:var(--yellow);">${seonhoStamps}</div><div class="home-stat-label">선호 스탬프</div></div>
-        <div class="home-stat-tile"><div class="home-stat-num">${dateLogs.length}</div><div class="home-stat-label">데이트 기록</div></div>
-        <div class="home-stat-tile"><div class="home-stat-num">${wishDone}/${wishes.length}</div><div class="home-stat-label">위시 완료</div></div>
-      `;
     }
   }
 
@@ -1679,6 +1734,7 @@
     const target = document.getElementById('homeThrowbackCard').dataset.tabTarget;
     if(target) activateTab(target);
   });
+  document.getElementById('homeNextDateCard').addEventListener('click', ()=> activateTab('schedule'));
   window.addEventListener('hashchange', activateTabFromHash);
 
   function updateIdentityChip(){
@@ -1811,7 +1867,7 @@
         await db.collection('schedule').doc(editingScheduleId).update({ date, endDate, time, endTime, title, memo, isDate });
         resetScheduleForm();
       } else {
-        await db.collection('schedule').doc(genId()).set({ date, endDate, time, endTime, title, memo, isDate, author: identity });
+        await db.collection('schedule').doc(genId()).set({ date, endDate, time, endTime, title, memo, isDate, author: identity, createdAt: Date.now() });
         document.getElementById('schedTitle').value='';
         document.getElementById('schedMemo').value='';
         document.getElementById('schedTime').value='';
@@ -1965,6 +2021,7 @@
     editingDatelogId = null;
     document.getElementById('dateLogTitle').value='';
     document.getElementById('dateLogLocation').value='';
+    document.getElementById('dateLogLocationStatus').classList.add('hidden');
     document.getElementById('dateLogMemo').value='';
     document.getElementById('dateLogTime').value='';
     document.getElementById('dateLogEndDate').value='';
@@ -1991,13 +2048,23 @@
 
     const addBtn = document.getElementById('dateLogAddBtn');
     const originalBtnText = addBtn.textContent;
+    const statusEl = document.getElementById('dateLogLocationStatus');
     let geo = null;
     if(location){
       addBtn.disabled = true;
       addBtn.textContent = '위치 찾는 중...';
+      statusEl.classList.add('hidden');
       geo = await geocodeLocation(location);
       addBtn.disabled = false;
       addBtn.textContent = originalBtnText;
+      statusEl.classList.remove('hidden');
+      if(geo){
+        statusEl.textContent = '✅ 위치를 찾았어! 지도에 표시될 거야.';
+        statusEl.style.color = '#4A9B6E';
+      } else {
+        statusEl.textContent = '⚠️ 이 위치를 못 찾았어. 더 잘 알려진 이름으로 다시 시도해봐 (지도 없이 기록은 저장돼).';
+        statusEl.style.color = '#C24065';
+      }
     }
 
     await saveWithPhotoFallback(
@@ -2012,7 +2079,7 @@
           await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos, ...locData, photo: firebase.firestore.FieldValue.delete() });
         } else {
           await db.collection('datelog').doc(genId()).set({
-            date, endDate, time, endTime, title, memo, photos, ...locData, author: identity
+            date, endDate, time, endTime, title, memo, photos, ...locData, author: identity, createdAt: Date.now()
           });
         }
       },
@@ -2022,6 +2089,7 @@
         } else {
           document.getElementById('dateLogTitle').value='';
           document.getElementById('dateLogLocation').value='';
+          document.getElementById('dateLogLocationStatus').classList.add('hidden');
           document.getElementById('dateLogMemo').value='';
           document.getElementById('dateLogTime').value='';
           document.getElementById('dateLogEndDate').value='';
