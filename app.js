@@ -787,6 +787,7 @@ function renderCalendar(){
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}</div>
+        ${item.location ? `<div class="item-location">📍 ${escapeHTML(item.location)}</div>` : ''}
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         ${cardPhotosHTML(item)}
@@ -795,10 +796,10 @@ function renderCalendar(){
         <div class="reaction-row">
           <div style="display:flex; gap:10px;">
             <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
-              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : '좋아요'}
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
             </button>
             <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
-              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : '댓글'}
+              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
             </button>
           </div>
           <div class="reaction-row-right">
@@ -1169,23 +1170,37 @@ function renderLetters() {
   });
 
   // ---- 저장 실패시 쓴 내용을 지키면서 사진 없이 재시도 ----
+  function showLoadingOverlay(message){
+    document.querySelector('#loadingOverlay .loading-text').innerHTML = message || '게시 중이야...<br>사진이 있으면 조금 걸릴 수 있어';
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+  }
+  function hideLoadingOverlay(){
+    document.getElementById('loadingOverlay').classList.add('hidden');
+  }
   async function saveWithPhotoFallback(doSave, onSuccess){
+    showLoadingOverlay();
     try{
-      await doSave(true);
-      onSuccess();
-    }catch(e){
-      console.error('저장 실패', e);
-      const retry = confirm('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.\n\n사진 없이 다시 저장할까? (쓴 내용은 그대로 남아있어)');
-      if(retry){
-        try{
-          await doSave(false);
-          onSuccess();
-          alert('사진 없이 저장했어. 사진은 조금 작은 걸로 다시 추가해봐도 좋아.');
-        }catch(e2){
-          console.error('재시도도 실패', e2);
-          alert('다시 시도했는데도 실패했어. 인터넷 연결을 확인해줘. 쓴 내용은 그대로 남아있어.');
+      try{
+        await doSave(true);
+        onSuccess();
+      }catch(e){
+        console.error('저장 실패', e);
+        hideLoadingOverlay();
+        const retry = confirm('저장에 실패했어. 사진이 너무 크면 실패할 수 있어.\n\n사진 없이 다시 저장할까? (쓴 내용은 그대로 남아있어)');
+        if(retry){
+          showLoadingOverlay();
+          try{
+            await doSave(false);
+            onSuccess();
+            alert('사진 없이 저장했어. 사진은 조금 작은 걸로 다시 추가해봐도 좋아.');
+          }catch(e2){
+            console.error('재시도도 실패', e2);
+            alert('다시 시도했는데도 실패했어. 인터넷 연결을 확인해줘. 쓴 내용은 그대로 남아있어.');
+          }
         }
       }
+    } finally {
+      hideLoadingOverlay();
     }
   }
 
@@ -1977,12 +1992,15 @@ function startWatchers(){
     // [삭제 도우미]
   async function deleteItem(col, id, item) {
     askDeleteConfirm(async () => {
+      showLoadingOverlay('삭제 중이야...<br>사진이 있으면 조금 걸릴 수 있어');
       try {
         if (item.photos) await deletePhotosFromStorage(item.photos);
         await db.collection(col).doc(id).delete();
       } catch (err) {
         console.error('삭제 실패:', err);
         alert('삭제 중 오류가 발생했어.');
+      } finally {
+        hideLoadingOverlay();
       }
     });
   }

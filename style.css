@@ -1,4 +1,4 @@
-@font-face {
+  @font-face {
     font-family: 'NanumDaHaengCe';
     font-weight: normal;
     font-style: normal;
@@ -327,6 +327,10 @@
   .item-body{flex:1;min-width:0;}
   .item-title{font-size:18px;font-weight:600;word-break:break-word;}
   .item-memo{font-size:15.5px;color:var(--plum-soft);margin-top:3px;word-break:break-word;white-space:pre-wrap;}
+  .item-location{
+    display:inline-flex; font-size:13px; color:#8A6600; background:var(--yellow-soft);
+    padding:2px 8px; border-radius:8px; margin-top:4px; word-break:break-word;
+  }
   .item-meta{display:flex;align-items:center;gap:6px;margin-top:6px;}
   .author-tag{
     font-size:13px;
@@ -711,3 +715,20 @@
   100%{ box-shadow:0 3px 10px rgba(74,53,72,0.05); }
 }
 .search-flash{ animation:searchFlash 1.6s ease; }
+
+/* 게시 중 대기 화면 */
+.loading-overlay{
+  position:fixed; inset:0; background:rgba(74,53,72,0.55); z-index:400;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px;
+}
+.loading-spinner{
+  width:44px; height:44px; border-radius:50%;
+  border:4px solid rgba(255,255,255,0.35); border-top-color:var(--white);
+  animation:loadingSpin 0.8s linear infinite;
+}
+@keyframes loadingSpin{ to{ transform:rotate(360deg); } }
+.loading-text{
+  color:var(--white); font-size:15px; font-weight:700; text-align:center; line-height:1.5;
+  font-family:'NanumDaHaengCe',sans-serif;
+}
