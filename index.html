@@ -177,6 +177,12 @@
     display:block; background:none; border:none; color:var(--pink); font-size:12px;
     text-align:left; padding:2px 2px 10px; cursor:pointer; font-weight:700; font-family:'Pretendard',sans-serif;
   }
+  .date-plan-toggle{
+    display:block; width:100%; text-align:center; padding:9px 0; border-radius:12px;
+    border:1.5px solid #F0E4E9; background:#FDFBF9; color:var(--plum-soft); font-size:12.5px;
+    cursor:pointer; font-family:'Pretendard',sans-serif; margin-bottom:8px;
+  }
+  .date-plan-toggle.active{ background:var(--pink); color:var(--white); border-color:var(--pink); font-weight:700; }
 
   .list{display:flex;flex-direction:column;gap:10px;}
   .item-card{
@@ -257,6 +263,10 @@
     width:5px; height:5px; border-radius:50%; background:var(--yellow);
   }
   .calendar-day.selected .dot{ background:var(--white); }
+  .calendar-day .cal-heart{
+    position:absolute; bottom:0px; left:50%; transform:translateX(-50%);
+    font-size:8px; line-height:1;
+  }
 
   .empty-state{
     text-align:center;
@@ -409,11 +419,13 @@
         </div>
         <div class="add-row hidden" id="schedEndDateRow">
           <input type="date" id="schedEndDate">
+          <input type="time" id="schedEndTime" style="max-width:120px;">
         </div>
         <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
         <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
+        <button type="button" class="date-plan-toggle" id="schedDatePlanToggle">💛 데이트 일정으로 표시</button>
         <div class="add-row">
           <textarea id="schedMemo" placeholder="메모 (선택)"></textarea>
         </div>
@@ -465,6 +477,7 @@
         </div>
         <div class="add-row hidden" id="dateLogEndDateRow">
           <input type="date" id="dateLogEndDate">
+          <input type="time" id="dateLogEndTime" style="max-width:120px;">
         </div>
         <button type="button" class="link-toggle-btn" id="dateLogRangeToggleBtn">+ 종료일 추가 (여행 등 여러 날 일정)</button>
         <div class="add-row">
@@ -709,6 +722,17 @@
     let h12 = h % 12; if(h12 === 0) h12 = 12;
     return `${period} ${h12}:${String(m).padStart(2,'0')}`;
   }
+  function formatScheduleRange(item){
+    const startLabel = fmtShortDate(item.date) + (item.time ? ` ${formatTimeKR(item.time)}` : '');
+    if(item.endDate && item.endDate !== item.date){
+      const endLabel = fmtShortDate(item.endDate) + (item.endTime ? ` ${formatTimeKR(item.endTime)}` : '');
+      return `${startLabel} ~ ${endLabel}`;
+    }
+    if(item.endTime && item.endTime !== item.time){
+      return `${startLabel} ~ ${formatTimeKR(item.endTime)}`;
+    }
+    return startLabel;
+  }
   function formatDateTimeKR(ts){
     const dt = new Date(ts);
     const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), d = String(dt.getDate()).padStart(2,'0');
@@ -746,13 +770,13 @@
 
   function scheduleCardHTML(item){
     const d = fmtDate(item.date);
-    const rangeStr = (item.endDate && item.endDate !== item.date) ? ` ~ ${fmtShortDate(item.endDate)}` : '';
-    const timeStr = item.time ? formatTimeKR(item.time) : '';
+    const extraLabel = formatScheduleRange(item);
+    const hasExtra = extraLabel !== fmtShortDate(item.date);
     return `<div class="item-card ${isPast(item)?'past':''}">
       <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
-        <div class="item-title">${escapeHTML(item.title)}</div>
-        ${(rangeStr || timeStr) ? `<div class="item-memo">${rangeStr ? `${fmtShortDate(item.date)}${rangeStr}` : ''}${rangeStr && timeStr ? ' · ' : ''}${timeStr}</div>` : ''}
+        <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' 💛' : ''}</div>
+        ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         <div class="item-meta">${authorTagHTML(item.author)}</div>
       </div>
@@ -775,11 +799,13 @@
     for(let i=0;i<startWeekday;i++) cells += `<div class="calendar-day empty"></div>`;
     for(let day=1; day<=daysInMonth; day++){
       const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const hasEvent = schedule.some(item => itemCoversDate(item, dateStr));
+      const hasDatePlan = schedule.some(item => itemCoversDate(item, dateStr) && item.isDate);
+      const hasEvent = !hasDatePlan && schedule.some(item => itemCoversDate(item, dateStr));
       const classes = ['calendar-day'];
       if(dateStr === todayStr) classes.push('today');
       if(dateStr === calendarFilterDate) classes.push('selected');
-      cells += `<div class="${classes.join(' ')}" data-cal-date="${dateStr}">${day}${hasEvent ? '<span class="dot"></span>' : ''}</div>`;
+      const marker = hasDatePlan ? '<span class="cal-heart">❤️</span>' : (hasEvent ? '<span class="dot"></span>' : '');
+      cells += `<div class="${classes.join(' ')}" data-cal-date="${dateStr}">${day}${marker}</div>`;
     }
 
     const cal = document.getElementById('scheduleCalendar');
@@ -887,13 +913,13 @@
     }
     list.innerHTML = dateLogs.map(item => {
       const d = fmtDate(item.date);
-      const rangeStr = (item.endDate && item.endDate !== item.date) ? ` ~ ${fmtShortDate(item.endDate)}` : '';
-      const timeStr = item.time ? formatTimeKR(item.time) : '';
+      const extraLabel = formatScheduleRange(item);
+      const hasExtra = extraLabel !== fmtShortDate(item.date);
       return `<div class="item-card">
         <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
         <div class="item-body">
           <div class="item-title">${escapeHTML(item.title)}</div>
-          ${(rangeStr || timeStr) ? `<div class="item-memo">${rangeStr ? `${fmtShortDate(item.date)}${rangeStr}` : ''}${rangeStr && timeStr ? ' · ' : ''}${timeStr}</div>` : ''}
+          ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
           ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
           ${cardPhotosHTML(item)}
           <div class="item-meta">${authorTagHTML(item.author)}</div>
@@ -1012,6 +1038,14 @@
 
   // ---- 일정 ----
   let editingScheduleId = null;
+  let schedIsDatePlan = false;
+  function setDatePlanToggle(v){
+    schedIsDatePlan = v;
+    document.getElementById('schedDatePlanToggle').classList.toggle('active', v);
+  }
+  document.getElementById('schedDatePlanToggle').addEventListener('click', ()=>{
+    setDatePlanToggle(!schedIsDatePlan);
+  });
   function setRangeToggleState(rowId, btnId, show){
     document.getElementById(rowId).classList.toggle('hidden', !show);
     document.getElementById(btnId).textContent = show ? '- 종료일 제거' : '+ 종료일 추가 (여행 등 여러 날 일정)';
@@ -1020,7 +1054,14 @@
     const row = document.getElementById('schedEndDateRow');
     const willShow = row.classList.contains('hidden');
     setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', willShow);
-    if(!willShow) document.getElementById('schedEndDate').value = '';
+    if(willShow){
+      if(!document.getElementById('schedEndDate').value){
+        document.getElementById('schedEndDate').value = document.getElementById('schedDate').value;
+      }
+    } else {
+      document.getElementById('schedEndDate').value = '';
+      document.getElementById('schedEndTime').value = '';
+    }
   });
   function startEditSchedule(item){
     editingScheduleId = item.id;
@@ -1028,11 +1069,14 @@
     document.getElementById('schedTime').value = item.time || '';
     document.getElementById('schedTitle').value = item.title;
     document.getElementById('schedMemo').value = item.memo || '';
+    setDatePlanToggle(!!item.isDate);
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('schedEndDate').value = item.endDate;
+      document.getElementById('schedEndTime').value = item.endTime || '';
       setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', true);
     } else {
       document.getElementById('schedEndDate').value = '';
+      document.getElementById('schedEndTime').value = '';
       setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
     }
     document.getElementById('schedAddBtn').textContent = '수정 완료';
@@ -1045,7 +1089,9 @@
     document.getElementById('schedMemo').value='';
     document.getElementById('schedTime').value='';
     document.getElementById('schedEndDate').value='';
+    document.getElementById('schedEndTime').value='';
     setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
+    setDatePlanToggle(false);
     document.getElementById('schedDate').value = localDateStr();
     document.getElementById('schedAddBtn').textContent = '추가하기';
     document.getElementById('schedCancelBtn').classList.add('hidden');
@@ -1059,17 +1105,21 @@
     const time = document.getElementById('schedTime').value || null;
     let endDate = document.getElementById('schedEndDate').value || null;
     if(endDate && endDate < date) endDate = date;
+    const endTime = endDate ? (document.getElementById('schedEndTime').value || null) : null;
+    const isDate = schedIsDatePlan;
     try{
       if(editingScheduleId){
-        await db.collection('schedule').doc(editingScheduleId).update({ date, endDate, time, title, memo });
+        await db.collection('schedule').doc(editingScheduleId).update({ date, endDate, time, endTime, title, memo, isDate });
         resetScheduleForm();
       } else {
-        await db.collection('schedule').doc(genId()).set({ date, endDate, time, title, memo, author: identity });
+        await db.collection('schedule').doc(genId()).set({ date, endDate, time, endTime, title, memo, isDate, author: identity });
         document.getElementById('schedTitle').value='';
         document.getElementById('schedMemo').value='';
         document.getElementById('schedTime').value='';
         document.getElementById('schedEndDate').value='';
+        document.getElementById('schedEndTime').value='';
         setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
+        setDatePlanToggle(false);
       }
     }catch(e){ console.error('일정 저장 실패', e); alert('저장에 실패했어. 인터넷 연결을 확인해줘.'); }
   });
@@ -1161,7 +1211,14 @@
     const row = document.getElementById('dateLogEndDateRow');
     const willShow = row.classList.contains('hidden');
     setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', willShow);
-    if(!willShow) document.getElementById('dateLogEndDate').value = '';
+    if(willShow){
+      if(!document.getElementById('dateLogEndDate').value){
+        document.getElementById('dateLogEndDate').value = document.getElementById('dateLogDate').value;
+      }
+    } else {
+      document.getElementById('dateLogEndDate').value = '';
+      document.getElementById('dateLogEndTime').value = '';
+    }
   });
   function startEditDatelog(item){
     editingDatelogId = item.id;
@@ -1171,9 +1228,11 @@
     document.getElementById('dateLogMemo').value = item.memo || '';
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('dateLogEndDate').value = item.endDate;
+      document.getElementById('dateLogEndTime').value = item.endTime || '';
       setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', true);
     } else {
       document.getElementById('dateLogEndDate').value = '';
+      document.getElementById('dateLogEndTime').value = '';
       setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
     }
     pendingDateLogPhotos = getItemPhotos(item).slice();
@@ -1188,6 +1247,7 @@
     document.getElementById('dateLogMemo').value='';
     document.getElementById('dateLogTime').value='';
     document.getElementById('dateLogEndDate').value='';
+    document.getElementById('dateLogEndTime').value='';
     setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
     document.getElementById('dateLogDate').value = localDateStr();
     pendingDateLogPhotos = [];
@@ -1204,18 +1264,20 @@
     const time = document.getElementById('dateLogTime').value || null;
     let endDate = document.getElementById('dateLogEndDate').value || null;
     if(endDate && endDate < date) endDate = date;
+    const endTime = endDate ? (document.getElementById('dateLogEndTime').value || null) : null;
     try{
       if(editingDatelogId){
-        await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, title, memo, photos: pendingDateLogPhotos, photo: firebase.firestore.FieldValue.delete() });
+        await db.collection('datelog').doc(editingDatelogId).update({ date, endDate, time, endTime, title, memo, photos: pendingDateLogPhotos, photo: firebase.firestore.FieldValue.delete() });
         resetDatelogForm();
       } else {
         await db.collection('datelog').doc(genId()).set({
-          date, endDate, time, title, memo, photos: pendingDateLogPhotos, author: identity
+          date, endDate, time, endTime, title, memo, photos: pendingDateLogPhotos, author: identity
         });
         document.getElementById('dateLogTitle').value='';
         document.getElementById('dateLogMemo').value='';
         document.getElementById('dateLogTime').value='';
         document.getElementById('dateLogEndDate').value='';
+        document.getElementById('dateLogEndTime').value='';
         setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
         pendingDateLogPhotos = [];
         renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
