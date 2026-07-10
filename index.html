@@ -177,6 +177,30 @@
   }
   .card-photos img{
     width:140px; height:140px; object-fit:cover; border-radius:12px; flex-shrink:0; background:#F5EBEE;
+    cursor:pointer;
+  }
+  .card-photos img:active{ opacity:0.85; }
+
+  .lightbox{
+    position:fixed; inset:0; background:rgba(20,14,18,0.94); z-index:300;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lightbox-close{
+    position:absolute; top:calc(16px + env(safe-area-inset-top)); right:16px; z-index:310;
+    background:rgba(255,255,255,0.18); border:none; color:#fff; width:38px; height:38px;
+    border-radius:50%; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .lightbox-hint{
+    position:absolute; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.65); font-size:11px; z-index:310;
+  }
+  .lightbox-stage{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; touch-action:none;
+  }
+  .lightbox-stage img{
+    max-width:100%; max-height:100%; object-fit:contain;
+    transform-origin:center center; user-select:none; -webkit-user-drag:none;
   }
   .field-group{ display:flex; flex-direction:column; gap:4px; min-width:0; overflow:hidden; }
   .field-label{ font-size:10px; color:var(--plum-soft); padding-left:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -664,6 +688,14 @@
     <div class="push-toast-body" id="pushToastBody"></div>
   </div>
 
+  <div class="lightbox hidden" id="photoLightbox">
+    <button class="lightbox-close" id="lightboxClose">✕</button>
+    <div class="lightbox-stage" id="lightboxStage">
+      <img id="lightboxImg" draggable="false">
+    </div>
+    <div class="lightbox-hint">두 손가락으로 확대 · 더블탭으로 확대/축소</div>
+  </div>
+
   <div class="modal-overlay hidden" id="loginGate">
     <div class="modal-card">
       <div class="modal-title">🐶🍀</div>
@@ -845,6 +877,92 @@
     if(photos.length === 0) return '';
     return `<div class="card-photos">${photos.map(p=>`<img src="${p}">`).join('')}</div>`;
   }
+
+  // ---- 사진 확대뷰 (핀치줌 / 팬 / 더블탭) ----
+  (function(){
+    const lightbox = document.getElementById('photoLightbox');
+    const stage = document.getElementById('lightboxStage');
+    const img = document.getElementById('lightboxImg');
+    const closeBtn = document.getElementById('lightboxClose');
+
+    let scale = 1, panX = 0, panY = 0;
+    let startScale = 1, startDist = 0;
+    let startTouchX = 0, startTouchY = 0;
+    let isPanning = false, isPinching = false;
+    let lastTapTime = 0;
+
+    function applyTransform(){
+      img.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+    function resetTransform(){
+      scale = 1; panX = 0; panY = 0; applyTransform();
+    }
+    function openLightbox(src){
+      img.src = src;
+      resetTransform();
+      lightbox.classList.remove('hidden');
+    }
+    function closeLightbox(){
+      lightbox.classList.add('hidden');
+      img.src = '';
+    }
+    closeBtn.addEventListener('click', closeLightbox);
+    stage.addEventListener('click', (e)=>{
+      if(e.target === stage) closeLightbox();
+    });
+
+    function touchDist(touches){
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx*dx + dy*dy);
+    }
+
+    stage.addEventListener('touchstart', (e)=>{
+      if(e.touches.length === 2){
+        isPinching = true; isPanning = false;
+        startDist = touchDist(e.touches);
+        startScale = scale;
+      } else if(e.touches.length === 1){
+        const now = Date.now();
+        if(now - lastTapTime < 300){
+          if(scale > 1){ resetTransform(); } else { scale = 2.5; applyTransform(); }
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+        isPinching = false;
+        isPanning = scale > 1;
+        startTouchX = e.touches[0].clientX - panX;
+        startTouchY = e.touches[0].clientY - panY;
+      }
+    }, {passive:true});
+
+    stage.addEventListener('touchmove', (e)=>{
+      if(isPinching && e.touches.length === 2){
+        e.preventDefault();
+        const newDist = touchDist(e.touches);
+        scale = Math.min(4, Math.max(1, startScale * (newDist / startDist)));
+        applyTransform();
+      } else if(isPanning && e.touches.length === 1){
+        e.preventDefault();
+        panX = e.touches[0].clientX - startTouchX;
+        panY = e.touches[0].clientY - startTouchY;
+        applyTransform();
+      }
+    }, {passive:false});
+
+    stage.addEventListener('touchend', (e)=>{
+      if(e.touches.length === 0){
+        isPanning = false; isPinching = false;
+        if(scale <= 1){ resetTransform(); }
+      }
+    });
+
+    document.addEventListener('click', (e)=>{
+      const target = e.target.closest('.card-photos img');
+      if(target) openLightbox(target.src);
+    });
+  })();
 
 
   function scheduleCardHTML(item){
