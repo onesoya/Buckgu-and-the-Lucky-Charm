@@ -1,6 +1,15 @@
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js');
 
+// 예전 서비스 워커가 남아서 알림이 중복으로 뜨는 것을 방지:
+// 새 버전이 설치되면 바로 활성화하고, 열려있는 페이지도 즉시 이 버전이 담당하게 함
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 firebase.initializeApp({
   apiKey: "AIzaSyBQ3_IMYp3R_w68Pd8UuFZ6NJQBIgL4AG4",
   authDomain: "buckgu-and-the-lucky-charm.firebaseapp.com",
@@ -17,7 +26,8 @@ messaging.onBackgroundMessage((payload) => {
   const options = {
     body: (payload.notification && payload.notification.body) || '',
     icon: 'icon-180.png',
-    badge: 'favicon-32.png'
+    badge: 'favicon-32.png',
+    tag: 'bukgu-notification'
   };
   self.registration.showNotification(title, options);
 });
