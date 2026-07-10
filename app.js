@@ -28,7 +28,8 @@ db.enablePersistence()
   let stampPerson = null;
   let pendingWishPhotos = [], pendingDateLogPhotos = [], pendingStampPhotos = [], pendingLetterPhotos = [];
   let pendingDateLogGeo = null;
-
+  let searchQuery = '';
+  
   async function searchLocations(query){
     if(!query) return [];
     try{
@@ -742,23 +743,27 @@ function renderCalendar(){
       </div>
     </div>`;
   }
-  function renderWish(){
-    const list = document.getElementById('wishList');
-    const toggleBtn = document.getElementById('toggleDoneWishBtn');
-    const doneSection = document.getElementById('doneWishSection');
+function renderWish(){
+  // 1. 검색어로 필터링하기 (검색어가 있으면 제목/내용 포함된 것만 걸러내기)
+  const filtered = searchQuery 
+    ? wishes.filter(w => (w.title && w.title.toLowerCase().includes(searchQuery)) || (w.body && w.body.toLowerCase().includes(searchQuery)))
+    : wishes;
 
-    if(wishes.length === 0){
-      list.innerHTML = '<div class="empty-state"><span class="empty-emoji">💭</span>아직 하고 싶은 일이 없어.<br>버킷리스트를 적어볼까?</div>';
-      toggleBtn.classList.add('hidden');
-      doneSection.classList.add('hidden');
-      return;
-    }
-    const active = wishes.filter(w=>!w.done);
-    const done = wishes.filter(w=>w.done);
+  const list = document.getElementById('wishList');
+  const toggleBtn = document.getElementById('toggleDoneWishBtn');
+  const doneSection = document.getElementById('doneWishSection');
 
-    list.innerHTML = active.length === 0
-      ? '<div class="empty-state"><span class="empty-emoji">🎉</span>다 완료했어! 새로운 위시를 적어볼까?</div>'
-      : active.map(wishCardHTML).join('');
+  // 2. 이제 wishes 대신 filtered를 사용해!
+  if(filtered.length === 0){ // wishes -> filtered 로 변경
+    list.innerHTML = '<div class="empty-state">검색 결과가 없어...</div>';
+    toggleBtn.classList.add('hidden');
+    doneSection.classList.add('hidden');
+    return;
+  }
+  
+  const active = filtered.filter(w=>!w.done); // wishes -> filtered 로 변경
+  const done = filtered.filter(w=>w.done);    // wishes -> filtered 로 변경
+list.innerHTML = active.length === 0 ? '<div class="empty-state">진행 중인 위시가 없어</div>' : active.map(wishCardHTML).join('');
 
     if(done.length > 0){
       toggleBtn.classList.remove('hidden');
@@ -809,15 +814,24 @@ function renderCalendar(){
       </div>
     </div>`;
   }
-  function renderDateLog(){
-    renderGroupedByTime(
-      'dateLogList', dateLogs,
-      item => item.date + 'T00:00:00',
-      dateLogCardHTML,
-      dateLogExpandedGroups,
-      '<div class="empty-state"><span class="empty-emoji">💛</span>우리의 첫 데이트를<br>기록해봐.</div>'
-    );
-  }
+function renderDateLog() {
+  const filtered = searchQuery 
+    ? dateLogs.filter(d => 
+        (d.title && d.title.toLowerCase().includes(searchQuery)) || 
+        (d.memo && d.memo.toLowerCase().includes(searchQuery)) ||
+        (d.location && d.location.toLowerCase().includes(searchQuery))
+      )
+    : dateLogs;
+
+  renderGroupedByTime(
+    'dateLogList', 
+    filtered, // 여기서 filtered를 써야 해!
+    item => item.date + 'T00:00:00',
+    dateLogCardHTML,
+    dateLogExpandedGroups,
+    '<div class="empty-state">검색 결과가 없어...</div>'
+  );
+}
 
 // 2. 스탬프
   function stampCardHTML(item, popId){
@@ -858,23 +872,30 @@ function renderCalendar(){
       </div>
     </div>`;
   }
-  function renderStamp(popId){
-    const sojeongCount = stamps.filter(s=>s.person==='소정').length;
-    const seonhoCount = stamps.filter(s=>s.person==='선호').length;
-    document.getElementById('statSojeong').textContent = sojeongCount;
-    document.getElementById('statSeonho').textContent = seonhoCount;
+function renderStamp(popId) {
+  // 통계는 전체 데이터 기준으로!
+  const sojeongCount = stamps.filter(s=>s.person==='소정').length;
+  const seonhoCount = stamps.filter(s=>s.person==='선호').length;
+  document.getElementById('statSojeong').textContent = sojeongCount;
+  document.getElementById('statSeonho').textContent = seonhoCount;
 
-    document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
-    document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
+  document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
+  document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
 
-    renderGroupedByTime(
-      'stampList', stamps,
-      item => item.createdAt || Date.now(),
-      item => stampCardHTML(item, popId),
-      stampExpandedGroups,
-      '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
-    );
-  }
+  // 검색 필터링
+  const filtered = searchQuery 
+    ? stamps.filter(s => (s.text && s.text.toLowerCase().includes(searchQuery)) || (s.person && s.person.toLowerCase().includes(searchQuery)))
+    : stamps;
+
+  renderGroupedByTime(
+    'stampList', 
+    filtered, // 여기서 filtered를 써야 해!
+    item => item.createdAt || Date.now(),
+    item => stampCardHTML(item, popId),
+    stampExpandedGroups,
+    '<div class="empty-state">검색 결과가 없어...</div>'
+  );
+}
 
 // 3. 편지
   function letterCardHTML(item){
@@ -915,15 +936,23 @@ function renderCalendar(){
       </div>
     </div>`;
   }
-  function renderLetters(){
-    renderGroupedByTime(
-      'letterList', letters,
-      item => item.createdAt || Date.now(),
-      letterCardHTML,
-      letterExpandedGroups,
-      '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>'
-    );
-  }
+function renderLetters() {
+  const filtered = searchQuery 
+    ? letters.filter(l => 
+        (l.title && l.title.toLowerCase().includes(searchQuery)) || 
+        (l.body && l.body.toLowerCase().includes(searchQuery))
+      )
+    : letters;
+
+  renderGroupedByTime(
+    'letterList', 
+    filtered, // 여기서 filtered를 써야 해!
+    item => item.createdAt || Date.now(),
+    letterCardHTML,
+    letterExpandedGroups,
+    '<div class="empty-state">검색 결과가 없어...</div>'
+  );
+}
 
   function renderDday(){
     const anniv = new Date(ANNIV + 'T00:00:00');
@@ -1777,6 +1806,17 @@ function startWatchers(){
       }
     }
   });
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.toLowerCase();
+  // 검색어 입력 시 각 탭의 render 함수를 다시 실행해서 화면을 필터링함
+  renderSchedule(); 
+  renderWish();
+  renderDateLog();
+  renderStamp();
+  renderLetters();
+});
+
   
   function init(){
     renderDday();
