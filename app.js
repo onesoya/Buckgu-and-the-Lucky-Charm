@@ -1507,6 +1507,8 @@ function renderLetters() {
   document.getElementById('dateLogLocation').addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){
       e.preventDefault();
+      e.target.blur();
+      setTimeout(()=>{ document.activeElement && document.activeElement.blur(); }, 0);
       document.getElementById('dateLogLocationSearchBtn').click();
     }
   });
@@ -2095,6 +2097,12 @@ function startWatchers(){
       searchQuery = value;
       renderSearchResults();
     }, 150);
+  });
+  document.getElementById('searchInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      e.target.blur();
+    }
   });
   document.querySelectorAll('.search-cat-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
