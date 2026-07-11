@@ -640,6 +640,7 @@ function renderCalendar(){
     // 1일부터 말일까지 달력 셀 그리기
     for(let day=1; day<=daysInMonth; day++){
       const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const dayOfWeek = new Date(y, m, day - 1).getDay() + 1 === 7 ? 0 : new Date(y, m, day).getDay();
       const classes = ['calendar-day'];
       if(dateStr === todayStr) classes.push('today');
       if(dateStr === calendarFilterDate) classes.push('selected');
@@ -653,22 +654,43 @@ function renderCalendar(){
         if (ev) {
           const personClass = ev.isDate ? 'date-plan-event' : (ev.author === '소정' ? 'person-sojeong' : 'person-seonho');
           const isActualStart = ev.date === dateStr;
-          const isActualEnd = (ev.endDate || ev.date) === dateStr;
-          
-          // 일정의 첫 날에만 글씨 표시 (이전 달에서 이어져 온 일정은 1일에 표시)
-          const showText = isActualStart || (dateStr === startDateStr && ev.date < startDateStr);
-          const label = showText ? `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}` : '';
-          
-          // 모양(클래스) 결정: 앞이 둥근지, 뒤가 둥근지, 중간인지
-          const shapeClass = [];
-          if (isActualStart) shapeClass.push('ev-start'); else shapeClass.push('ev-mid-left');
-          if (isActualEnd) shapeClass.push('ev-end'); else shapeClass.push('ev-mid-right');
+          const evEnd = ev.endDate || ev.date;
 
-          eventsHTML += `<div class="cal-event-pill ${personClass} ${shapeClass.join(' ')} ${showText ? '' : 'empty-label'}">${label || '&nbsp;'}</div>`;
+          // 이 날짜가 '띠'를 새로 그리기 시작하는 지점인지 판단:
+          // 실제 시작일이거나 / 이번 달 보기의 1일(지난달에서 이어짐)이거나 / 이번 주의 첫 날(일요일, 지난 주에서 이어짐)
+          const isSegmentStart = isActualStart
+            || (dateStr === startDateStr && ev.date < startDateStr)
+            || (dayOfWeek === 0 && ev.date < dateStr);
+
+          if (isSegmentStart) {
+            // 이번 주(토요일까지) / 이번 달 말일까지 / 일정 종료일까지 중 가장 빨리 끝나는 지점까지 span 계산
+            const daysLeftInRow = 6 - dayOfWeek;
+            const daysLeftInMonth = daysInMonth - day;
+            let span = 1;
+            while (span <= daysLeftInRow && span <= daysLeftInMonth) {
+              const nextDateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day+span).padStart(2,'0')}`;
+              if (nextDateStr > evEnd) break;
+              span++;
+            }
+            const segEndDateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day+span-1).padStart(2,'0')}`;
+            const isSegEnd = evEnd <= segEndDateStr;
+
+            const shapeClass = [];
+            if (isActualStart) shapeClass.push('ev-start'); else shapeClass.push('ev-mid-left');
+            if (isSegEnd && evEnd === segEndDateStr) shapeClass.push('ev-end');
+
+            const label = `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}`;
+            const widthCss = span > 1 ? `width:calc(${span * 100}% + ${(span - 1) * 3}px);` : '';
+
+            eventsHTML += `<div class="cal-slot-row"><div class="cal-event-pill ${personClass} ${shapeClass.join(' ')}" style="position:absolute;left:0;top:0;height:100%;${widthCss}">${label}</div></div>`;
+          } else {
+            // 띠가 이어지는 중간 날짜: 이미 시작점에서 그려진 띠가 이 칸까지 덮어주므로, 자리만 확보(투명)
+            eventsHTML += `<div class="cal-slot-row"></div>`;
+          }
         } else {
           // 일정이 없지만 위쪽 슬롯의 단차를 유지하기 위한 투명한 빈 공간
           if (i < slotsForDay.length) { 
-            eventsHTML += `<div class="cal-event-pill ev-placeholder">&nbsp;</div>`;
+            eventsHTML += `<div class="cal-slot-row"></div>`;
           }
         }
       }
@@ -761,19 +783,21 @@ function renderCalendar(){
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
     return `<div class="wish-card ${item.done?'wish-done':''}" data-item-id="${item.id}">
-      <div class="post-summary" data-post-toggle="${item.id}">
-        <div class="post-summary-title">${escapeHTML(item.title)}</div>
-        <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${dateStr}</span><span class="post-summary-arrow">▾</span></div>
-      </div>
-      <div class="wish-content post-detail hidden">
-        ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
-        ${cardPhotosHTML(item)}
-        ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
-        <div class="wish-footer">
-          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;">
-            <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
-            ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
-            <button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
+      <div class="wish-content">
+        <div class="post-summary" data-post-toggle="${item.id}">
+          <div class="post-summary-title">${escapeHTML(item.title)}</div>
+          <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${dateStr}</span><span class="post-summary-arrow">▾</span></div>
+        </div>
+        <div class="post-detail hidden">
+          ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
+          ${cardPhotosHTML(item)}
+          ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
+          <div class="wish-footer">
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;">
+              <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
+              ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
+              <button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -824,7 +848,7 @@ function renderCalendar(){
       <div class="item-body">
         <div class="post-summary" data-post-toggle="${item.id}">
           <div class="post-summary-title">${escapeHTML(item.title)}</div>
-          <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${fmtShortDate(item.date)} 데이트</span><span class="post-summary-arrow">▾</span></div>
+          <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${(item.endDate && item.endDate !== item.date) ? `${fmtShortDate(item.date)}~${fmtShortDate(item.endDate)}` : fmtShortDate(item.date)} 데이트</span><span class="post-summary-arrow">▾</span></div>
           <div class="post-summary-sub">올린 날짜 · ${item.createdAt ? formatDateTimeKR(item.createdAt) : '-'}</div>
         </div>
         <div class="post-detail hidden">
@@ -1188,6 +1212,13 @@ function renderLetters() {
       const proceed = confirm('작성 중인 내용이 있어.\n다른 탭으로 이동하면 지금 쓴 내용이 사라져.\n\n그래도 이동할까?');
       if(!proceed) return;
       resetDraftForTab(currentTab);
+    }
+    // 떠나는 탭에서 펼쳐뒀던 게시물은 접어둬서, 다음에 다시 왔을 때 깔끔하게 시작하도록 함
+    if(currentTab && currentTab !== tabName){
+      const oldPanel = document.getElementById('panel-'+currentTab);
+      if(oldPanel){
+        oldPanel.querySelectorAll('.post-detail:not(.hidden)').forEach(d => d.classList.add('hidden'));
+      }
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     panel.classList.add('active');
