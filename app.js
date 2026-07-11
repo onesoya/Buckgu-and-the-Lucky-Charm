@@ -381,6 +381,7 @@ async function uploadPhotos(photosArray, onProgress) {
         btn.innerHTML = btn.innerHTML.replace(isOpen ? '▲' : '▼', isOpen ? '▼' : '▲');
       });
     });
+    reapplyExpandedState(containerId);
   }
   let dateLogExpandedGroups = new Set();
   let letterExpandedGroups = new Set();
@@ -853,6 +854,8 @@ function renderCalendar(){
       toggleBtn.classList.add('hidden');
       doneSection.classList.add('hidden');
     }
+    reapplyExpandedState('wishList');
+    reapplyExpandedState('doneWishSection');
   }
 
 // 1. 데이트 기록
@@ -1254,6 +1257,9 @@ function renderLetters() {
     if(currentTab && currentTab !== tabName){
       const oldPanel = document.getElementById('panel-'+currentTab);
       if(oldPanel){
+        oldPanel.querySelectorAll('[data-item-id]').forEach(card => {
+          expandedPostIds.delete(card.dataset.itemId);
+        });
         oldPanel.querySelectorAll('.post-detail:not(.hidden)').forEach(d => d.classList.add('hidden'));
       }
       // 편지/스탬프 탭을 나가면 받는사람 필터도 "전체"로 되돌림 (새로고침한 느낌으로)
@@ -1975,12 +1981,28 @@ function startWatchers(){
   
 // ---- 좋아요 버튼 클릭 이벤트 ----
   // ---- 게시물 요약 탭하면 펼치기/접기 ----
+  let expandedPostIds = new Set();
+  function reapplyExpandedState(containerId){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    container.querySelectorAll('[data-item-id]').forEach(card=>{
+      if(expandedPostIds.has(card.dataset.itemId)){
+        const detail = card.querySelector('.post-detail');
+        if(detail) detail.classList.remove('hidden');
+      }
+    });
+  }
   document.querySelector('main').addEventListener('click', (e) => {
     const summary = e.target.closest('.post-summary');
     if (!summary) return;
     const card = summary.closest('[data-item-id]');
     const detail = card ? card.querySelector('.post-detail') : null;
-    if (detail) detail.classList.toggle('hidden');
+    if (detail) {
+      detail.classList.toggle('hidden');
+      const itemId = card.dataset.itemId;
+      if (detail.classList.contains('hidden')) expandedPostIds.delete(itemId);
+      else expandedPostIds.add(itemId);
+    }
   });
 
   document.querySelector('main').addEventListener('click', (e) => {
@@ -2211,7 +2233,10 @@ function startWatchers(){
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
       if(card){
         const detail = card.querySelector('.post-detail');
-        if(detail) detail.classList.remove('hidden');
+        if(detail){
+          detail.classList.remove('hidden');
+          expandedPostIds.add(itemId);
+        }
         card.scrollIntoView({behavior:'smooth', block:'center'});
         card.classList.add('search-flash');
         setTimeout(()=> card.classList.remove('search-flash'), 1600);
