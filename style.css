@@ -199,7 +199,7 @@
   input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="url"]:focus, textarea:focus{
     border-color:var(--pink);
   }
-  textarea{resize:none;min-height:56px;}
+  textarea{resize:none;min-height:56px;overflow-y:auto;transition:height 0.1s ease;}
   .btn{
     font-family:'NanumDaHaengCe',sans-serif;font-weight:700;
     border:none;
@@ -475,10 +475,20 @@
   }
   .wish-check.checked{background:var(--sage);border-color:var(--sage);color:var(--white);}
 
-  /* 위시 탭만 텍스트 축소 (편지 탭은 같은 클래스를 쓰지만 그대로 유지) */
-  #panel-wish .wish-title{font-size:19px;}
+  /* 게시물 요약(제목/작성자/날짜) + 펼치는 상세내용 (위시/데이트기록/편지 공용) */
+  .post-summary{ cursor:pointer; }
+  .post-summary-title{ font-size:22px; font-weight:700; word-break:break-word; }
+  .post-summary-meta{ display:flex; align-items:center; gap:6px; font-size:16px; color:var(--plum-soft); margin-top:5px; }
+  .post-summary-sub{ font-size:13px; color:var(--plum-soft); margin-top:2px; }
+  .post-summary-arrow{ margin-left:auto; font-size:12px; transition:transform 0.2s ease; flex-shrink:0; }
+  .post-summary:has(+ .post-detail:not(.hidden)) .post-summary-arrow{ transform:rotate(180deg); }
+  .post-detail{ margin-top:12px; padding-top:12px; border-top:1px solid #F5EBEE; }
+  .wish-card.wish-done .post-summary-title{ text-decoration:line-through; }
+
+  /* 위시/데이트기록 탭만 텍스트 축소 (편지 탭은 같은 클래스를 쓰지만 그대로 유지) */
+  #panel-wish .post-summary-title{font-size:19px;}
   #panel-wish .wish-body{font-size:17px;}
-  #panel-wish .wish-meta{font-size:14px;}
+  #panel-datelog .post-summary-title{font-size:18px;}
   .letter-to{
     display:inline-flex;align-items:center;gap:4px;font-family:'NanumDaHaengCe',sans-serif;font-weight:700;font-size:16px;
     padding:5px 12px;border-radius:10px;margin-bottom:8px;

@@ -185,6 +185,19 @@ async function uploadPhotos(photosArray, onProgress) {
     });
   }
 
+  function setupAutoGrow(textareaId, maxHeight){
+    const el = document.getElementById(textareaId);
+    if(!el) return;
+    const maxH = maxHeight || 240;
+    function resize(){
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, maxH) + 'px';
+    }
+    el.addEventListener('input', resize);
+    el._autoGrowResize = resize;
+    resize();
+  }
+
   function localDateStr(d){
     d = d || new Date();
     const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
@@ -748,14 +761,16 @@ function renderCalendar(){
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
     return `<div class="wish-card ${item.done?'wish-done':''}" data-item-id="${item.id}">
-      <div class="wish-content">
-        <div class="wish-title">${escapeHTML(item.title)}</div>
+      <div class="post-summary" data-post-toggle="${item.id}">
+        <div class="post-summary-title">${escapeHTML(item.title)}</div>
+        <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${dateStr}</span><span class="post-summary-arrow">▾</span></div>
+      </div>
+      <div class="wish-content post-detail hidden">
         ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
         ${cardPhotosHTML(item)}
         ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
         <div class="wish-footer">
-          <div class="wish-meta">${authorTagHTML(item.author)}<span>${dateStr}</span></div>
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;">
             <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
             ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
             <button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
@@ -807,28 +822,33 @@ function renderCalendar(){
     return `<div class="item-card" data-item-id="${item.id}">
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
-        <div class="item-title">${escapeHTML(item.title)}</div>
-        ${item.location ? `<div class="item-location">📍 ${escapeHTML(item.location)}</div>` : ''}
-        ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
-        ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
-        ${cardPhotosHTML(item)}
-        <div class="item-meta">${authorTagHTML(item.author)}</div>
-        
-        <div class="reaction-row">
-          <div style="display:flex; gap:10px;">
-            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
-              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
-            </button>
-            <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
-              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
-            </button>
-          </div>
-          <div class="reaction-row-right">
-            ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
-            <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
-          </div>
+        <div class="post-summary" data-post-toggle="${item.id}">
+          <div class="post-summary-title">${escapeHTML(item.title)}</div>
+          <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${fmtShortDate(item.date)} 데이트</span><span class="post-summary-arrow">▾</span></div>
+          <div class="post-summary-sub">올린 날짜 · ${item.createdAt ? formatDateTimeKR(item.createdAt) : '-'}</div>
         </div>
-        ${renderCommentsHTML(item, 'datelog')}
+        <div class="post-detail hidden">
+          ${item.location ? `<div class="item-location">📍 ${escapeHTML(item.location)}</div>` : ''}
+          ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
+          ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
+          ${cardPhotosHTML(item)}
+
+          <div class="reaction-row">
+            <div style="display:flex; gap:10px;">
+              <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
+                <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+              </button>
+              <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
+                <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+              </button>
+            </div>
+            <div class="reaction-row-right">
+              ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
+              <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
+            </div>
+          </div>
+          ${renderCommentsHTML(item, 'datelog')}
+        </div>
       </div>
     </div>`;
   }
@@ -916,28 +936,32 @@ function renderStamp(popId) {
 
     return `<div class="wish-card" data-item-id="${item.id}">
       <div class="wish-content">
-        <div class="letter-to ${toClass}">💌 To. ${to}</div>
-        ${item.title ? `<div class="wish-title">${escapeHTML(item.title)}</div>` : ''}
-        <div class="wish-body">${escapeHTML(item.body)}</div>
-        ${cardPhotosHTML(item)}
-        <div class="wish-footer">
-          <div class="wish-meta"><span class="letter-from ${fromClass}">From. ${item.author||''}</span> <span>${dateStr}</span></div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            ${isMine(item) ? `<button class="edit-btn" data-edit-letter="${item.id}">✏️</button><button class="del-btn" data-del-letter="${item.id}">✕</button>` : ''}
-          </div>
+        <div class="post-summary" data-post-toggle="${item.id}">
+          <div class="post-summary-title">${escapeHTML(item.title)}</div>
+          <div class="post-summary-meta"><span class="letter-from ${fromClass}">From. ${item.author||''}</span><span>${dateStr}</span><span class="post-summary-arrow">▾</span></div>
         </div>
-        
-        <div class="reaction-row">
-          <div style="display:flex; gap:10px;">
-            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="letters" data-like-id="${item.id}">
-              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
-            </button>
-            <button class="comment-btn" data-toggle-comment="letters" data-toggle-id="${item.id}">
-              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
-            </button>
+        <div class="post-detail hidden">
+          <div class="letter-to ${toClass}">💌 To. ${to}</div>
+          <div class="wish-body">${escapeHTML(item.body)}</div>
+          ${cardPhotosHTML(item)}
+          <div class="wish-footer">
+            <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; width:100%;">
+              ${isMine(item) ? `<button class="edit-btn" data-edit-letter="${item.id}">✏️</button><button class="del-btn" data-del-letter="${item.id}">✕</button>` : ''}
+            </div>
           </div>
+
+          <div class="reaction-row">
+            <div style="display:flex; gap:10px;">
+              <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="letters" data-like-id="${item.id}">
+                <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+              </button>
+              <button class="comment-btn" data-toggle-comment="letters" data-toggle-id="${item.id}">
+                <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+              </button>
+            </div>
+          </div>
+          ${renderCommentsHTML(item, 'letters')}
         </div>
-        ${renderCommentsHTML(item, 'letters')}
       </div>
     </div>`;
   }
@@ -1379,6 +1403,7 @@ function renderLetters() {
     document.getElementById('wishTitle').value = item.title;
     document.getElementById('wishBody').value = item.body || '';
     document.getElementById('wishLink').value = item.link || '';
+    if(document.getElementById('wishBody')._autoGrowResize) document.getElementById('wishBody')._autoGrowResize();
     pendingWishPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
 // 게시하기 / 수정 완료 버튼
@@ -1391,6 +1416,7 @@ function renderLetters() {
     document.getElementById('wishTitle').value = '';
     document.getElementById('wishBody').value = '';
     document.getElementById('wishLink').value = '';
+    if(document.getElementById('wishBody')._autoGrowResize) document.getElementById('wishBody')._autoGrowResize();
     pendingWishPhotos = [];
     renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
     document.getElementById('wishAddBtn').textContent = '게시하기';
@@ -1424,7 +1450,13 @@ function renderLetters() {
 
     if (editId) startEditWish(wishes.find(s => s.id === editId));
     else if (delId) deleteItem('wishlist', delId, wishes.find(s => s.id === delId));
-    else if (checkId) db.collection('wishlist').doc(checkId).update({ done: !wishes.find(s => s.id === checkId).done }).catch(err=>console.error(err));
+    else if (checkId) {
+      const wishItem = wishes.find(s => s.id === checkId);
+      if(!wishItem) return;
+      const willBeDone = !wishItem.done;
+      if(willBeDone && !confirm('이 위시를 완료로 표시할까?')) return;
+      db.collection('wishlist').doc(checkId).update({ done: willBeDone }).catch(err=>console.error(err));
+    }
   }
   document.getElementById('wishList').addEventListener('click', handleWishListClick);
   document.getElementById('doneWishSection').addEventListener('click', handleWishListClick);
@@ -1467,6 +1499,7 @@ function renderLetters() {
       statusEl0.classList.add('hidden');
     }
     document.getElementById('dateLogMemo').value = item.memo || '';
+    if(document.getElementById('dateLogMemo')._autoGrowResize) document.getElementById('dateLogMemo')._autoGrowResize();
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('dateLogEndDate').value = item.endDate;
       document.getElementById('dateLogEndTime').value = item.endTime || '';
@@ -1490,6 +1523,7 @@ function renderLetters() {
     document.getElementById('dateLogLocationResults').classList.add('hidden');
     pendingDateLogGeo = null;
     document.getElementById('dateLogMemo').value='';
+    if(document.getElementById('dateLogMemo')._autoGrowResize) document.getElementById('dateLogMemo')._autoGrowResize();
     document.getElementById('dateLogTime').value='';
     document.getElementById('dateLogEndDate').value='';
     document.getElementById('dateLogEndTime').value='';
@@ -1624,6 +1658,7 @@ function renderLetters() {
     editingStampId = item.id;
     stampPerson = item.person;
     document.getElementById('stampText').value = item.text;
+    if(document.getElementById('stampText')._autoGrowResize) document.getElementById('stampText')._autoGrowResize();
     pendingStampPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
@@ -1636,6 +1671,7 @@ function renderLetters() {
     editingStampId = null;
     stampPerson = null;
     document.getElementById('stampText').value = '';
+    if(document.getElementById('stampText')._autoGrowResize) document.getElementById('stampText')._autoGrowResize();
     pendingStampPhotos = [];
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
@@ -1667,6 +1703,7 @@ function renderLetters() {
     editingLetterId = item.id;
     document.getElementById('letterTitle').value = item.title || '';
     document.getElementById('letterBody').value = item.body || '';
+    if(document.getElementById('letterBody')._autoGrowResize) document.getElementById('letterBody')._autoGrowResize();
     pendingLetterPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
 
@@ -1678,6 +1715,7 @@ function renderLetters() {
     editingLetterId = null;
     document.getElementById('letterTitle').value = '';
     document.getElementById('letterBody').value = '';
+    if(document.getElementById('letterBody')._autoGrowResize) document.getElementById('letterBody')._autoGrowResize();
     pendingLetterPhotos = [];
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
@@ -1687,9 +1725,10 @@ function renderLetters() {
     
 // 버튼 이벤트는 함수 바깥에!
   document.getElementById('letterAddBtn').addEventListener('click', async () => {
+    const title = document.getElementById('letterTitle').value.trim();
     const body = document.getElementById('letterBody').value.trim();
-    if (!body) return;
-    await saveItem('letters', !!editingLetterId, editingLetterId, { title: document.getElementById('letterTitle').value.trim(), body: body }, pendingLetterPhotos, resetLetterForm);
+    if (!title || !body) return;
+    await saveItem('letters', !!editingLetterId, editingLetterId, { title, body }, pendingLetterPhotos, resetLetterForm);
   });
 
   document.getElementById('letterList').addEventListener('click', (e) => {
@@ -1837,6 +1876,15 @@ function startWatchers(){
   }
   
 // ---- 좋아요 버튼 클릭 이벤트 ----
+  // ---- 게시물 요약 탭하면 펼치기/접기 ----
+  document.querySelector('main').addEventListener('click', (e) => {
+    const summary = e.target.closest('.post-summary');
+    if (!summary) return;
+    const card = summary.closest('[data-item-id]');
+    const detail = card ? card.querySelector('.post-detail') : null;
+    if (detail) detail.classList.toggle('hidden');
+  });
+
   document.querySelector('main').addEventListener('click', (e) => {
     const likeBtn = e.target.closest('.like-btn');
     if (!likeBtn) return;
@@ -2064,6 +2112,8 @@ function startWatchers(){
     setTimeout(()=>{
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
       if(card){
+        const detail = card.querySelector('.post-detail');
+        if(detail) detail.classList.remove('hidden');
         card.scrollIntoView({behavior:'smooth', block:'center'});
         card.classList.add('search-flash');
         setTimeout(()=> card.classList.remove('search-flash'), 1600);
@@ -2120,6 +2170,10 @@ function startWatchers(){
     renderCalendar();
     document.getElementById('schedDate').value = localDateStr();
     document.getElementById('dateLogDate').value = localDateStr();
+    setupAutoGrow('wishBody', 240);
+    setupAutoGrow('dateLogMemo', 240);
+    setupAutoGrow('letterBody', 280);
+    setupAutoGrow('stampText', 200);
     document.querySelector('.app-shell').style.visibility = 'hidden';
 
     firebase.auth().onAuthStateChanged(user=>{
