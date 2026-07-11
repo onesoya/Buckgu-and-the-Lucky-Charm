@@ -1455,8 +1455,10 @@ function renderLetters() {
     }catch(e){ console.error('일정 저장 실패', e); alert('저장에 실패했어. 인터넷 연결을 확인해줘.'); }
   });
   function handleScheduleClick(e){
-    const editId = e.target.dataset && e.target.dataset.editSchedule;
-    const delId = e.target.dataset && e.target.dataset.delSchedule;
+    const editBtn = e.target.closest('[data-edit-schedule]');
+    const delBtn = e.target.closest('[data-del-schedule]');
+    const editId = editBtn && editBtn.dataset.editSchedule;
+    const delId = delBtn && delBtn.dataset.delSchedule;
     if(editId){
       const item = schedule.find(s=>s.id===editId);
       if(item) startEditSchedule(item);
@@ -1528,9 +1530,12 @@ function renderLetters() {
 
   // 클릭 이벤트 (수정/삭제/체크)
   function handleWishListClick(e) {
-    const editId = e.target.dataset.editWish;
-    const delId = e.target.dataset.delWish;
-    const checkId = e.target.dataset.checkWish;
+    const editBtn = e.target.closest('[data-edit-wish]');
+    const delBtn = e.target.closest('[data-del-wish]');
+    const checkBtn = e.target.closest('[data-check-wish]');
+    const editId = editBtn && editBtn.dataset.editWish;
+    const delId = delBtn && delBtn.dataset.delWish;
+    const checkId = checkBtn && checkBtn.dataset.checkWish;
 
     if (editId) startEditWish(wishes.find(s => s.id === editId));
     else if (delId) deleteItem('wishlist', delId, wishes.find(s => s.id === delId));
@@ -1726,8 +1731,10 @@ function renderLetters() {
   
 // 2. 클릭 이벤트 (수정/삭제)
   document.getElementById('dateLogList').addEventListener('click', (e) => {
-    const editId = e.target.dataset.editDatelog;
-    const delId = e.target.dataset.delDatelog;
+    const editBtn = e.target.closest('[data-edit-datelog]');
+    const delBtn = e.target.closest('[data-del-datelog]');
+    const editId = editBtn && editBtn.dataset.editDatelog;
+    const delId = delBtn && delBtn.dataset.delDatelog;
 
     if (editId) startEditDatelog(dateLogs.find(s => s.id === editId));
     else if (delId) deleteItem('datelog', delId, dateLogs.find(s => s.id === delId));
@@ -1774,8 +1781,10 @@ function renderLetters() {
   });
 
   document.getElementById('stampList').addEventListener('click', (e) => {
-    const editId = e.target.dataset.editStamp;
-    const delId = e.target.dataset.delStamp;
+    const editBtn = e.target.closest('[data-edit-stamp]');
+    const delBtn = e.target.closest('[data-del-stamp]');
+    const editId = editBtn && editBtn.dataset.editStamp;
+    const delId = delBtn && delBtn.dataset.delStamp;
     if (editId) startEditStamp(stamps.find(s => s.id === editId));
     else if (delId) deleteItem('stamps', delId, stamps.find(s => s.id === delId));
   });
@@ -1819,8 +1828,10 @@ function renderLetters() {
   });
 
   document.getElementById('letterList').addEventListener('click', (e) => {
-    const editId = e.target.dataset.editLetter;
-    const delId = e.target.dataset.delLetter;
+    const editBtn = e.target.closest('[data-edit-letter]');
+    const delBtn = e.target.closest('[data-del-letter]');
+    const editId = editBtn && editBtn.dataset.editLetter;
+    const delId = delBtn && delBtn.dataset.delLetter;
     if (editId) startEditLetter(letters.find(s => s.id === editId));
     else if (delId) deleteItem('letters', delId, letters.find(s => s.id === delId));
   });
