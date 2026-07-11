@@ -92,6 +92,9 @@
     white-space:nowrap;
     flex-shrink:0;
   }
+  .visit-counter{
+    font-size:10px; color:var(--plum-soft); white-space:nowrap; padding-right:4px;
+  }
 
   main{padding:16px 20px 20px;}
   .tab-panel{display:none;}

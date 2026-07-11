@@ -658,9 +658,11 @@ function renderCalendar(){
 
           // 이 날짜가 '띠'를 새로 그리기 시작하는 지점인지 판단:
           // 실제 시작일이거나 / 이번 달 보기의 1일(지난달에서 이어짐)이거나 / 이번 주의 첫 날(일요일, 지난 주에서 이어짐)
-          const isSegmentStart = isActualStart
-            || (dateStr === startDateStr && ev.date < startDateStr)
-            || (dayOfWeek === 0 && ev.date < dateStr);
+          const isMonthContinuation = dateStr === startDateStr && ev.date < startDateStr;
+          const isWeekContinuation = dayOfWeek === 0 && ev.date < dateStr;
+          const isSegmentStart = isActualStart || isMonthContinuation || isWeekContinuation;
+          // 글자는 실제 시작일 / 달이 바뀌며 이어질 때만 다시 써주고, 그냥 주만 넘어갈 땐 색만 이어감
+          const shouldShowLabel = isActualStart || isMonthContinuation;
 
           if (isSegmentStart) {
             // 이번 주(토요일까지) / 이번 달 말일까지 / 일정 종료일까지 중 가장 빨리 끝나는 지점까지 span 계산
@@ -679,8 +681,9 @@ function renderCalendar(){
             if (isActualStart) shapeClass.push('ev-start'); else shapeClass.push('ev-mid-left');
             if (isSegEnd && evEnd === segEndDateStr) shapeClass.push('ev-end');
 
-            const label = `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}`;
-            const widthCss = span > 1 ? `width:calc(${span * 100}% + ${(span - 1) * 3}px);` : '';
+            const label = shouldShowLabel ? `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}` : '';
+            // span이 1이어도 항상 너비를 명시해야 함 (안 그러면 절대위치 특성상 글자 길이만큼 밖으로 튀어나감)
+            const widthCss = `width:calc(${span * 100}% + ${Math.max(0, span - 1) * 3}px);`;
 
             eventsHTML += `<div class="cal-slot-row"><div class="cal-event-pill ${personClass} ${shapeClass.join(' ')}" style="position:absolute;left:0;top:0;height:100%;${widthCss}">${label}</div></div>`;
           } else {
@@ -2195,6 +2198,44 @@ function startWatchers(){
   });
 
   
+  let visitTracked = false;
+  let visitWatchStarted = false;
+  async function trackVisit(){
+    if(visitTracked) return;
+    visitTracked = true;
+    try{
+      const todayStr = localDateStr();
+      const visitRef = db.collection('stats').doc('visits');
+      await db.runTransaction(async (t)=>{
+        const doc = await t.get(visitRef);
+        if(!doc.exists){
+          t.set(visitRef, { total: 1, todayCount: 1, todayDate: todayStr });
+        } else {
+          const data = doc.data();
+          const newTotal = (data.total || 0) + 1;
+          const newTodayCount = data.todayDate === todayStr ? (data.todayCount || 0) + 1 : 1;
+          t.update(visitRef, { total: newTotal, todayCount: newTodayCount, todayDate: todayStr });
+        }
+      });
+    }catch(e){ console.error('방문 기록 실패', e); }
+  }
+  function watchVisitCounter(){
+    if(visitWatchStarted) return;
+    visitWatchStarted = true;
+    db.collection('stats').doc('visits').onSnapshot(doc=>{
+      const el = document.getElementById('visitCounter');
+      if(!el) return;
+      const todayStr = localDateStr();
+      if(doc.exists){
+        const data = doc.data();
+        const todayCount = (data.todayDate === todayStr) ? (data.todayCount || 0) : 0;
+        el.textContent = `Today ${todayCount} · Total ${data.total || 0}`;
+      } else {
+        el.textContent = 'Today 0 · Total 0';
+      }
+    }, err=>console.error('방문자 수 구독 실패', err));
+  }
+
   function init(){
     renderDday();
     renderHome();
@@ -2214,6 +2255,8 @@ function startWatchers(){
         hideGate();
         startWatchers();
         activateTabFromHash();
+        trackVisit();
+        watchVisitCounter();
         if('Notification' in window && Notification.permission === 'granted'){
           setupPushNotifications();
         } else {
