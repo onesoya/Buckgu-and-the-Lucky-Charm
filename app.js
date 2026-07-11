@@ -271,10 +271,10 @@ async function uploadPhotos(photosArray, onProgress) {
     return `<svg viewBox="0 0 7 6" width="${size}" height="${size*6/7}" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="1" y="0" width="2" height="1" fill="${c}"/><rect x="4" y="0" width="2" height="1" fill="${c}"/><rect x="0" y="1" width="7" height="1" fill="${c}"/><rect x="0" y="2" width="7" height="1" fill="${c}"/><rect x="1" y="3" width="5" height="1" fill="${c}"/><rect x="2" y="4" width="3" height="1" fill="${c}"/><rect x="3" y="5" width="1" height="1" fill="${c}"/></svg>`;
   }
   function pixelChatSVG(){
-    return `<svg viewBox="0 0 6 6" width="14" height="14" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="0" y="0" width="6" height="1" fill="currentColor"/><rect x="0" y="1" width="1" height="1" fill="currentColor"/><rect x="5" y="1" width="1" height="1" fill="currentColor"/><rect x="0" y="2" width="1" height="1" fill="currentColor"/><rect x="5" y="2" width="1" height="1" fill="currentColor"/><rect x="0" y="3" width="6" height="1" fill="currentColor"/><rect x="1" y="4" width="1" height="1" fill="currentColor"/><rect x="2" y="5" width="1" height="1" fill="currentColor"/></svg>`;
+    return `<svg viewBox="0 0 7 6" width="15" height="13" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="1" y="0" width="5" height="1" fill="currentColor"/><rect x="0" y="1" width="1" height="1" fill="currentColor"/><rect x="6" y="1" width="1" height="1" fill="currentColor"/><rect x="0" y="2" width="1" height="1" fill="currentColor"/><rect x="2" y="2" width="1" height="1" fill="currentColor"/><rect x="4" y="2" width="1" height="1" fill="currentColor"/><rect x="6" y="2" width="1" height="1" fill="currentColor"/><rect x="0" y="3" width="1" height="1" fill="currentColor"/><rect x="6" y="3" width="1" height="1" fill="currentColor"/><rect x="1" y="4" width="5" height="1" fill="currentColor"/><rect x="2" y="5" width="1" height="1" fill="currentColor"/></svg>`;
   }
   function pixelEditSVG(){
-    return `<svg viewBox="0 0 6 6" width="14" height="14" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="4" y="0" width="2" height="1" fill="currentColor"/><rect x="3" y="1" width="2" height="1" fill="currentColor"/><rect x="2" y="2" width="2" height="1" fill="currentColor"/><rect x="1" y="3" width="2" height="1" fill="currentColor"/><rect x="0" y="4" width="2" height="1" fill="currentColor"/><rect x="0" y="5" width="1" height="1" fill="currentColor"/></svg>`;
+    return `<svg viewBox="0 0 7 7" width="15" height="15" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="5" y="0" width="2" height="1" fill="#FFB3C6"/><rect x="4" y="1" width="2" height="1" fill="#4A3548"/><rect x="3" y="2" width="2" height="1" fill="#FFC94C"/><rect x="2" y="3" width="2" height="1" fill="#FFC94C"/><rect x="1" y="4" width="2" height="1" fill="#FFC94C"/><rect x="0" y="5" width="2" height="1" fill="#4A3548"/><rect x="0" y="6" width="1" height="1" fill="#4A3548"/></svg>`;
   }
   function linkHost(url){
     try{ return new URL(url).hostname.replace('www.',''); }catch(e){ return url; }
@@ -1255,6 +1255,21 @@ function renderLetters() {
       const oldPanel = document.getElementById('panel-'+currentTab);
       if(oldPanel){
         oldPanel.querySelectorAll('.post-detail:not(.hidden)').forEach(d => d.classList.add('hidden'));
+      }
+      // 편지/스탬프 탭을 나가면 받는사람 필터도 "전체"로 되돌림 (새로고침한 느낌으로)
+      if(currentTab === 'letter' && letterFilterTarget !== 'all'){
+        letterFilterTarget = 'all';
+        document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>{
+          b.classList.toggle('active', b.dataset.letterFilter === 'all');
+        });
+        renderLetters();
+      }
+      if(currentTab === 'stamp' && stampFilterTarget !== 'all'){
+        stampFilterTarget = 'all';
+        document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>{
+          b.classList.toggle('active', b.dataset.stampFilter === 'all');
+        });
+        renderStamp();
       }
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));

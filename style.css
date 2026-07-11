@@ -26,6 +26,8 @@
     font-family:'DungGeunMo',-apple-system,BlinkMacSystemFont,sans-serif;
     color:var(--plum);
   }
+  /* 브라우저는 버튼/입력창에 body 폰트를 자동으로 안 물려줘서, 명시적으로 상속시켜둠 */
+  button, input, textarea, select{ font-family:inherit; }
 
   .app-shell{
     max-width:430px;
@@ -368,6 +370,7 @@
   .toggle-past-btn{
     display:block;margin:14px auto 0;background:var(--white);border:none;border-radius:10px;
     padding:8px 16px;font-size:14px;color:var(--plum-soft);box-shadow:3px 3px 0 rgba(74,53,72,0.25);cursor:pointer;
+    font-family:'DungGeunMo',sans-serif;
   }
   .past{opacity:0.5;}
 
