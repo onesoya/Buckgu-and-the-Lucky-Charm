@@ -279,6 +279,7 @@ async function uploadPhotos(photosArray, onProgress) {
         <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
         <span class="c-text">${escapeHTML(c.text)}</span>
         ${c.author === identity ? `<button class="c-del" data-comment-col="${colName}" data-comment-id="${item.id}" data-comment-ts="${c.ts}">✕</button>` : ''}
+        <div class="c-time">${formatDateTimeKR(c.ts)}</div>
       </div>
     `).join('');
 
@@ -1166,9 +1167,11 @@ function renderLetters() {
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     panel.classList.add('active');
+    window.scrollTo(0, 0);
     document.querySelectorAll('.tab-btn').forEach(b=>{
       b.classList.toggle('active', b.dataset.tab === tabName);
     });
+    if(typeof startCollectionWatcher === 'function') startCollectionWatcher(tabName);
   }
   function activateTabFromHash(){
     const hash = window.location.hash.replace('#','');
@@ -1784,29 +1787,49 @@ function startWatchers(){
     if(watchersStarted) return;
     watchersStarted = true;
 
-    // [일정] 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const pastDateStr = localDateStr(threeMonthsAgo);
+    // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
+    // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
+    startCollectionWatcher('schedule');
 
-    const scheduleQuery = db.collection('schedule')
-                            .where('date', '>=', pastDateStr)
-                            .orderBy('date', 'asc');
-                            
-    watch(scheduleQuery, 'schedule', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
+    // [나머지 4개] 앱을 처음 켤 때 다 같이 무겁게 불러오지 않고,
+    // 그 탭을 처음 열 때 그때 불러오도록 지연시킴 (아래 startCollectionWatcher 참고).
+    // 다만 홈 화면의 "최근 활동/1년 전 오늘" 기능을 위해, 잠깐 쉬는 시간(유휴시간)에
+    // 백그라운드로 조용히 불러와 두기는 함 (탭을 누르면 그 즉시 당겨서 불러옴).
+    const lazyCollections = ['wish', 'datelog', 'stamp', 'letter'];
+    const loadRestInBackground = () => lazyCollections.forEach(startCollectionWatcher);
+    if('requestIdleCallback' in window){
+      requestIdleCallback(loadRestInBackground, {timeout: 2000});
+    } else {
+      setTimeout(loadRestInBackground, 1200);
+    }
+  }
 
-    // [나머지] 최신순으로 딱 100개씩만 제한해서 불러오기
-    const wishQuery = db.collection('wishlist').orderBy('createdAt', 'desc').limit(100);
-    watch(wishQuery, 'wishlist', items=>{ wishes = items; renderWish(); renderHome(); });
+  const collectionWatchersStarted = { schedule:false, wish:false, datelog:false, stamp:false, letter:false };
+  function startCollectionWatcher(tabName){
+    if(collectionWatchersStarted[tabName]) return;
+    collectionWatchersStarted[tabName] = true;
 
-    const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
-    watch(dateLogQuery, 'datelog', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
-
-    const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
-    watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
-
-    const letterQuery = db.collection('letters').orderBy('createdAt', 'desc').limit(100);
-    watch(letterQuery, 'letters', items=>{ letters = items; renderLetters(); renderHome(); });
+    if(tabName === 'schedule'){
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const pastDateStr = localDateStr(threeMonthsAgo);
+      const scheduleQuery = db.collection('schedule')
+                              .where('date', '>=', pastDateStr)
+                              .orderBy('date', 'asc');
+      watch(scheduleQuery, 'schedule', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
+    } else if(tabName === 'wish'){
+      const wishQuery = db.collection('wishlist').orderBy('createdAt', 'desc').limit(100);
+      watch(wishQuery, 'wishlist', items=>{ wishes = items; renderWish(); renderHome(); });
+    } else if(tabName === 'datelog'){
+      const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
+      watch(dateLogQuery, 'datelog', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
+    } else if(tabName === 'stamp'){
+      const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
+      watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
+    } else if(tabName === 'letter'){
+      const letterQuery = db.collection('letters').orderBy('createdAt', 'desc').limit(100);
+      watch(letterQuery, 'letters', items=>{ letters = items; renderLetters(); renderHome(); });
+    }
   }
   
 // ---- 좋아요 버튼 클릭 이벤트 ----
