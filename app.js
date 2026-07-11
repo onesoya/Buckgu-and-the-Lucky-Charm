@@ -1,4 +1,7 @@
 (function(){
+  // iOS 사파리는 이게 없으면 버튼 :active(눌림) CSS가 탭 했을 때 거의 안 켜짐
+  document.addEventListener('touchstart', function(){}, {passive:true});
+
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
   const ANNIV = '2026-02-02';
 
@@ -2238,15 +2241,18 @@ function startWatchers(){
     if(visitWatchStarted) return;
     visitWatchStarted = true;
     db.collection('stats').doc('visits').onSnapshot(doc=>{
-      const el = document.getElementById('visitCounter');
-      if(!el) return;
+      const todayEl = document.getElementById('visitToday');
+      const totalEl = document.getElementById('visitTotal');
+      if(!todayEl || !totalEl) return;
       const todayStr = localDateStr();
       if(doc.exists){
         const data = doc.data();
         const todayCount = (data.todayDate === todayStr) ? (data.todayCount || 0) : 0;
-        el.textContent = `Today ${todayCount} · Total ${data.total || 0}`;
+        todayEl.textContent = `Today ${todayCount}`;
+        totalEl.textContent = `Total ${data.total || 0}`;
       } else {
-        el.textContent = 'Today 0 · Total 0';
+        todayEl.textContent = 'Today 0';
+        totalEl.textContent = 'Total 0';
       }
     }, err=>console.error('방문자 수 구독 실패', err));
   }
