@@ -1,4 +1,4 @@
-  @font-face {
+@font-face {
     font-family: 'DungGeunMo';
     font-weight: normal;
     font-style: normal;
@@ -362,6 +362,10 @@
   }
   .edit-btn{
     border:none;background:none;color:var(--plum-soft);font-size:17px;cursor:pointer;padding:2px 6px;flex-shrink:0;
+  }
+  /* 버튼 안의 그림(아이콘) 자체는 클릭을 못 받게 해서, 어디를 눌러도 항상 버튼으로 클릭이 확실하게 가도록 함 */
+  .edit-btn svg, .like-btn svg, .comment-btn svg, .heart-icon svg, .chat-icon svg, .icon-btn img{
+    pointer-events:none;
   }
   .cancel-edit-btn{
     display:block;width:100%;text-align:center;background:none;border:none;
