@@ -263,7 +263,7 @@ async function uploadPhotos(photosArray, onProgress) {
   function cardPhotosHTML(item){
     const photos = getItemPhotos(item);
     if(photos.length === 0) return '';
-    return `<div class="card-photos">${photos.map(p=>`<img src="${p}">`).join('')}</div>`;
+    return `<div class="card-photos">${photos.map(p=>`<img src="${p}" loading="lazy">`).join('')}</div>`;
   }
 
 // 열려 있는 댓글창 ID를 기억하는 공간 (새로고침 시 닫힘 방지)
@@ -1121,7 +1121,7 @@ function renderLetters() {
         throwbackCard.classList.remove('hidden');
         throwbackCard.dataset.tabTarget = tb.type === 'datelog' ? 'datelog' : 'letter';
         throwbackCard.innerHTML = `
-          ${photo ? `<img class="home-throwback-photo" src="${photo}">` : '<div style="font-size:28px;">💭</div>'}
+          ${photo ? `<img class="home-throwback-photo" src="${photo}" loading="lazy">` : '<div style="font-size:28px;">💭</div>'}
           <div>
             <div class="home-throwback-label">${tb.yearsAgo}년 전 오늘</div>
             <div class="home-throwback-title">${escapeHTML(title)}</div>
@@ -1532,6 +1532,7 @@ function renderLetters() {
       document.getElementById('dateLogLocationCancelBtn').addEventListener('click', ()=>{
         resultsEl.classList.add('hidden');
         resultsEl.innerHTML = '';
+        document.getElementById('dateLogLocation').value = '';
       });
       return;
     }
@@ -1544,6 +1545,7 @@ function renderLetters() {
     document.getElementById('dateLogLocationCancelBtn').addEventListener('click', ()=>{
       resultsEl.classList.add('hidden');
       resultsEl.innerHTML = '';
+      document.getElementById('dateLogLocation').value = '';
     });
     resultsEl.querySelectorAll('.location-result-item[data-idx]').forEach(el=>{
       el.addEventListener('click', ()=>{
@@ -2048,7 +2050,14 @@ function startWatchers(){
       }
     }
 
-    renderSchedule(); renderWish(); renderDateLog(); renderStamp(); renderLetters();
+    const renderMap = {
+      schedule: renderSchedule,
+      wish: renderWish,
+      datelog: renderDateLog,
+      stamp: renderStamp,
+      letter: renderLetters
+    };
+    if(renderMap[tab]) renderMap[tab]();
 
     setTimeout(()=>{
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
@@ -2078,9 +2087,14 @@ function startWatchers(){
   }
   document.getElementById('searchOpenBtn').addEventListener('click', openSearchOverlay);
   document.getElementById('searchCloseBtn').addEventListener('click', closeSearchOverlay);
+  let searchDebounceTimer = null;
   document.getElementById('searchInput').addEventListener('input', (e)=>{
-    searchQuery = e.target.value.toLowerCase();
-    renderSearchResults();
+    const value = e.target.value.toLowerCase();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(()=>{
+      searchQuery = value;
+      renderSearchResults();
+    }, 150);
   });
   document.querySelectorAll('.search-cat-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
