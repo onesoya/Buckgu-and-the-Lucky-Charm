@@ -1132,9 +1132,38 @@ function renderLetters() {
     }
   }
 
+  function getCurrentActiveTab(){
+    const activePanel = document.querySelector('.tab-panel.active');
+    return activePanel ? activePanel.id.replace('panel-','') : null;
+  }
+  function hasUnsavedDraft(tabName){
+    switch(tabName){
+      case 'schedule': return document.getElementById('schedTitle').value.trim() !== '';
+      case 'wish': return document.getElementById('wishTitle').value.trim() !== '' || document.getElementById('wishBody').value.trim() !== '';
+      case 'datelog': return document.getElementById('dateLogTitle').value.trim() !== '';
+      case 'letter': return document.getElementById('letterBody').value.trim() !== '';
+      case 'stamp': return document.getElementById('stampText').value.trim() !== '';
+      default: return false;
+    }
+  }
+  function resetDraftForTab(tabName){
+    switch(tabName){
+      case 'schedule': resetScheduleForm(); break;
+      case 'wish': resetWishForm(); break;
+      case 'datelog': resetDatelogForm(); break;
+      case 'letter': resetLetterForm(); break;
+      case 'stamp': resetStampForm(); break;
+    }
+  }
   function activateTab(tabName){
     const panel = document.getElementById('panel-'+tabName);
     if(!panel) return;
+    const currentTab = getCurrentActiveTab();
+    if(currentTab && currentTab !== tabName && hasUnsavedDraft(currentTab)){
+      const proceed = confirm('작성 중인 내용이 있어.\n다른 탭으로 이동하면 지금 쓴 내용이 사라져.\n\n그래도 이동할까?');
+      if(!proceed) return;
+      resetDraftForTab(currentTab);
+    }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     panel.classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b=>{
@@ -1143,7 +1172,11 @@ function renderLetters() {
   }
   function activateTabFromHash(){
     const hash = window.location.hash.replace('#','');
-    if(hash) activateTab(hash);
+    if(!hash) return;
+    const [tab, itemId] = hash.split(':');
+    if(!tab) return;
+    if(itemId) navigateToItem(tab, itemId);
+    else activateTab(tab);
   }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> activateTab(btn.dataset.tab));
@@ -1489,7 +1522,14 @@ function renderLetters() {
       hideLoadingOverlay();
     }
     if(results.length === 0){
-      resultsEl.innerHTML = '<div class="location-result-item">검색 결과가 없어. 다른 이름으로 시도해봐.</div>';
+      resultsEl.innerHTML = `
+        <div class="location-result-item">검색 결과가 없어. 다른 이름으로 시도해봐.</div>
+        <button type="button" class="location-cancel-btn" id="dateLogLocationCancelBtn">✕ 취소</button>
+      `;
+      document.getElementById('dateLogLocationCancelBtn').addEventListener('click', ()=>{
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+      });
       return;
     }
     resultsEl.innerHTML = results.map((r,i)=>`
@@ -1497,7 +1537,11 @@ function renderLetters() {
         <div class="location-result-name">${escapeHTML(r.name)}</div>
         <div class="location-result-addr">${escapeHTML(r.address || '')}</div>
       </div>
-    `).join('');
+    `).join('') + `<button type="button" class="location-cancel-btn" id="dateLogLocationCancelBtn">✕ 취소</button>`;
+    document.getElementById('dateLogLocationCancelBtn').addEventListener('click', ()=>{
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+    });
     resultsEl.querySelectorAll('.location-result-item[data-idx]').forEach(el=>{
       el.addEventListener('click', ()=>{
         const r = results[Number(el.dataset.idx)];
@@ -1678,8 +1722,10 @@ function watch(query, collectionName, onData){
   const VAPID_KEY = 'BCfNXpOJT8bk0T6vQTI5PJsFW4PjVzTpKoxyOIV1tWvy6qfpeG0-7TOb0htBeAHwzzsZh_Xm4wkN-bf4XXh-2lQ';
   let pushToastTimer = null;
   let pushToastTab = null;
-  function showPushToast(title, tab){
+  let pushToastItemId = null;
+  function showPushToast(title, tab, itemId){
     pushToastTab = tab || null;
+    pushToastItemId = itemId || null;
     document.getElementById('pushToastTitle').textContent = title || '';
     document.getElementById('pushToastBody').textContent = '';
     const toast = document.getElementById('pushToast');
@@ -1690,7 +1736,8 @@ function watch(query, collectionName, onData){
   document.getElementById('pushToast').addEventListener('click', ()=>{
     document.getElementById('pushToast').classList.add('hidden');
     clearTimeout(pushToastTimer);
-    if(pushToastTab) activateTab(pushToastTab);
+    if(pushToastItemId && pushToastTab) navigateToItem(pushToastTab, pushToastItemId);
+    else if(pushToastTab) activateTab(pushToastTab);
   });
 
   async function setupPushNotifications(){
@@ -1707,7 +1754,8 @@ function watch(query, collectionName, onData){
       messaging.onMessage((payload)=>{
         showPushToast(
           payload.notification && payload.notification.title,
-          payload.data && payload.data.tab
+          payload.data && payload.data.tab,
+          payload.data && payload.data.itemId
         );
       });
     }catch(e){
@@ -1952,33 +2000,45 @@ function startWatchers(){
     });
   }
 
-  function navigateToSearchResult(result){
-    closeSearchOverlay();
-    activateTab(result.tab);
+  function navigateToItem(tab, itemId){
+    activateTab(tab);
 
-    if(result.tab === 'datelog'){
-      const key = groupKeyForTimestamp(new Date(result.item.date + 'T00:00:00').getTime());
-      if(key) dateLogExpandedGroups.add(key);
-    } else if(result.tab === 'letter'){
-      const key = groupKeyForTimestamp(result.item.createdAt || Date.now());
-      if(key) letterExpandedGroups.add(key);
-    } else if(result.tab === 'stamp'){
-      const key = groupKeyForTimestamp(result.item.createdAt || Date.now());
-      if(key) stampExpandedGroups.add(key);
-    } else if(result.tab === 'wish' && result.item.done){
-      showDoneWishes = true;
+    let item = null;
+    if(tab === 'schedule') item = schedule.find(x=>x.id===itemId);
+    else if(tab === 'wish') item = wishes.find(x=>x.id===itemId);
+    else if(tab === 'datelog') item = dateLogs.find(x=>x.id===itemId);
+    else if(tab === 'stamp') item = stamps.find(x=>x.id===itemId);
+    else if(tab === 'letter') item = letters.find(x=>x.id===itemId);
+
+    if(item){
+      if(tab === 'datelog'){
+        const key = groupKeyForTimestamp(new Date(item.date + 'T00:00:00').getTime());
+        if(key) dateLogExpandedGroups.add(key);
+      } else if(tab === 'letter'){
+        const key = groupKeyForTimestamp(item.createdAt || Date.now());
+        if(key) letterExpandedGroups.add(key);
+      } else if(tab === 'stamp'){
+        const key = groupKeyForTimestamp(item.createdAt || Date.now());
+        if(key) stampExpandedGroups.add(key);
+      } else if(tab === 'wish' && item.done){
+        showDoneWishes = true;
+      }
     }
 
     renderSchedule(); renderWish(); renderDateLog(); renderStamp(); renderLetters();
 
     setTimeout(()=>{
-      const card = document.querySelector(`[data-item-id="${result.item.id}"]`);
+      const card = document.querySelector(`[data-item-id="${itemId}"]`);
       if(card){
         card.scrollIntoView({behavior:'smooth', block:'center'});
         card.classList.add('search-flash');
         setTimeout(()=> card.classList.remove('search-flash'), 1600);
       }
     }, 150);
+  }
+  function navigateToSearchResult(result){
+    closeSearchOverlay();
+    navigateToItem(result.tab, result.item.id);
   }
 
   function openSearchOverlay(){
