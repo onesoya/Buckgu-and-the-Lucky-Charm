@@ -188,6 +188,11 @@
         </div>
         <button class="cancel-edit-btn hidden" id="letterCancelBtn">수정 취소</button>
       </div>
+      <div class="filter-chip-row" id="letterFilterRow">
+        <button class="filter-chip active" data-letter-filter="all">전체</button>
+        <button class="filter-chip" data-letter-filter="소정">To. 소정</button>
+        <button class="filter-chip" data-letter-filter="선호">To. 선호</button>
+      </div>
       <div id="letterList"></div>
     </section>
 
@@ -221,6 +226,11 @@
           <button class="btn btn-yellow" id="stampAddBtn" style="width:100%;">도장 쾅! 찍기</button>
         </div>
         <button class="cancel-edit-btn hidden" id="stampCancelBtn">수정 취소</button>
+      </div>
+      <div class="filter-chip-row" id="stampFilterRow">
+        <button class="filter-chip active" data-stamp-filter="all">전체</button>
+        <button class="filter-chip" data-stamp-filter="소정">소정이 받음</button>
+        <button class="filter-chip" data-stamp-filter="선호">선호가 받음</button>
       </div>
       <div class="stamp-list" id="stampList"></div>
     </section>

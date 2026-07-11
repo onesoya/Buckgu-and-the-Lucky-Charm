@@ -265,6 +265,17 @@ async function uploadPhotos(photosArray, onProgress) {
   function escapeHTML(s){
     return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  function pixelHeartSVG(filled, size, colorOverride){
+    size = size || 15;
+    const c = colorOverride || (filled ? '#FF5C7A' : '#D8C7CE');
+    return `<svg viewBox="0 0 7 6" width="${size}" height="${size*6/7}" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="1" y="0" width="2" height="1" fill="${c}"/><rect x="4" y="0" width="2" height="1" fill="${c}"/><rect x="0" y="1" width="7" height="1" fill="${c}"/><rect x="0" y="2" width="7" height="1" fill="${c}"/><rect x="1" y="3" width="5" height="1" fill="${c}"/><rect x="2" y="4" width="3" height="1" fill="${c}"/><rect x="3" y="5" width="1" height="1" fill="${c}"/></svg>`;
+  }
+  function pixelChatSVG(){
+    return `<svg viewBox="0 0 6 6" width="14" height="14" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="0" y="0" width="6" height="1" fill="currentColor"/><rect x="0" y="1" width="1" height="1" fill="currentColor"/><rect x="5" y="1" width="1" height="1" fill="currentColor"/><rect x="0" y="2" width="1" height="1" fill="currentColor"/><rect x="5" y="2" width="1" height="1" fill="currentColor"/><rect x="0" y="3" width="6" height="1" fill="currentColor"/><rect x="1" y="4" width="1" height="1" fill="currentColor"/><rect x="2" y="5" width="1" height="1" fill="currentColor"/></svg>`;
+  }
+  function pixelEditSVG(){
+    return `<svg viewBox="0 0 6 6" width="14" height="14" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="4" y="0" width="2" height="1" fill="currentColor"/><rect x="3" y="1" width="2" height="1" fill="currentColor"/><rect x="2" y="2" width="2" height="1" fill="currentColor"/><rect x="1" y="3" width="2" height="1" fill="currentColor"/><rect x="0" y="4" width="2" height="1" fill="currentColor"/><rect x="0" y="5" width="1" height="1" fill="currentColor"/></svg>`;
+  }
   function linkHost(url){
     try{ return new URL(url).hostname.replace('www.',''); }catch(e){ return url; }
   }
@@ -573,12 +584,12 @@ async function uploadPhotos(photosArray, onProgress) {
     return `<div class="item-card ${isPast(item)?'past':''}" data-item-id="${item.id}">
       <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
-        <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' 💛' : ''}</div>
+        <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' ' + pixelHeartSVG(true, 16) : ''}</div>
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         <div class="item-meta">${authorTagHTML(item.author)}</div>
       </div>
-      ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">✏️</button>
+      ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">${pixelEditSVG()}</button>
       <button class="del-btn" data-del-schedule="${item.id}">✕</button>` : ''}
     </div>`;
   }
@@ -690,7 +701,7 @@ function renderCalendar(){
             if (isActualStart) shapeClass.push('ev-start'); else shapeClass.push('ev-mid-left');
             if (isSegEnd && evEnd === segEndDateStr) shapeClass.push('ev-end');
 
-            const label = shouldShowLabel ? `${ev.isDate ? '❤️ ' : ''}${escapeHTML(ev.title)}` : '';
+            const label = shouldShowLabel ? `${ev.isDate ? pixelHeartSVG(true, 13, '#ffffff') + ' ' : ''}${escapeHTML(ev.title)}` : '';
             // span이 1이어도 항상 너비를 명시해야 함 (안 그러면 절대위치 특성상 글자 길이만큼 밖으로 튀어나감)
             const widthCss = `width:calc(${span * 100}% + ${Math.max(0, span - 1) * 3}px);`;
 
@@ -807,7 +818,7 @@ function renderCalendar(){
           <div class="wish-footer">
             <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;">
               <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
-              ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">✏️</button>
+              ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">${pixelEditSVG()}</button>
               <button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
             </div>
           </div>
@@ -852,7 +863,7 @@ function renderCalendar(){
     
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
-    const likeIcon = isLiked ? '❤️' : '🤍';
+    const likeIcon = pixelHeartSVG(isLiked);
     const commentCount = (item.comments || []).length;
 
     return `<div class="item-card" data-item-id="${item.id}">
@@ -875,11 +886,11 @@ function renderCalendar(){
                 <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
               </button>
               <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
-                <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+                <span class="chat-icon">${pixelChatSVG()}</span> ${commentCount > 0 ? commentCount : ''}
               </button>
             </div>
             <div class="reaction-row-right">
-              ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">✏️</button>
+              ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">${pixelEditSVG()}</button>
               <button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
             </div>
           </div>
@@ -909,7 +920,7 @@ function renderDateLog() {
     
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
-    const likeIcon = isLiked ? '❤️' : '🤍';
+    const likeIcon = pixelHeartSVG(isLiked);
     const commentCount = (item.comments || []).length;
 
     return `<div class="stamp-card" data-item-id="${item.id}">
@@ -926,11 +937,11 @@ function renderDateLog() {
               <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
             </button>
             <button class="comment-btn" data-toggle-comment="stamps" data-toggle-id="${item.id}">
-              <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+              <span class="chat-icon">${pixelChatSVG()}</span> ${commentCount > 0 ? commentCount : ''}
             </button>
           </div>
           <div class="reaction-row-right">
-            ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">✏️</button>
+            ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">${pixelEditSVG()}</button>
             <button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
           </div>
         </div>
@@ -938,6 +949,7 @@ function renderDateLog() {
       </div>
     </div>`;
   }
+let stampFilterTarget = 'all';
 function renderStamp(popId) {
   // 통계는 전체 데이터 기준으로!
   const sojeongCount = stamps.filter(s=>s.person==='소정').length;
@@ -948,13 +960,17 @@ function renderStamp(popId) {
   document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
   document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
 
+  const filteredStamps = stampFilterTarget === 'all' ? stamps : stamps.filter(s => s.person === stampFilterTarget);
+
   renderGroupedByTime(
     'stampList',
-    stamps,
+    filteredStamps,
     item => item.createdAt || Date.now(),
     item => stampCardHTML(item, popId),
     stampExpandedGroups,
-    '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
+    stampFilterTarget === 'all'
+      ? '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
+      : '<div class="empty-state"><span class="empty-emoji">🏅</span>해당하는 스탬프가 없어.</div>'
   );
 }
 
@@ -967,7 +983,7 @@ function renderStamp(popId) {
     
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
-    const likeIcon = isLiked ? '❤️' : '🤍';
+    const likeIcon = pixelHeartSVG(isLiked);
     const commentCount = (item.comments || []).length;
 
     return `<div class="wish-card" data-item-id="${item.id}">
@@ -982,7 +998,7 @@ function renderStamp(popId) {
           ${cardPhotosHTML(item)}
           <div class="wish-footer">
             <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end; width:100%;">
-              ${isMine(item) ? `<button class="edit-btn" data-edit-letter="${item.id}">✏️</button><button class="del-btn" data-del-letter="${item.id}">✕</button>` : ''}
+              ${isMine(item) ? `<button class="edit-btn" data-edit-letter="${item.id}">${pixelEditSVG()}</button><button class="del-btn" data-del-letter="${item.id}">✕</button>` : ''}
             </div>
           </div>
 
@@ -992,7 +1008,7 @@ function renderStamp(popId) {
                 <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
               </button>
               <button class="comment-btn" data-toggle-comment="letters" data-toggle-id="${item.id}">
-                <span class="chat-icon">💬</span> ${commentCount > 0 ? commentCount : ''}
+                <span class="chat-icon">${pixelChatSVG()}</span> ${commentCount > 0 ? commentCount : ''}
               </button>
             </div>
           </div>
@@ -1001,14 +1017,18 @@ function renderStamp(popId) {
       </div>
     </div>`;
   }
+let letterFilterTarget = 'all';
 function renderLetters() {
+  const filteredLetters = letterFilterTarget === 'all' ? letters : letters.filter(item => otherPerson(item.author) === letterFilterTarget);
   renderGroupedByTime(
     'letterList',
-    letters,
+    filteredLetters,
     item => item.createdAt || Date.now(),
     letterCardHTML,
     letterExpandedGroups,
-    '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>'
+    letterFilterTarget === 'all'
+      ? '<div class="empty-state"><span class="empty-emoji">💌</span>아직 편지가 없어.<br>짧은 편지 한 통 써볼까?</div>'
+      : '<div class="empty-state"><span class="empty-emoji">💌</span>해당하는 편지가 없어.</div>'
   );
 }
 
@@ -1961,7 +1981,7 @@ function startWatchers(){
     likeBtn.classList.add('like-pop');
     if (!hasLiked) {
       likeBtn.classList.add('liked');
-      likeBtn.querySelector('.heart-icon').textContent = '❤️';
+      likeBtn.querySelector('.heart-icon').innerHTML = pixelHeartSVG(true);
     }
     
     // 2. 0.3초(300ms) 동안 애니메이션이 끝나길 기다렸다가 DB에 저장!
@@ -2256,6 +2276,23 @@ function startWatchers(){
       }
     }, err=>console.error('방문자 수 구독 실패', err));
   }
+
+  document.querySelectorAll('#letterFilterRow .filter-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      letterFilterTarget = btn.dataset.letterFilter;
+      renderLetters();
+    });
+  });
+  document.querySelectorAll('#stampFilterRow .filter-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      stampFilterTarget = btn.dataset.stampFilter;
+      renderStamp();
+    });
+  });
 
   function init(){
     renderDday();
