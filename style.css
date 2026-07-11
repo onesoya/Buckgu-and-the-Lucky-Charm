@@ -412,6 +412,7 @@
     overflow:hidden; text-overflow:ellipsis; color:#4A3548; font-weight:600; 
     text-align:left; /* 넓게 뻗은 띠 첫 부분부터 글씨 시작 */
     box-sizing:border-box; z-index:2;
+    pointer-events:none; /* 띠는 장식용 - 탭하면 실제 아래 날짜 칸으로 클릭이 통과되게 함 */
   }
   .cal-event-pill.person-sojeong{ background:var(--pink-soft); }
   .cal-event-pill.person-seonho{ background:var(--yellow-soft); }

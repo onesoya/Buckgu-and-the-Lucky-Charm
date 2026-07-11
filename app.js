@@ -79,6 +79,12 @@ function resizeImage(file){
     });
   }
   
+  function revokePendingPhotoUrls(photosArray){
+    (photosArray || []).forEach(p => {
+      if(p && typeof p !== 'string' && p.url) URL.revokeObjectURL(p.url);
+    });
+  }
+
   function renderPhotoPreviewGrid(wrapId, getPhotos, setPhotos){
     const wrap = document.getElementById(wrapId);
     const photos = getPhotos();
@@ -1112,7 +1118,12 @@ function renderLetters() {
     return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
   }
 
+  let renderHomeDebounceTimer = null;
   function renderHome(){
+    clearTimeout(renderHomeDebounceTimer);
+    renderHomeDebounceTimer = setTimeout(renderHomeImmediate, 120);
+  }
+  function renderHomeImmediate(){
     const todayEl = document.getElementById('homeToday');
     if(todayEl) todayEl.textContent = formatTodayKR();
 
@@ -1451,6 +1462,7 @@ function renderLetters() {
     document.getElementById('wishBody').value = '';
     document.getElementById('wishLink').value = '';
     if(document.getElementById('wishBody')._autoGrowResize) document.getElementById('wishBody')._autoGrowResize();
+    revokePendingPhotoUrls(pendingWishPhotos);
     pendingWishPhotos = [];
     renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
     document.getElementById('wishAddBtn').textContent = '게시하기';
@@ -1563,6 +1575,7 @@ function renderLetters() {
     document.getElementById('dateLogEndTime').value='';
     setRangeToggleState('dateLogEndDateRow', 'dateLogRangeToggleBtn', false);
     document.getElementById('dateLogDate').value = localDateStr();
+    revokePendingPhotoUrls(pendingDateLogPhotos);
     pendingDateLogPhotos = [];
     renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
     document.getElementById('dateLogAddBtn').textContent = '기록하기';
@@ -1706,6 +1719,7 @@ function renderLetters() {
     stampPerson = null;
     document.getElementById('stampText').value = '';
     if(document.getElementById('stampText')._autoGrowResize) document.getElementById('stampText')._autoGrowResize();
+    revokePendingPhotoUrls(pendingStampPhotos);
     pendingStampPhotos = [];
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
@@ -1750,6 +1764,7 @@ function renderLetters() {
     document.getElementById('letterTitle').value = '';
     document.getElementById('letterBody').value = '';
     if(document.getElementById('letterBody')._autoGrowResize) document.getElementById('letterBody')._autoGrowResize();
+    revokePendingPhotoUrls(pendingLetterPhotos);
     pendingLetterPhotos = [];
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
