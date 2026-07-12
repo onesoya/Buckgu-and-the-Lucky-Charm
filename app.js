@@ -2716,6 +2716,14 @@ function startWatchers(){
       try {
         if (item.photos) await deletePhotosFromStorage(item.photos);
         await db.collection(col).doc(id).delete();
+        // 게시글 자체를 지우면 좋아요/댓글 필드도 문서와 함께 자동으로 통째로 사라짐 (별도 정리 불필요).
+        // 여기선 화면에 남아있을 수 있는 사소한 UI 기억(펼침/댓글창/답글창 상태)만 같이 정리해줌
+        expandedPostIds.delete(id);
+        Object.values(tabToColName).forEach(colName=>{
+          const key = `${colName}-${id}`;
+          openCommentSections.delete(key);
+          replyingToMap.delete(key);
+        });
       } catch (err) {
         console.error('삭제 실패:', err);
         alert('삭제 중 오류가 발생했어.');
