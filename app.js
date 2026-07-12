@@ -1339,7 +1339,12 @@ function renderLetters() {
   });
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
     const provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider).catch(err=>{
+    firebase.auth().signInWithPopup(provider).then(()=>{
+      // 로그인은 이미 성공했지만 onAuthStateChanged가 반영되기까지 아주 잠깐 시차가 있어서,
+      // 그 사이에 "로그인해줘" 문구가 다시 보이지 않도록 미리 전환 문구로 바꿔둠
+      const msgEl = document.getElementById('loginGateMsg');
+      if(msgEl) msgEl.innerHTML = '로그인 중이야...';
+    }).catch(err=>{
       console.error('로그인 실패', err);
       if(err.code !== 'auth/popup-closed-by-user'){
         alert('로그인에 실패했어. 다시 시도해줘.');
