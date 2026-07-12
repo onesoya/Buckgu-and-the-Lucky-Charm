@@ -212,6 +212,12 @@ async function uploadPhotos(photosArray, onProgress) {
     const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
     return `${y}-${m}-${day}`;
   }
+  function isLetterLocked(item){
+    if(!item.unlockDate) return false;
+    if(item.author === identity) return false; // 본인이 쓴 편지는 잠기지 않음
+    const unlockTs = new Date(`${item.unlockDate}T${item.unlockTime || '00:00'}:00`).getTime();
+    return unlockTs > Date.now();
+  }
   function fmtDate(d){
     if(!d) return {day:'-', mon:''};
     const dt = new Date(d + 'T00:00:00');
@@ -989,15 +995,16 @@ function renderStamp(popId) {
     const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
 
     // 잠긴 편지: 받는 사람한테는 해제일까지 내용을 안 보여줌 (쓴 사람 본인은 그대로 볼 수 있음)
-    const isLockedForMe = item.unlockDate && item.unlockDate > localDateStr() && item.author !== identity;
-    if(isLockedForMe){
-      const dDay = Math.ceil((new Date(item.unlockDate+'T00:00:00') - new Date(localDateStr()+'T00:00:00')) / 86400000);
+    if(isLetterLocked(item)){
+      const unlockTs = new Date(`${item.unlockDate}T${item.unlockTime || '00:00'}:00`).getTime();
+      const dDay = Math.ceil((unlockTs - Date.now()) / 86400000);
+      const timeLabel = item.unlockTime ? ` ${formatTimeKR(item.unlockTime)}` : '';
       return `<div class="wish-card letter-locked-card" data-item-id="${item.id}">
         <div class="wish-content letter-locked-body">
           <div class="letter-locked-icon">🔒</div>
           <div class="letter-locked-text">
             <span class="letter-from ${fromClass}">From. ${item.author||''}</span>
-            <div class="letter-locked-sub">잠긴 편지가 있어<br>${fmtShortDate(item.unlockDate)}에 열려 (D-${dDay})</div>
+            <div class="letter-locked-sub">잠긴 편지가 있어<br>${fmtShortDate(item.unlockDate)}${timeLabel}에 열려 (D-${dDay})</div>
           </div>
         </div>
       </div>`;
@@ -1159,8 +1166,7 @@ function renderLetters() {
       items.push({ id: it.id, ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
     });
     letters.forEach(it=>{
-      const isLockedForMe = it.unlockDate && it.unlockDate > localDateStr() && it.author !== identity;
-      const text = isLockedForMe ? '🔒 잠긴 편지' : (it.title || it.body);
+      const text = isLetterLocked(it) ? '🔒 잠긴 편지' : (it.title || it.body);
       items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'편지', text, tab:'letter' });
     });
     return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
@@ -1865,10 +1871,12 @@ function renderLetters() {
 
     if(item.unlockDate){
       document.getElementById('letterUnlockDate').value = item.unlockDate;
+      document.getElementById('letterUnlockTime').value = item.unlockTime || '';
       document.getElementById('letterUnlockDateRow').classList.remove('hidden');
       document.getElementById('letterLockToggleBtn').textContent = '- 잠금 해제일 제거';
     } else {
       document.getElementById('letterUnlockDate').value = '';
+      document.getElementById('letterUnlockTime').value = '';
       document.getElementById('letterUnlockDateRow').classList.add('hidden');
       document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
     }
@@ -1886,6 +1894,7 @@ function renderLetters() {
     pendingLetterPhotos = [];
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
     document.getElementById('letterUnlockDate').value = '';
+    document.getElementById('letterUnlockTime').value = '';
     document.getElementById('letterUnlockDateRow').classList.add('hidden');
     document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
@@ -1897,10 +1906,13 @@ function renderLetters() {
     const willShow = row.classList.contains('hidden');
     row.classList.toggle('hidden', !willShow);
     document.getElementById('letterLockToggleBtn').textContent = willShow ? '- 잠금 해제일 제거' : '+ 특정 날짜까지 잠그기 (선택)';
-    if(!willShow) document.getElementById('letterUnlockDate').value = '';
-    else if(!document.getElementById('letterUnlockDate').value){
+    if(!willShow){
+      document.getElementById('letterUnlockDate').value = '';
+      document.getElementById('letterUnlockTime').value = '';
+    } else if(!document.getElementById('letterUnlockDate').value){
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
       document.getElementById('letterUnlockDate').value = localDateStr(tomorrow);
+      document.getElementById('letterUnlockTime').value = '09:00';
     }
   });
     
@@ -1909,13 +1921,18 @@ function renderLetters() {
     const title = document.getElementById('letterTitle').value.trim();
     const body = document.getElementById('letterBody').value.trim();
     if (!title || !body) return;
-    const unlockDateRaw = document.getElementById('letterUnlockDateRow').classList.contains('hidden')
-      ? '' : document.getElementById('letterUnlockDate').value;
+    const lockOn = !document.getElementById('letterUnlockDateRow').classList.contains('hidden');
+    const unlockDateRaw = lockOn ? document.getElementById('letterUnlockDate').value : '';
+    const unlockTimeRaw = lockOn ? document.getElementById('letterUnlockTime').value : '';
     const payload = { title, body };
     if(unlockDateRaw){
       payload.unlockDate = unlockDateRaw;
+      payload.unlockTime = unlockTimeRaw || '00:00';
+      payload.unlockNotified = false;
     } else if(editingLetterId){
       payload.unlockDate = firebase.firestore.FieldValue.delete();
+      payload.unlockTime = firebase.firestore.FieldValue.delete();
+      payload.unlockNotified = firebase.firestore.FieldValue.delete();
     }
     await saveItem('letters', !!editingLetterId, editingLetterId, payload, pendingLetterPhotos, resetLetterForm);
   });
@@ -2259,8 +2276,7 @@ function startWatchers(){
       match: `${it.text||''} ${it.person||''}`.toLowerCase()
     }));
     letters.forEach(it => {
-      const isLockedForMe = it.unlockDate && it.unlockDate > localDateStr() && it.author !== identity;
-      if(isLockedForMe) return; // 잠긴 편지는 검색에서도 제외
+      if(isLetterLocked(it)) return; // 잠긴 편지는 검색에서도 제외
       items.push({
         tab:'letter', label:'편지', ts: it.createdAt || 0,
         title: it.title || (it.body||'').slice(0,20), sub: it.body || '', item: it,
