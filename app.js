@@ -1337,17 +1337,20 @@ function renderLetters() {
   document.getElementById('identityChip').addEventListener('click', ()=>{
     if(confirm('로그아웃할까?')) firebase.auth().signOut();
   });
+  let signInInProgress = false;
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
+    signInInProgress = true;
+    const msgEl = document.getElementById('loginGateMsg');
+    if(msgEl) msgEl.innerHTML = '로그인 중이야...';
     const provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider).then(()=>{
-      // 로그인은 이미 성공했지만 onAuthStateChanged가 반영되기까지 아주 잠깐 시차가 있어서,
-      // 그 사이에 "로그인해줘" 문구가 다시 보이지 않도록 미리 전환 문구로 바꿔둠
-      const msgEl = document.getElementById('loginGateMsg');
-      if(msgEl) msgEl.innerHTML = '로그인 중이야...';
-    }).catch(err=>{
+    firebase.auth().signInWithPopup(provider).catch(err=>{
+      signInInProgress = false;
       console.error('로그인 실패', err);
       if(err.code !== 'auth/popup-closed-by-user'){
         alert('로그인에 실패했어. 다시 시도해줘.');
+      } else if(msgEl){
+        // 팝업을 직접 닫아서 취소한 경우엔 원래 문구로 되돌림
+        msgEl.innerHTML = '소정, 선호만 쓸 수 있는 앱이야.<br>구글 계정으로 로그인해줘.';
       }
     });
   });
@@ -2415,6 +2418,7 @@ function startWatchers(){
 
     firebase.auth().onAuthStateChanged(user=>{
       if(user && EMAIL_MAP[user.email]){
+        signInInProgress = false;
         identity = EMAIL_MAP[user.email];
         updateIdentityChip();
         hideGate();
@@ -2428,9 +2432,12 @@ function startWatchers(){
           maybeShowNotifPrompt();
         }
       } else if(user && !EMAIL_MAP[user.email]){
+        signInInProgress = false;
         firebase.auth().signOut();
         showGate('이 구글 계정은 사용할 수 없어.<br>소정, 선호 계정으로만 로그인해줘.');
-      } else {
+      } else if(!signInInProgress){
+        // 로그인 처리가 진행 중일 때 onAuthStateChanged가 중간에 한 번 더 불려도
+        // "로그인해줘" 기본 문구로 다시 덮어쓰지 않도록 함 (그게 화면 깜빡임의 원인이었음)
         showGate('소정, 선호만 쓸 수 있는 앱이야.<br>구글 계정으로 로그인해줘.');
       }
     });
