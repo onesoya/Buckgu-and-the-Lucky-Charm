@@ -314,7 +314,7 @@ async function uploadPhotos(photosArray, onProgress) {
     const isOpen = openCommentSections.has(`${colName}-${item.id}`);
     
     const commentListHTML = comments.map(c => `
-      <div class="comment-item">
+      <div class="comment-item" data-comment-ts="${c.ts}">
         <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
         <span class="c-text">${escapeHTML(c.text)}</span>
         ${c.author === identity ? `<button class="c-del" data-comment-col="${colName}" data-comment-id="${item.id}" data-comment-ts="${c.ts}">✕</button>` : ''}
@@ -1335,9 +1335,10 @@ function renderLetters() {
   function activateTabFromHash(){
     const hash = window.location.hash.replace('#','');
     if(!hash) return;
-    const [tab, itemId] = hash.split(':');
+    const [tab, itemId, extra] = hash.split(':');
     if(!tab) return;
-    if(itemId) navigateToItem(tab, itemId);
+    const commentTs = (extra && extra.startsWith('c')) ? extra.slice(1) : null;
+    if(itemId) navigateToItem(tab, itemId, commentTs);
     else activateTab(tab);
   }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -1978,9 +1979,11 @@ function watch(query, collectionName, onData){
   let pushToastTimer = null;
   let pushToastTab = null;
   let pushToastItemId = null;
-  function showPushToast(title, tab, itemId){
+  let pushToastCommentTs = null;
+  function showPushToast(title, tab, itemId, commentTs){
     pushToastTab = tab || null;
     pushToastItemId = itemId || null;
+    pushToastCommentTs = commentTs || null;
     document.getElementById('pushToastTitle').textContent = title || '';
     document.getElementById('pushToastBody').textContent = '';
     const toast = document.getElementById('pushToast');
@@ -1991,7 +1994,7 @@ function watch(query, collectionName, onData){
   document.getElementById('pushToast').addEventListener('click', ()=>{
     document.getElementById('pushToast').classList.add('hidden');
     clearTimeout(pushToastTimer);
-    if(pushToastItemId && pushToastTab) navigateToItem(pushToastTab, pushToastItemId);
+    if(pushToastItemId && pushToastTab) navigateToItem(pushToastTab, pushToastItemId, pushToastCommentTs);
     else if(pushToastTab) activateTab(pushToastTab);
   });
 
@@ -2000,7 +2003,7 @@ function watch(query, collectionName, onData){
     navigator.serviceWorker.addEventListener('message', (event)=>{
       const msg = event.data;
       if(msg && msg.type === 'navigate' && msg.tab){
-        if(msg.itemId) navigateToItem(msg.tab, msg.itemId);
+        if(msg.itemId) navigateToItem(msg.tab, msg.itemId, msg.commentTs);
         else activateTab(msg.tab);
       }
     });
@@ -2019,9 +2022,10 @@ function watch(query, collectionName, onData){
       }
       messaging.onMessage((payload)=>{
         showPushToast(
-          payload.notification && payload.notification.title,
+          payload.data && payload.data.title,
           payload.data && payload.data.tab,
-          payload.data && payload.data.itemId
+          payload.data && payload.data.itemId,
+          payload.data && payload.data.commentTs
         );
       });
     }catch(e){
@@ -2314,11 +2318,17 @@ function startWatchers(){
     });
   }
 
-  function navigateToItem(tab, itemId){
+  function navigateToItem(tab, itemId, commentTs){
     activateTab(tab);
 
     // 데이터가 아직 안 왔어도, 나중에 렌더링될 때 펼쳐지도록 미리 예약해둠
     if(itemId) expandedPostIds.add(itemId);
+
+    // 댓글 알림으로 들어온 경우, 댓글창도 미리 펼쳐놓도록 예약
+    const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
+    if(commentTs && tabToColName[tab]){
+      openCommentSections.add(`${tabToColName[tab]}-${itemId}`);
+    }
 
     let item = null;
     if(tab === 'schedule') item = schedule.find(x=>x.id===itemId);
@@ -2359,9 +2369,27 @@ function startWatchers(){
       if(card){
         const detail = card.querySelector('.post-detail');
         if(detail) detail.classList.remove('hidden');
-        card.scrollIntoView({behavior:'smooth', block:'center'});
-        card.classList.add('search-flash');
-        setTimeout(()=> card.classList.remove('search-flash'), 1600);
+
+        if(commentTs){
+          // 댓글창이 실제로 렌더링되어 나타날 때까지 재시도해서, 그 댓글로 스크롤
+          let cAttempts = 0;
+          function tryScrollToComment(){
+            const commentEl = card.querySelector(`.comment-item[data-comment-ts="${commentTs}"]`);
+            if(commentEl){
+              commentEl.scrollIntoView({behavior:'smooth', block:'center'});
+              commentEl.classList.add('search-flash');
+              setTimeout(()=> commentEl.classList.remove('search-flash'), 1600);
+              return;
+            }
+            cAttempts++;
+            if(cAttempts < 6) setTimeout(tryScrollToComment, 200);
+          }
+          setTimeout(tryScrollToComment, 200);
+        } else {
+          card.scrollIntoView({behavior:'smooth', block:'center'});
+          card.classList.add('search-flash');
+          setTimeout(()=> card.classList.remove('search-flash'), 1600);
+        }
         return;
       }
       attempts++;

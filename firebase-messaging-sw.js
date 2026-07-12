@@ -30,6 +30,7 @@ messaging.onBackgroundMessage((payload) => {
   const body = data.body || '';
   const tab = data.tab || '';
   const itemId = data.itemId || '';
+  const commentTs = data.commentTs || '';
   const link = data.link || DEFAULT_LINK;
 
   const options = {
@@ -37,14 +38,14 @@ messaging.onBackgroundMessage((payload) => {
     icon: 'icon-180.png',
     badge: 'favicon-32.png',
     tag: 'bukgu-notification',
-    data: { link, tab, itemId }
+    data: { link, tab, itemId, commentTs }
   };
   self.registration.showNotification(title, options);
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const { link, tab, itemId } = event.notification.data || {};
+  const { link, tab, itemId, commentTs } = event.notification.data || {};
   const targetLink = link || DEFAULT_LINK;
 
   event.waitUntil(
@@ -53,7 +54,7 @@ self.addEventListener('notificationclick', (event) => {
       // 페이지에 직접 "이 탭/게시글로 가" 메시지를 보내서 확실하게 이동시킴
       for (const client of windowClients) {
         if ('focus' in client) {
-          client.postMessage({ type: 'navigate', tab, itemId, link: targetLink });
+          client.postMessage({ type: 'navigate', tab, itemId, commentTs, link: targetLink });
           if ('navigate' in client) {
             client.navigate(targetLink).catch(() => {});
           }
