@@ -588,7 +588,7 @@ async function uploadPhotos(photosArray, onProgress) {
         <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' ' + pixelHeartSVG(true, 16) : ''}</div>
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
-        <div class="item-meta">${authorTagHTML(item.author)}</div>
+        ${item.isDate ? '' : `<div class="item-meta">${authorTagHTML(item.author)}</div>`}
       </div>
       ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">${pixelEditSVG()}</button>
       <button class="del-btn" data-del-schedule="${item.id}">✕</button>` : ''}
