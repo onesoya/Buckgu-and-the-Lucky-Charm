@@ -508,6 +508,16 @@
   .letter-from.from-sojeong{background:var(--pink-soft);color:#C24065;}
   .letter-from.from-seonho{background:var(--yellow-soft);color:#8A6600;}
 
+  .letter-locked-card{ border-style:dashed; opacity:0.92; }
+  .letter-locked-body{ display:flex; align-items:center; gap:12px; padding:16px; }
+  .letter-locked-icon{ font-size:28px; flex-shrink:0; }
+  .letter-locked-text{ flex:1; min-width:0; }
+  .letter-locked-sub{ font-size:12px; color:var(--plum-soft); margin-top:6px; line-height:1.5; }
+  .letter-unlock-badge{
+    display:inline-block; font-size:11px; color:#8A6600; background:var(--yellow-soft);
+    padding:3px 9px; border-radius:8px; margin-bottom:8px;
+  }
+
   .stat-row{display:flex;gap:10px;margin-bottom:16px;}
   .stat-card{border:2.5px solid var(--plum);
     flex:1;background:var(--white);border-radius:9px;padding:14px;text-align:center;

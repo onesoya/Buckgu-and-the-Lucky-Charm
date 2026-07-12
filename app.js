@@ -987,6 +987,21 @@ function renderStamp(popId) {
     const to = otherPerson(item.author);
     const toClass = to === '소정' ? 'to-sojeong' : 'to-seonho';
     const fromClass = item.author === '소정' ? 'from-sojeong' : 'from-seonho';
+
+    // 잠긴 편지: 받는 사람한테는 해제일까지 내용을 안 보여줌 (쓴 사람 본인은 그대로 볼 수 있음)
+    const isLockedForMe = item.unlockDate && item.unlockDate > localDateStr() && item.author !== identity;
+    if(isLockedForMe){
+      const dDay = Math.ceil((new Date(item.unlockDate+'T00:00:00') - new Date(localDateStr()+'T00:00:00')) / 86400000);
+      return `<div class="wish-card letter-locked-card" data-item-id="${item.id}">
+        <div class="wish-content letter-locked-body">
+          <div class="letter-locked-icon">🔒</div>
+          <div class="letter-locked-text">
+            <span class="letter-from ${fromClass}">From. ${item.author||''}</span>
+            <div class="letter-locked-sub">잠긴 편지가 있어<br>${fmtShortDate(item.unlockDate)}에 열려 (D-${dDay})</div>
+          </div>
+        </div>
+      </div>`;
+    }
     
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
@@ -1001,6 +1016,7 @@ function renderStamp(popId) {
         </div>
         <div class="post-detail hidden">
           <div class="letter-to ${toClass}">💌 To. ${to}</div>
+          ${item.unlockDate ? `<div class="letter-unlock-badge">🔓 ${fmtShortDate(item.unlockDate)}에 잠금 해제된 편지야</div>` : ''}
           <div class="wish-body">${escapeHTML(item.body)}</div>
           ${cardPhotosHTML(item)}
           <div class="wish-footer">
@@ -1143,7 +1159,9 @@ function renderLetters() {
       items.push({ id: it.id, ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
     });
     letters.forEach(it=>{
-      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
+      const isLockedForMe = it.unlockDate && it.unlockDate > localDateStr() && it.author !== identity;
+      const text = isLockedForMe ? '🔒 잠긴 편지' : (it.title || it.body);
+      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'편지', text, tab:'letter' });
     });
     return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
   }
@@ -1845,6 +1863,16 @@ function renderLetters() {
     pendingLetterPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
 
+    if(item.unlockDate){
+      document.getElementById('letterUnlockDate').value = item.unlockDate;
+      document.getElementById('letterUnlockDateRow').classList.remove('hidden');
+      document.getElementById('letterLockToggleBtn').textContent = '- 잠금 해제일 제거';
+    } else {
+      document.getElementById('letterUnlockDate').value = '';
+      document.getElementById('letterUnlockDateRow').classList.add('hidden');
+      document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
+    }
+
     document.getElementById('letterAddBtn').textContent = '수정 완료';
     document.getElementById('letterCancelBtn').classList.remove('hidden');
     document.getElementById('letterAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1857,17 +1885,39 @@ function renderLetters() {
     revokePendingPhotoUrls(pendingLetterPhotos);
     pendingLetterPhotos = [];
     renderPhotoPreviewGrid('letterPhotoPreviewWrap', ()=>pendingLetterPhotos, (v)=>{ pendingLetterPhotos = v; });
+    document.getElementById('letterUnlockDate').value = '';
+    document.getElementById('letterUnlockDateRow').classList.add('hidden');
+    document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
     document.getElementById('letterCancelBtn').classList.add('hidden');
   }
   document.getElementById('letterCancelBtn').addEventListener('click', resetLetterForm);
+  document.getElementById('letterLockToggleBtn').addEventListener('click', ()=>{
+    const row = document.getElementById('letterUnlockDateRow');
+    const willShow = row.classList.contains('hidden');
+    row.classList.toggle('hidden', !willShow);
+    document.getElementById('letterLockToggleBtn').textContent = willShow ? '- 잠금 해제일 제거' : '+ 특정 날짜까지 잠그기 (선택)';
+    if(!willShow) document.getElementById('letterUnlockDate').value = '';
+    else if(!document.getElementById('letterUnlockDate').value){
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+      document.getElementById('letterUnlockDate').value = localDateStr(tomorrow);
+    }
+  });
     
 // 버튼 이벤트는 함수 바깥에!
   document.getElementById('letterAddBtn').addEventListener('click', async () => {
     const title = document.getElementById('letterTitle').value.trim();
     const body = document.getElementById('letterBody').value.trim();
     if (!title || !body) return;
-    await saveItem('letters', !!editingLetterId, editingLetterId, { title, body }, pendingLetterPhotos, resetLetterForm);
+    const unlockDateRaw = document.getElementById('letterUnlockDateRow').classList.contains('hidden')
+      ? '' : document.getElementById('letterUnlockDate').value;
+    const payload = { title, body };
+    if(unlockDateRaw){
+      payload.unlockDate = unlockDateRaw;
+    } else if(editingLetterId){
+      payload.unlockDate = firebase.firestore.FieldValue.delete();
+    }
+    await saveItem('letters', !!editingLetterId, editingLetterId, payload, pendingLetterPhotos, resetLetterForm);
   });
 
   document.getElementById('letterList').addEventListener('click', (e) => {
@@ -2208,11 +2258,15 @@ function startWatchers(){
       title: it.text, sub: `${it.person} 스탬프`, item: it,
       match: `${it.text||''} ${it.person||''}`.toLowerCase()
     }));
-    letters.forEach(it => items.push({
-      tab:'letter', label:'편지', ts: it.createdAt || 0,
-      title: it.title || (it.body||'').slice(0,20), sub: it.body || '', item: it,
-      match: `${it.title||''} ${it.body||''}`.toLowerCase()
-    }));
+    letters.forEach(it => {
+      const isLockedForMe = it.unlockDate && it.unlockDate > localDateStr() && it.author !== identity;
+      if(isLockedForMe) return; // 잠긴 편지는 검색에서도 제외
+      items.push({
+        tab:'letter', label:'편지', ts: it.createdAt || 0,
+        title: it.title || (it.body||'').slice(0,20), sub: it.body || '', item: it,
+        match: `${it.title||''} ${it.body||''}`.toLowerCase()
+      });
+    });
     return items;
   }
 
