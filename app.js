@@ -1350,6 +1350,16 @@ function renderLetters() {
         });
         renderDateLog();
       }
+      // 편지 탭을 나가면 "특정 날짜까지 잠그기" 토글도 눌리지 않은 상태로 되돌림
+      if(currentTab === 'letter'){
+        const lockRow = document.getElementById('letterUnlockDateRow');
+        if(lockRow && !lockRow.classList.contains('hidden')){
+          lockRow.classList.add('hidden');
+          document.getElementById('letterUnlockDate').value = '';
+          document.getElementById('letterUnlockTime').value = '';
+          document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
+        }
+      }
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     panel.classList.add('active');
