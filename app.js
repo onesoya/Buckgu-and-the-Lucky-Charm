@@ -314,6 +314,14 @@ async function uploadPhotos(photosArray, onProgress) {
   let replyingToMap = new Map(); // key: `${colName}-${itemId}`, value: 답글 다는 중인 댓글의 ts (없으면 미설정)
 
   function singleCommentHTML(c, colName, itemId, isReply){
+    if(c.deleted){
+      // 삭제된 댓글: 답글이 있어서 자리는 남기되, 내용은 안 보이게
+      return `
+        <div class="comment-item comment-deleted ${isReply ? 'comment-reply' : ''}" data-comment-ts="${c.ts}">
+          <span class="c-text c-deleted-text">삭제된 댓글이야</span>
+        </div>
+      `;
+    }
     return `
       <div class="comment-item ${isReply ? 'comment-reply' : ''}" data-comment-ts="${c.ts}">
         <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
@@ -905,7 +913,7 @@ function renderCalendar(){
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = pixelHeartSVG(isLiked);
-    const commentCount = (item.comments || []).length;
+    const commentCount = (item.comments || []).filter(c => !c.deleted).length;
 
     return `<div class="item-card" data-item-id="${item.id}">
       <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
@@ -963,7 +971,7 @@ function renderDateLog() {
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = pixelHeartSVG(isLiked);
-    const commentCount = (item.comments || []).length;
+    const commentCount = (item.comments || []).filter(c => !c.deleted).length;
 
     return `<div class="stamp-card" data-item-id="${item.id}">
       <img class="stamp-badge-img ${item.id===popId?'stamp-pop':''}" src="${badgeSrc}" alt="${item.person} 스탬프">
@@ -1044,7 +1052,7 @@ function renderStamp(popId) {
     const likes = item.likes || [];
     const isLiked = likes.includes(identity);
     const likeIcon = pixelHeartSVG(isLiked);
-    const commentCount = (item.comments || []).length;
+    const commentCount = (item.comments || []).filter(c => !c.deleted).length;
 
     return `<div class="wish-card" data-item-id="${item.id}">
       <div class="wish-content">
@@ -2328,7 +2336,6 @@ function startWatchers(){
     // 4. 내 댓글/답글 삭제
     const delBtn = e.target.closest('.c-del');
     if (delBtn) {
-      if (!confirm('이 댓글을 지울까?')) return;
       const col = delBtn.dataset.commentCol;
       const id = delBtn.dataset.commentId;
       const ts = Number(delBtn.dataset.commentTs);
@@ -2342,11 +2349,41 @@ function startWatchers(){
       const item = list.find(x => x.id === id);
       if (!item) return;
       
+      const allComments = item.comments || [];
       // 삭제할 정확한 댓글 객체 찾기 (시간과 작성자가 동일한 것)
-      const targetComment = (item.comments || []).find(c => c.ts === ts && c.author === identity);
-      if (targetComment) {
+      const targetComment = allComments.find(c => c.ts === ts && c.author === identity);
+      if (!targetComment) return;
+
+      // 이 댓글에 (삭제되지 않은) 답글이 달려있는지 확인
+      const childReplies = allComments.filter(c => c.parentTs === ts && !c.deleted);
+
+      if (childReplies.length > 0) {
+        // 답글이 있으면: 완전히 지우지 않고 "삭제된 댓글이야"로만 남김 (답글은 그대로 유지)
+        if (!confirm('답글은 삭제되지 않아. 이 댓글을 지울까?')) return;
+
+        const tombstoned = { ts: targetComment.ts, deleted: true };
+        const newComments = allComments.map(c => (c === targetComment) ? tombstoned : c);
+        db.collection(col).doc(id).update({ comments: newComments })
+          .catch(err => console.error('댓글 삭제 실패:', err));
+      } else {
+        // 답글이 없으면: 완전히 삭제.
+        if (!confirm('이 댓글을 지울까?')) return;
+
+        const toRemove = [targetComment];
+        // 지금 지우는 게 "답글"이고, 그 원댓글이 이미 "삭제된 댓글이야" 상태이며,
+        // 이게 마지막 남은 답글이었다면 -> 그 톰스톤도 이제 필요없으니 같이 정리
+        if (targetComment.parentTs) {
+          const parent = allComments.find(c => c.ts === targetComment.parentTs);
+          if (parent && parent.deleted) {
+            const remainingSiblings = allComments.filter(c =>
+              c.parentTs === targetComment.parentTs && c.ts !== ts && !c.deleted
+            );
+            if (remainingSiblings.length === 0) toRemove.push(parent);
+          }
+        }
+
         db.collection(col).doc(id).update({
-          comments: firebase.firestore.FieldValue.arrayRemove(targetComment)
+          comments: firebase.firestore.FieldValue.arrayRemove(...toRemove)
         }).catch(err => console.error('댓글 삭제 실패:', err));
       }
     }
