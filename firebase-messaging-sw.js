@@ -44,14 +44,13 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // 이미 열려있는 창이 있으면: 주소 이동에만 의존하지 않고,
-      // 페이지에 직접 "이 탭/게시글로 가" 메시지를 보내서 확실하게 이동시킴
+      // 이미 열려있는 창이 있으면: postMessage로 "이 탭/게시글로 가" 신호를 보내서 이동시킴.
+      // (예전엔 안전장치로 client.navigate()도 같이 불렀는데, 이게 페이지를 다시 불러오는
+      // 효과를 내서 postMessage로 시작된 스크롤/펼치기 작업을 화면이 초기화되며 끊어버리는
+      // 것으로 확인되어 제거함. 지금은 다들 최신 페이지를 쓰고 있어서 postMessage 하나로 충분함.)
       for (const client of windowClients) {
         if ('focus' in client) {
           client.postMessage({ type: 'navigate', tab, itemId, commentTs, link: targetLink });
-          if ('navigate' in client) {
-            client.navigate(targetLink).catch(() => {});
-          }
           return client.focus();
         }
       }

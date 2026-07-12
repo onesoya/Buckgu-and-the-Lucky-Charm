@@ -207,6 +207,10 @@ async function uploadPhotos(photosArray, onProgress) {
     resize();
   }
 
+  // 탭 이름(schedule/wish/datelog/stamp/letter) -> Firestore 컬렉션 이름 매핑
+  // (댓글/답글 상태(openCommentSections, replyingToMap)의 키가 컬렉션 이름 기준이라 필요함)
+  const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
+
   function localDateStr(d){
     d = d || new Date();
     const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
@@ -1317,9 +1321,18 @@ function renderLetters() {
       const oldPanel = document.getElementById('panel-'+currentTab);
       if(oldPanel){
         oldPanel.querySelectorAll('[data-item-id]').forEach(card => {
-          expandedPostIds.delete(card.dataset.itemId);
+          const itemId = card.dataset.itemId;
+          expandedPostIds.delete(itemId);
+          // 게시물뿐 아니라 그 안의 댓글창/답글창 상태도 같이 초기화
+          Object.values(tabToColName).forEach(colName=>{
+            const key = `${colName}-${itemId}`;
+            openCommentSections.delete(key);
+            replyingToMap.delete(key);
+          });
         });
         oldPanel.querySelectorAll('.post-detail:not(.hidden)').forEach(d => d.classList.add('hidden'));
+        oldPanel.querySelectorAll('.comment-section.active').forEach(s => s.classList.remove('active'));
+        oldPanel.querySelectorAll('.comment-reply-input-row').forEach(r => r.remove());
       }
       // 편지/스탬프/위시/데이트기록 탭을 나가면 필터도 "전체"로 되돌림 (새로고침한 느낌으로)
       if(currentTab === 'letter' && letterFilterTarget !== 'all'){
@@ -2157,7 +2170,20 @@ function startWatchers(){
     if (detail) {
       detail.classList.toggle('hidden');
       const itemId = card.dataset.itemId;
-      if (detail.classList.contains('hidden')) expandedPostIds.delete(itemId);
+      if (detail.classList.contains('hidden')) {
+        expandedPostIds.delete(itemId);
+        // 게시물을 접으면 그 안의 댓글창/답글창 상태도 같이 초기화 (다음에 펼치면 깔끔하게 시작)
+        Object.values(tabToColName).forEach(colName=>{
+          const key = `${colName}-${itemId}`;
+          openCommentSections.delete(key);
+          replyingToMap.delete(key);
+        });
+        // 재렌더링을 기다리지 않고 화면에도 바로 반영
+        const commentSection = card.querySelector('.comment-section');
+        if(commentSection) commentSection.classList.remove('active');
+        const replyRow = card.querySelector('.comment-reply-input-row');
+        if(replyRow) replyRow.remove();
+      }
       else expandedPostIds.add(itemId);
     }
   });
@@ -2222,13 +2248,19 @@ function startWatchers(){
       const id = toggleBtn.dataset.toggleId;
       const sectionKey = `${col}-${id}`;
       
+      const section = document.getElementById(`comments-${sectionKey}`);
+
       if (openCommentSections.has(sectionKey)) {
         openCommentSections.delete(sectionKey);
+        replyingToMap.delete(sectionKey); // 댓글창을 닫으면 열려있던 답글창도 같이 닫음
+        if(section){
+          const replyRow = section.querySelector('.comment-reply-input-row');
+          if(replyRow) replyRow.remove();
+        }
       } else {
         openCommentSections.add(sectionKey);
       }
       
-      const section = document.getElementById(`comments-${sectionKey}`);
       if (section) section.classList.toggle('active');
       return;
     }
@@ -2404,7 +2436,6 @@ function startWatchers(){
     if(itemId) expandedPostIds.add(itemId);
 
     // 댓글 알림으로 들어온 경우, 댓글창도 미리 펼쳐놓도록 예약
-    const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
     if(commentTs && tabToColName[tab]){
       openCommentSections.add(`${tabToColName[tab]}-${itemId}`);
     }
@@ -2441,7 +2472,7 @@ function startWatchers(){
     if(renderMap[tab]) renderMap[tab]();
 
     // 위시/데이트/편지/스탬프는 지연 로딩이라, 알림 누른 시점에 데이터가
-    // 아직 안 와있을 수 있음 -> 카드가 나타날 때까지 0.3초 간격 최대 10번(3초) 재시도
+    // 아직 안 와있을 수 있음 -> 카드가 나타날 때까지 0.3초 간격 최대 20번(6초) 재시도
     let attempts = 0;
     function tryScrollTo(){
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
@@ -2461,9 +2492,9 @@ function startWatchers(){
               return;
             }
             cAttempts++;
-            if(cAttempts < 6) setTimeout(tryScrollToComment, 200);
+            if(cAttempts < 10) setTimeout(tryScrollToComment, 300);
           }
-          setTimeout(tryScrollToComment, 200);
+          setTimeout(tryScrollToComment, 300);
         } else {
           card.scrollIntoView({behavior:'smooth', block:'center'});
           card.classList.add('search-flash');
@@ -2472,7 +2503,7 @@ function startWatchers(){
         return;
       }
       attempts++;
-      if(attempts < 10) setTimeout(tryScrollTo, 300);
+      if(attempts < 20) setTimeout(tryScrollTo, 300);
     }
     setTimeout(tryScrollTo, 150);
   }
