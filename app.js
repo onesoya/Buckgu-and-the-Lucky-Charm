@@ -1,4 +1,5 @@
 (function(){
+  const APP_VERSION = '2026.07.13-1'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // iOS 사파리는 이게 없으면 버튼 :active(눌림) CSS가 탭 했을 때 거의 안 켜짐
   document.addEventListener('touchstart', function(){}, {passive:true});
 
@@ -210,6 +211,60 @@ async function uploadPhotos(photosArray, onProgress) {
   // 탭 이름(schedule/wish/datelog/stamp/letter) -> Firestore 컬렉션 이름 매핑
   // (댓글/답글 상태(openCommentSections, replyingToMap)의 키가 컬렉션 이름 기준이라 필요함)
   const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
+
+  // ---- 알림 등으로 특정 게시물/댓글까지 스크롤하기 (지속 확인 방식) ----
+  // "몇 번 재시도하다 포기" 대신, 목표를 전역 상태로 기억해두고
+  // 여러 경로(즉시/렌더될때마다/화면이 실제로 보이는 시점/폴링)에서 계속 확인함.
+  // 하나라도 걸리면 성공 - 안드로이드에서 setTimeout이 지연/스킵되는 경우까지 대비.
+  let pendingScrollTarget = null; // { tab, itemId, commentTs }
+  let scrollPollInterval = null;
+
+  function clearScrollState(){
+    pendingScrollTarget = null;
+    if(scrollPollInterval){ clearInterval(scrollPollInterval); scrollPollInterval = null; }
+  }
+
+  function scrollToEl(el){
+    setTimeout(() => {
+      el.getBoundingClientRect(); // 스크롤 직전 레이아웃 계산을 강제로 끝내서, 위치 계산이 덜 된 채로 스크롤되는 것 방지
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.classList.add('search-flash');
+      setTimeout(()=> el.classList.remove('search-flash'), 1600);
+    }, 200);
+  }
+
+  function tryConsumePendingScroll(){
+    if(!pendingScrollTarget) return;
+    const { tab, itemId, commentTs } = pendingScrollTarget;
+    const card = document.querySelector(`[data-item-id="${itemId}"]`);
+    if(!card) return; // 아직 카드가 없음 - 다음 기회에 (렌더 훅이 다시 불러줌)
+
+    const detail = card.querySelector('.post-detail');
+    if(detail) detail.classList.remove('hidden');
+
+    if(!commentTs){
+      clearScrollState();
+      scrollToEl(card);
+      return;
+    }
+
+    // 댓글 알림이면 댓글창도 펼침
+    if(tabToColName[tab]) openCommentSections.add(`${tabToColName[tab]}-${itemId}`);
+    const section = card.querySelector('.comment-section');
+    if(section) section.classList.add('active');
+
+    const commentEl = card.querySelector(`.comment-item[data-comment-ts="${commentTs}"]`);
+    if(commentEl){
+      clearScrollState();
+      scrollToEl(commentEl);
+    }
+    // 못 찾았으면 pendingScrollTarget은 그대로 둬서 다음 기회(렌더/이벤트/폴링)에 다시 시도
+  }
+
+  // 화면이 실제로 "보이게 되는" 시점들을 최대한 포착
+  document.addEventListener('visibilitychange', tryConsumePendingScroll);
+  window.addEventListener('focus', tryConsumePendingScroll);
+  window.addEventListener('pageshow', tryConsumePendingScroll);
 
   function localDateStr(d){
     d = d || new Date();
@@ -2508,49 +2563,17 @@ function startWatchers(){
     };
     if(renderMap[tab]) renderMap[tab]();
 
-    // 위시/데이트/편지/스탬프는 지연 로딩이라, 알림 누른 시점에 데이터가
-    // 아직 안 와있을 수 있음 -> 카드가 나타날 때까지 0.3초 간격 최대 20번(6초) 재시도
-    let attempts = 0;
-    // 방금 화면에 나타난 요소는 사파리가 위치 계산을 아직 안 끝냈을 수 있어서,
-    // 화면이 한 번 그려지고 나서(requestAnimationFrame 두 번) 스크롤하도록 함
-    function settleThenScroll(el, onFlash){
-      requestAnimationFrame(()=>{
-        requestAnimationFrame(()=>{
-          el.scrollIntoView({behavior:'smooth', block:'center'});
-          el.classList.add('search-flash');
-          setTimeout(()=> el.classList.remove('search-flash'), 1600);
-          if(onFlash) onFlash();
-        });
-      });
-    }
-    function tryScrollTo(){
-      const card = document.querySelector(`[data-item-id="${itemId}"]`);
-      if(card){
-        const detail = card.querySelector('.post-detail');
-        if(detail) detail.classList.remove('hidden');
+    // 목표를 전역 상태로 기억해두고, 즉시 1회 시도 + 이후 렌더/이벤트/폴링에서 계속 확인
+    if(scrollPollInterval) clearInterval(scrollPollInterval); // 이전 목표용 폴링이 남아있으면 정리
+    pendingScrollTarget = { tab, itemId, commentTs };
+    tryConsumePendingScroll();
 
-        if(commentTs){
-          // 댓글창이 실제로 렌더링되어 나타날 때까지 재시도해서, 그 댓글로 스크롤
-          let cAttempts = 0;
-          function tryScrollToComment(){
-            const commentEl = card.querySelector(`.comment-item[data-comment-ts="${commentTs}"]`);
-            if(commentEl){
-              settleThenScroll(commentEl);
-              return;
-            }
-            cAttempts++;
-            if(cAttempts < 10) setTimeout(tryScrollToComment, 300);
-          }
-          setTimeout(tryScrollToComment, 300);
-        } else {
-          settleThenScroll(card);
-        }
-        return;
-      }
-      attempts++;
-      if(attempts < 20) setTimeout(tryScrollTo, 300);
-    }
-    setTimeout(tryScrollTo, 150);
+    let pollCount = 0;
+    scrollPollInterval = setInterval(() => {
+      pollCount++;
+      if(!pendingScrollTarget || pollCount > 20){ clearScrollState(); return; }
+      tryConsumePendingScroll();
+    }, 500);
   }
   function navigateToSearchResult(result){
     closeSearchOverlay();
@@ -2671,6 +2694,7 @@ function startWatchers(){
     setupAutoGrow('dateLogMemo', 240);
     setupAutoGrow('letterBody', 280);
     setupAutoGrow('stampText', 200);
+    document.getElementById('appVersionTag').textContent = `v${APP_VERSION}`;
     document.querySelector('.app-shell').style.visibility = 'hidden';
 
     // 안전장치: 무슨 이유로든 인증 확인이 너무 오래 걸리면, 스플래시가 영원히 안 사라지는 일은 없게 함
@@ -2750,5 +2774,21 @@ function startWatchers(){
       onReset
     );
   }
+  // 각 탭의 렌더 함수가 (어떤 경로로 끝나든) 끝날 때마다, 대기 중인 스크롤 목표가 있는지 자동으로 확인.
+  // 데이터가 늦게 도착해서 방금 막 화면에 그려진 순간을 안정적으로 포착하기 위한 핵심 지점.
+  [renderSchedule, renderWish, renderDateLog, renderStamp, renderLetters].forEach((fn, i) => {
+    const names = ['renderSchedule','renderWish','renderDateLog','renderStamp','renderLetters'];
+    const wrapped = function(...args){
+      const result = fn.apply(this, args);
+      tryConsumePendingScroll();
+      return result;
+    };
+    if(names[i] === 'renderSchedule') renderSchedule = wrapped;
+    else if(names[i] === 'renderWish') renderWish = wrapped;
+    else if(names[i] === 'renderDateLog') renderDateLog = wrapped;
+    else if(names[i] === 'renderStamp') renderStamp = wrapped;
+    else if(names[i] === 'renderLetters') renderLetters = wrapped;
+  });
+
   init();
 })();
