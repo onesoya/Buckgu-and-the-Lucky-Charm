@@ -22,30 +22,24 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const DEFAULT_LINK = 'https://onesoya.github.io/Buckgu-and-the-Lucky-Charm/';
 
-// 서버(Cloud Functions)에서 이제 data만 보내기 때문에, 알림 표시는
-// 무조건 여기(onBackgroundMessage) 한 곳에서만 일어남 -> 중복 안 뜸
-messaging.onBackgroundMessage((payload) => {
-  const data = payload.data || {};
-  const title = data.title || '벅구와 복덩이';
-  const body = data.body || '';
-  const tab = data.tab || '';
-  const itemId = data.itemId || '';
-  const commentTs = data.commentTs || '';
-  const link = data.link || DEFAULT_LINK;
-
-  const options = {
-    body,
-    icon: 'icon-180.png',
-    badge: 'favicon-32.png',
-    tag: 'bukgu-notification',
-    data: { link, tab, itemId, commentTs }
-  };
-  self.registration.showNotification(title, options);
+// 중요: 여기서 showNotification()을 직접 호출하지 않음.
+// 서버가 notification 필드도 같이 보내고 있어서, 브라우저(FCM SDK)가 이미 자동으로
+// 알림을 띄워줌 - 여기서 또 띄우면 알림이 두 번 뜸.
+// 그런데도 이 리스너를 "등록"은 해두는 이유: 삼성인터넷 등 일부 브라우저는
+// onBackgroundMessage가 등록되어 있어야 푸시가 왔을 때 서비스워커가 확실히 깨어남.
+// (등록만 하고 비워두는 게 핵심 - 표시는 SDK한테 맡김)
+messaging.onBackgroundMessage(() => {
+  // 의도적으로 비워둠
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const { link, tab, itemId, commentTs } = event.notification.data || {};
+
+  // SDK가 자동으로 띄운 알림은 데이터가 FCM_MSG라는 키 아래에 감싸져 있을 때가 있어서
+  // 두 가지 구조를 다 확인함
+  const raw = event.notification.data || {};
+  const data = (raw.FCM_MSG && raw.FCM_MSG.data) ? raw.FCM_MSG.data : raw;
+  const { link, tab, itemId, commentTs } = data;
   const targetLink = link || DEFAULT_LINK;
 
   event.waitUntil(
