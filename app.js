@@ -2511,6 +2511,18 @@ function startWatchers(){
     // 위시/데이트/편지/스탬프는 지연 로딩이라, 알림 누른 시점에 데이터가
     // 아직 안 와있을 수 있음 -> 카드가 나타날 때까지 0.3초 간격 최대 20번(6초) 재시도
     let attempts = 0;
+    // 방금 화면에 나타난 요소는 사파리가 위치 계산을 아직 안 끝냈을 수 있어서,
+    // 화면이 한 번 그려지고 나서(requestAnimationFrame 두 번) 스크롤하도록 함
+    function settleThenScroll(el, onFlash){
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          el.scrollIntoView({behavior:'smooth', block:'center'});
+          el.classList.add('search-flash');
+          setTimeout(()=> el.classList.remove('search-flash'), 1600);
+          if(onFlash) onFlash();
+        });
+      });
+    }
     function tryScrollTo(){
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
       if(card){
@@ -2523,9 +2535,7 @@ function startWatchers(){
           function tryScrollToComment(){
             const commentEl = card.querySelector(`.comment-item[data-comment-ts="${commentTs}"]`);
             if(commentEl){
-              commentEl.scrollIntoView({behavior:'smooth', block:'center'});
-              commentEl.classList.add('search-flash');
-              setTimeout(()=> commentEl.classList.remove('search-flash'), 1600);
+              settleThenScroll(commentEl);
               return;
             }
             cAttempts++;
@@ -2533,9 +2543,7 @@ function startWatchers(){
           }
           setTimeout(tryScrollToComment, 300);
         } else {
-          card.scrollIntoView({behavior:'smooth', block:'center'});
-          card.classList.add('search-flash');
-          setTimeout(()=> card.classList.remove('search-flash'), 1600);
+          settleThenScroll(card);
         }
         return;
       }
