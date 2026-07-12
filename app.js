@@ -307,25 +307,52 @@ async function uploadPhotos(photosArray, onProgress) {
 
 // 열려 있는 댓글창 ID를 기억하는 공간 (새로고침 시 닫힘 방지)
   let openCommentSections = new Set();
+  let replyingToMap = new Map(); // key: `${colName}-${itemId}`, value: 답글 다는 중인 댓글의 ts (없으면 미설정)
+
+  function singleCommentHTML(c, colName, itemId, isReply){
+    return `
+      <div class="comment-item ${isReply ? 'comment-reply' : ''}" data-comment-ts="${c.ts}">
+        <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
+        <span class="c-text">${escapeHTML(c.text)}</span>
+        ${c.author === identity ? `<button class="c-del" data-comment-col="${colName}" data-comment-id="${itemId}" data-comment-ts="${c.ts}">✕</button>` : ''}
+        <div class="c-time-row">
+          <span class="c-time">${formatDateTimeKR(c.ts)}</span>
+          ${!isReply ? `<button class="c-reply-btn" data-reply-col="${colName}" data-reply-id="${itemId}" data-reply-ts="${c.ts}">답글 달기</button>` : ''}
+        </div>
+      </div>
+    `;
+  }
 
   // 댓글창 HTML을 그려주는 공통 함수
   function renderCommentsHTML(item, colName) {
     const comments = item.comments || [];
-    const isOpen = openCommentSections.has(`${colName}-${item.id}`);
-    
-    const commentListHTML = comments.map(c => `
-      <div class="comment-item" data-comment-ts="${c.ts}">
-        <span class="c-author ${c.author === '소정' ? '소정' : '선호'}">${c.author}</span>
-        <span class="c-text">${escapeHTML(c.text)}</span>
-        ${c.author === identity ? `<button class="c-del" data-comment-col="${colName}" data-comment-id="${item.id}" data-comment-ts="${c.ts}">✕</button>` : ''}
-        <div class="c-time">${formatDateTimeKR(c.ts)}</div>
-      </div>
-    `).join('');
+    const sectionKey = `${colName}-${item.id}`;
+    const isOpen = openCommentSections.has(sectionKey);
+    const replyingToTs = replyingToMap.get(sectionKey);
+
+    const topLevel = comments.filter(c => !c.parentTs);
+    const repliesByParent = {};
+    comments.filter(c => c.parentTs).forEach(c => {
+      (repliesByParent[c.parentTs] = repliesByParent[c.parentTs] || []).push(c);
+    });
+
+    const commentListHTML = topLevel.map(c => {
+      const replies = (repliesByParent[c.ts] || []).sort((a,b)=>a.ts-b.ts);
+      const repliesHTML = replies.map(r => singleCommentHTML(r, colName, item.id, true)).join('');
+      const isReplyingHere = replyingToTs === c.ts;
+      const replyInputHTML = isReplyingHere ? `
+        <div class="comment-input-row comment-reply-input-row">
+          <input type="text" placeholder="${c.author}에게 답글 달기" id="cr-input-${colName}-${item.id}-${c.ts}" onkeypress="if(event.key==='Enter') document.getElementById('cr-btn-${colName}-${item.id}-${c.ts}').click();">
+          <button id="cr-btn-${colName}-${item.id}-${c.ts}" class="c-submit" data-reply-submit-col="${colName}" data-reply-submit-id="${item.id}" data-reply-submit-parent="${c.ts}">작성</button>
+        </div>
+      ` : '';
+      return singleCommentHTML(c, colName, item.id, false) + `<div class="comment-replies">${repliesHTML}${replyInputHTML}</div>`;
+    }).join('');
 
     return `
       <div class="comment-section ${isOpen ? 'active' : ''}" id="comments-${colName}-${item.id}">
         <div class="comment-list">
-          ${comments.length > 0 ? commentListHTML : '<div style="font-size:11px; color:#8A7A86; text-align:center; padding: 4px 0;">첫 번째 댓글을 남겨봐! 🐶</div>'}
+          ${topLevel.length > 0 ? commentListHTML : '<div style="font-size:11px; color:#8A7A86; text-align:center; padding: 4px 0;">첫 번째 댓글을 남겨봐! 🐶</div>'}
         </div>
         <div class="comment-input-row">
           <input type="text" placeholder="댓글을 입력해 봐" id="c-input-${colName}-${item.id}" onkeypress="if(event.key==='Enter') document.getElementById('c-btn-${colName}-${item.id}').click();">
@@ -2173,7 +2200,10 @@ function startWatchers(){
     }, 300);
   });
 
-  // ---- 댓글 버튼 이벤트 (열기 / 작성 / 삭제) ----
+  // 컬렉션 이름(colName) -> 렌더 함수 매핑 (댓글/답글 UI 상태만 바뀔 때 수동으로 다시 그리기 위함)
+  const colNameToRenderFn = { datelog: renderDateLog, stamps: renderStamp, letters: renderLetters };
+
+  // ---- 댓글 버튼 이벤트 (열기 / 작성 / 삭제 / 답글) ----
   document.querySelector('main').addEventListener('click', (e) => {
     // 1. 댓글창 열기/닫기 토글
     const toggleBtn = e.target.closest('.comment-btn');
@@ -2193,9 +2223,48 @@ function startWatchers(){
       return;
     }
 
-    // 2. 댓글 작성
+    // 2. 답글 달기 토글 (같은 댓글 다시 누르면 닫힘, 다른 댓글 누르면 그쪽으로 전환)
+    const replyBtn = e.target.closest('.c-reply-btn');
+    if (replyBtn) {
+      const col = replyBtn.dataset.replyCol;
+      const id = replyBtn.dataset.replyId;
+      const parentTs = Number(replyBtn.dataset.replyTs);
+      const sectionKey = `${col}-${id}`;
+      const current = replyingToMap.get(sectionKey);
+      if (current === parentTs) replyingToMap.delete(sectionKey);
+      else replyingToMap.set(sectionKey, parentTs);
+      if (colNameToRenderFn[col]) colNameToRenderFn[col]();
+      return;
+    }
+
+    // 3. 댓글/답글 작성
     const submitBtn = e.target.closest('.c-submit');
     if (submitBtn) {
+      // 답글 작성인 경우 (data-reply-submit-*)
+      const replyCol = submitBtn.dataset.replySubmitCol;
+      if (replyCol) {
+        const id = submitBtn.dataset.replySubmitId;
+        const parentTs = Number(submitBtn.dataset.replySubmitParent);
+        const input = document.getElementById(`cr-input-${replyCol}-${id}-${parentTs}`);
+        const text = input.value.trim();
+        if (!text || !identity) return;
+
+        const newReply = {
+          author: identity,
+          text: text,
+          ts: Date.now(),
+          parentTs: parentTs
+        };
+
+        db.collection(replyCol).doc(id).update({
+          comments: firebase.firestore.FieldValue.arrayUnion(newReply)
+        }).then(()=>{
+          replyingToMap.delete(`${replyCol}-${id}`); // 작성 끝나면 답글창 자동으로 닫기
+        }).catch(err => console.error('답글 작성 실패:', err));
+        return;
+      }
+
+      // 일반 댓글 작성
       const col = submitBtn.dataset.commentSubmitCol;
       const id = submitBtn.dataset.commentSubmitId;
       const input = document.getElementById(`c-input-${col}-${id}`);
@@ -2214,7 +2283,7 @@ function startWatchers(){
       return;
     }
 
-    // 3. 내 댓글 삭제
+    // 4. 내 댓글/답글 삭제
     const delBtn = e.target.closest('.c-del');
     if (delBtn) {
       if (!confirm('이 댓글을 지울까?')) return;
