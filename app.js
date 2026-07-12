@@ -838,8 +838,9 @@ function renderCalendar(){
       doneSection.classList.add('hidden');
       return;
     }
-    const active = wishes.filter(w=>!w.done);
-    const done = wishes.filter(w=>w.done);
+    const filteredWishes = wishFilterTarget === 'all' ? wishes : wishes.filter(w => w.author === wishFilterTarget);
+    const active = filteredWishes.filter(w=>!w.done);
+    const done = filteredWishes.filter(w=>w.done);
 
     list.innerHTML = active.length === 0
       ? '<div class="empty-state"><span class="empty-emoji">🎉</span>다 완료했어! 새로운 위시를 적어볼까?</div>'
@@ -903,9 +904,10 @@ function renderCalendar(){
     </div>`;
   }
 function renderDateLog() {
+  const filteredDateLogs = dateLogFilterTarget === 'all' ? dateLogs : dateLogs.filter(item => item.author === dateLogFilterTarget);
   renderGroupedByTime(
     'dateLogList',
-    dateLogs,
+    filteredDateLogs,
     item => item.date + 'T00:00:00',
     dateLogCardHTML,
     dateLogExpandedGroups,
@@ -953,6 +955,8 @@ function renderDateLog() {
     </div>`;
   }
 let stampFilterTarget = 'all';
+let wishFilterTarget = 'all';
+let dateLogFilterTarget = 'all';
 function renderStamp(popId) {
   // 통계는 전체 데이터 기준으로!
   const sojeongCount = stamps.filter(s=>s.person==='소정').length;
@@ -1126,20 +1130,20 @@ function renderLetters() {
     const items = [];
     schedule.forEach(it=>{
       if(!it.createdAt) return;
-      items.push({ ts: it.createdAt, author: it.author, label:'일정', text: it.title, tab:'schedule' });
+      items.push({ id: it.id, ts: it.createdAt, author: it.author, label:'일정', text: it.title, tab:'schedule' });
     });
     wishes.forEach(it=>{
-      items.push({ ts: it.createdAt || 0, author: it.author, label:'위시', text: it.title, tab:'wish' });
+      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'위시', text: it.title, tab:'wish' });
     });
     dateLogs.forEach(it=>{
       if(!it.createdAt) return;
-      items.push({ ts: it.createdAt, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
+      items.push({ id: it.id, ts: it.createdAt, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
     });
     stamps.forEach(it=>{
-      items.push({ ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
+      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
     });
     letters.forEach(it=>{
-      items.push({ ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
+      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'편지', text: it.title || it.body, tab:'letter' });
     });
     return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
   }
@@ -1188,14 +1192,18 @@ function renderLetters() {
         const authorClass = a => a === '소정' ? 'author-sojeong' : 'author-seonho';
         feedCard.innerHTML = `
           <div class="home-next-label">🕓 최근 활동</div>
-          ${feed.map(f => `<div class="home-feed-item" data-tab-target="${f.tab}">
+          ${feed.map(f => `<div class="home-feed-item" data-tab-target="${f.tab}" data-item-target="${f.id||''}">
             <span class="home-feed-author ${authorClass(f.author)}">${f.author||''}</span>
             <span class="home-feed-text">${f.label} · ${escapeHTML((f.text||'').slice(0,24))}</span>
             <span class="home-feed-time">${relativeTimeKR(f.ts)}</span>
           </div>`).join('')}
         `;
         feedCard.querySelectorAll('.home-feed-item').forEach(el=>{
-          el.addEventListener('click', ()=> activateTab(el.dataset.tabTarget));
+          el.addEventListener('click', ()=>{
+            const itemId = el.dataset.itemTarget;
+            if(itemId) navigateToItem(el.dataset.tabTarget, itemId);
+            else activateTab(el.dataset.tabTarget);
+          });
         });
       }
     }
@@ -1262,7 +1270,7 @@ function renderLetters() {
         });
         oldPanel.querySelectorAll('.post-detail:not(.hidden)').forEach(d => d.classList.add('hidden'));
       }
-      // 편지/스탬프 탭을 나가면 받는사람 필터도 "전체"로 되돌림 (새로고침한 느낌으로)
+      // 편지/스탬프/위시/데이트기록 탭을 나가면 필터도 "전체"로 되돌림 (새로고침한 느낌으로)
       if(currentTab === 'letter' && letterFilterTarget !== 'all'){
         letterFilterTarget = 'all';
         document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>{
@@ -1276,6 +1284,20 @@ function renderLetters() {
           b.classList.toggle('active', b.dataset.stampFilter === 'all');
         });
         renderStamp();
+      }
+      if(currentTab === 'wish' && wishFilterTarget !== 'all'){
+        wishFilterTarget = 'all';
+        document.querySelectorAll('#wishFilterRow .filter-chip').forEach(b=>{
+          b.classList.toggle('active', b.dataset.wishFilter === 'all');
+        });
+        renderWish();
+      }
+      if(currentTab === 'datelog' && dateLogFilterTarget !== 'all'){
+        dateLogFilterTarget = 'all';
+        document.querySelectorAll('#dateLogFilterRow .filter-chip').forEach(b=>{
+          b.classList.toggle('active', b.dataset.datelogFilter === 'all');
+        });
+        renderDateLog();
       }
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
@@ -2346,22 +2368,29 @@ function startWatchers(){
     }, err=>console.error('방문자 수 구독 실패', err));
   }
 
-  document.querySelectorAll('#letterFilterRow .filter-chip').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      letterFilterTarget = btn.dataset.letterFilter;
-      renderLetters();
+  // 필터칩 공용 동작: 눌린 걸 다시 누르면 "전체"로 해제됨 (아무것도 안 눌린 상태 없음)
+  function setupToggleFilterRow(containerId, datasetProp, onChange){
+    const chips = document.querySelectorAll(`#${containerId} .filter-chip`);
+    chips.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const value = btn.dataset[datasetProp];
+        const wasActive = btn.classList.contains('active');
+        chips.forEach(b=>b.classList.remove('active'));
+        if(wasActive && value !== 'all'){
+          const allBtn = Array.from(chips).find(b=>b.dataset[datasetProp] === 'all');
+          if(allBtn) allBtn.classList.add('active');
+          onChange('all');
+        } else {
+          btn.classList.add('active');
+          onChange(value);
+        }
+      });
     });
-  });
-  document.querySelectorAll('#stampFilterRow .filter-chip').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      stampFilterTarget = btn.dataset.stampFilter;
-      renderStamp();
-    });
-  });
+  }
+  setupToggleFilterRow('letterFilterRow', 'letterFilter', (val)=>{ letterFilterTarget = val; renderLetters(); });
+  setupToggleFilterRow('stampFilterRow', 'stampFilter', (val)=>{ stampFilterTarget = val; renderStamp(); });
+  setupToggleFilterRow('wishFilterRow', 'wishFilter', (val)=>{ wishFilterTarget = val; renderWish(); });
+  setupToggleFilterRow('dateLogFilterRow', 'datelogFilter', (val)=>{ dateLogFilterTarget = val; renderDateLog(); });
 
   function init(){
     renderDday();

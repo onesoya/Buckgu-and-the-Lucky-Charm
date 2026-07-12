@@ -26,7 +26,7 @@ const DEFAULT_LINK = 'https://onesoya.github.io/Buckgu-and-the-Lucky-Charm/';
 // 무조건 여기(onBackgroundMessage) 한 곳에서만 일어남 -> 중복 안 뜸
 messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
-  const title = data.title || '벅구와 복덩어리';
+  const title = data.title || '벅구와 복덩이';
   const body = data.body || '';
   const tab = data.tab || '';
   const itemId = data.itemId || '';
