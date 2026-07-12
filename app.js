@@ -1890,6 +1890,17 @@ function watch(query, collectionName, onData){
     else if(pushToastTab) activateTab(pushToastTab);
   });
 
+  // 앱이 이미 열려있을 때, 알림 클릭 시 서비스워커가 보내는 이동 명령을 받아서 처리
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', (event)=>{
+      const msg = event.data;
+      if(msg && msg.type === 'navigate' && msg.tab){
+        if(msg.itemId) navigateToItem(msg.tab, msg.itemId);
+        else activateTab(msg.tab);
+      }
+    });
+  }
+
   async function setupPushNotifications(){
     try{
       if(!('serviceWorker' in navigator) || !('Notification' in window)) return;
@@ -2198,6 +2209,9 @@ function startWatchers(){
   function navigateToItem(tab, itemId){
     activateTab(tab);
 
+    // 데이터가 아직 안 왔어도, 나중에 렌더링될 때 펼쳐지도록 미리 예약해둠
+    if(itemId) expandedPostIds.add(itemId);
+
     let item = null;
     if(tab === 'schedule') item = schedule.find(x=>x.id===itemId);
     else if(tab === 'wish') item = wishes.find(x=>x.id===itemId);
@@ -2229,19 +2243,23 @@ function startWatchers(){
     };
     if(renderMap[tab]) renderMap[tab]();
 
-    setTimeout(()=>{
+    // 위시/데이트/편지/스탬프는 지연 로딩이라, 알림 누른 시점에 데이터가
+    // 아직 안 와있을 수 있음 -> 카드가 나타날 때까지 0.3초 간격 최대 10번(3초) 재시도
+    let attempts = 0;
+    function tryScrollTo(){
       const card = document.querySelector(`[data-item-id="${itemId}"]`);
       if(card){
         const detail = card.querySelector('.post-detail');
-        if(detail){
-          detail.classList.remove('hidden');
-          expandedPostIds.add(itemId);
-        }
+        if(detail) detail.classList.remove('hidden');
         card.scrollIntoView({behavior:'smooth', block:'center'});
         card.classList.add('search-flash');
         setTimeout(()=> card.classList.remove('search-flash'), 1600);
+        return;
       }
-    }, 150);
+      attempts++;
+      if(attempts < 10) setTimeout(tryScrollTo, 300);
+    }
+    setTimeout(tryScrollTo, 150);
   }
   function navigateToSearchResult(result){
     closeSearchOverlay();

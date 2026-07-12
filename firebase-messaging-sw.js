@@ -22,31 +22,47 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 const DEFAULT_LINK = 'https://onesoya.github.io/Buckgu-and-the-Lucky-Charm/';
 
+// 서버(Cloud Functions)에서 이제 data만 보내기 때문에, 알림 표시는
+// 무조건 여기(onBackgroundMessage) 한 곳에서만 일어남 -> 중복 안 뜸
 messaging.onBackgroundMessage((payload) => {
-  const title = (payload.notification && payload.notification.title) || '벅구와 복덩어리';
-  const link = (payload.data && payload.data.link) || DEFAULT_LINK;
+  const data = payload.data || {};
+  const title = data.title || '벅구와 복덩어리';
+  const body = data.body || '';
+  const tab = data.tab || '';
+  const itemId = data.itemId || '';
+  const link = data.link || DEFAULT_LINK;
+
   const options = {
+    body,
     icon: 'icon-180.png',
     badge: 'favicon-32.png',
     tag: 'bukgu-notification',
-    data: { link }
+    data: { link, tab, itemId }
   };
   self.registration.showNotification(title, options);
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const link = (event.notification.data && event.notification.data.link) || DEFAULT_LINK;
+  const { link, tab, itemId } = event.notification.data || {};
+  const targetLink = link || DEFAULT_LINK;
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // 이미 열려있는 창이 있으면: 주소 이동에만 의존하지 않고,
+      // 페이지에 직접 "이 탭/게시글로 가" 메시지를 보내서 확실하게 이동시킴
       for (const client of windowClients) {
         if ('focus' in client) {
-          if ('navigate' in client) client.navigate(link);
+          client.postMessage({ type: 'navigate', tab, itemId, link: targetLink });
+          if ('navigate' in client) {
+            client.navigate(targetLink).catch(() => {});
+          }
           return client.focus();
         }
       }
+      // 열려있는 창이 없으면: 새 창을 해당 링크로 열기
       if (self.clients.openWindow) {
-        return self.clients.openWindow(link);
+        return self.clients.openWindow(targetLink);
       }
     })
   );
