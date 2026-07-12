@@ -2597,7 +2597,17 @@ function startWatchers(){
     setupAutoGrow('stampText', 200);
     document.querySelector('.app-shell').style.visibility = 'hidden';
 
+    // 안전장치: 무슨 이유로든 인증 확인이 너무 오래 걸리면, 스플래시가 영원히 안 사라지는 일은 없게 함
+    setTimeout(()=>{
+      const splash = document.getElementById('initialSplash');
+      if(splash) splash.remove();
+    }, 8000);
+
     firebase.auth().onAuthStateChanged(user=>{
+      // 로그인 상태를 확인하자마자(로그인 화면이든 홈 화면이든 뭐가 뜨든) 초기 스플래시부터 치움
+      const splash = document.getElementById('initialSplash');
+      if(splash) splash.remove();
+
       if(user && EMAIL_MAP[user.email]){
         signInInProgress = false;
         identity = EMAIL_MAP[user.email];
