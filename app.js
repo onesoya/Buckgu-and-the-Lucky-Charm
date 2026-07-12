@@ -582,8 +582,8 @@ async function uploadPhotos(photosArray, onProgress) {
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
-    return `<div class="item-card ${isPast(item)?'past':''}" data-item-id="${item.id}">
-      <div class="date-badge"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
+    return `<div class="item-card ${isPast(item)?'past':''} ${item.isDate?'date-plan-card':''}" data-item-id="${item.id}">
+      <div class="date-badge ${item.isDate?'date-plan-badge':''}"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' ' + pixelHeartSVG(true, 16) : ''}</div>
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
@@ -1324,7 +1324,11 @@ function renderLetters() {
     const target = document.getElementById('homeThrowbackCard').dataset.tabTarget;
     if(target) activateTab(target);
   });
-  document.getElementById('homeNextDateCard').addEventListener('click', ()=> activateTab('schedule'));
+  document.getElementById('homeNextDateCard').addEventListener('click', ()=>{
+    const nextDate = findNextDatePlan();
+    if(nextDate) navigateToItem('schedule', nextDate.id);
+    else activateTab('schedule');
+  });
   window.addEventListener('hashchange', activateTabFromHash);
 
   function updateIdentityChip(){

@@ -1,4 +1,4 @@
-@font-face {
+  @font-face {
     font-family: 'DungGeunMo';
     font-weight: normal;
     font-style: normal;
@@ -330,6 +330,11 @@
     gap:12px;
     box-shadow:3px 3px 0 rgba(74,53,72,0.25);
   }
+  .item-card.date-plan-card{
+    border-color:#FF6B6B;
+    background:#FFF3F3;
+    box-shadow:3px 3px 0 rgba(255,107,107,0.35);
+  }
   .date-badge{
     flex-shrink:0;
     width:44px;
@@ -339,6 +344,11 @@
     padding:6px 0;
     font-family:'DungGeunMo',sans-serif;
   }
+  .date-badge.date-plan-badge{
+    background:#FF6B6B;
+    color:#fff;
+  }
+  .date-badge.date-plan-badge .mon{ color:#FFE3E3; }
   .date-badge .day{font-size:15px;line-height:1;}
   .date-badge .mon{font-size:10px;color:var(--plum-soft);}
   .item-body{flex:1;min-width:0;}
