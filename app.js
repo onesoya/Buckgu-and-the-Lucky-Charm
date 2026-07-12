@@ -1341,11 +1341,14 @@ function renderLetters() {
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
     signInInProgress = true;
     const msgEl = document.getElementById('loginGateMsg');
+    const btnEl = document.getElementById('googleLoginBtn');
     if(msgEl) msgEl.innerHTML = '로그인 중이야...';
+    if(btnEl) btnEl.classList.add('hidden');
     const provider = new firebase.auth.GoogleAuthProvider();
     firebase.auth().signInWithPopup(provider).catch(err=>{
       signInInProgress = false;
       console.error('로그인 실패', err);
+      if(btnEl) btnEl.classList.remove('hidden');
       if(err.code !== 'auth/popup-closed-by-user'){
         alert('로그인에 실패했어. 다시 시도해줘.');
       } else if(msgEl){
@@ -1896,6 +1899,7 @@ function watch(query, collectionName, onData){
   function showGate(message){
     document.getElementById('loginGateMsg').innerHTML = message;
     document.getElementById('loginGate').classList.remove('hidden');
+    document.getElementById('googleLoginBtn').classList.remove('hidden');
     document.querySelector('.app-shell').style.visibility = 'hidden';
   }
   function hideGate(){
