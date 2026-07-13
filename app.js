@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-13'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.13-15'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -1365,7 +1365,7 @@ function renderLetters() {
     const anniv = new Date(ANNIV + 'T00:00:00');
     const today = new Date(); today.setHours(0,0,0,0);
     const diffDays = Math.floor((today - anniv) / 86400000) + 1;
-    document.getElementById('ddayPill').innerHTML = `2026.02.02부터 &nbsp;<b>D+${diffDays}</b>일째`;
+    document.getElementById('ddayPill').innerHTML = `26.02.02~ &nbsp;<b>D+${diffDays}</b>일째`;
   }
 
   function findNextSchedule(){
@@ -2639,8 +2639,14 @@ function watch(query, collectionName, onData){
       // 먼저 등록을 요청하고, 설치·활성화까지 확실히 끝난 registration을 따로 받아서 사용
       // (register()가 반환하는 시점엔 아직 installing 상태일 수 있어서, 새로 설치한
       // 기기에서 최초 알림 설정이 간헐적으로 실패할 여지가 있음)
-      await navigator.serviceWorker.register('firebase-messaging-sw.js');
-      const registration = await navigator.serviceWorker.ready;
+      const initialRegistration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+      // navigator.serviceWorker.ready는 활성화가 어떤 이유로든 안 끝나면 영원히 안 풀릴 수 있어서
+      // (실제로 "알림 설정 중..." 화면이 끝없이 떠있던 원인으로 추정됨), 6초 넘게 걸리면
+      // 그냥 register()가 준 registration으로라도 진행하도록 타임아웃을 둠
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise(resolve => setTimeout(() => resolve(initialRegistration), 6000))
+      ]);
       const permission = await Notification.requestPermission();
       if(permission !== 'granted') return;
       const messaging = firebase.messaging();
@@ -2685,7 +2691,12 @@ function watch(query, collectionName, onData){
     document.getElementById('notifPrompt').classList.add('hidden');
     showLoadingOverlay('알림 설정 중이야...');
     try{
-      await setupPushNotifications();
+      // 혹시 어딘가에서 예상 못하게 멈추더라도, 로딩 화면 자체가 무한정 안 사라지는
+      // 일은 없도록 최대 대기시간(10초)을 둠
+      await Promise.race([
+        setupPushNotifications(),
+        new Promise(resolve => setTimeout(resolve, 10000))
+      ]);
     } finally {
       hideLoadingOverlay();
     }
