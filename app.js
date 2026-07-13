@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-3'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.13-4'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // iOS 사파리는 이게 없으면 버튼 :active(눌림) CSS가 탭 했을 때 거의 안 켜짐
   document.addEventListener('touchstart', function(){}, {passive:true});
 
