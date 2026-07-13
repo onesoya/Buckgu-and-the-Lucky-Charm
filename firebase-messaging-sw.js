@@ -1,7 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js');
 
-const SW_VERSION = '2026.07.13-1'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+const SW_VERSION = '2026.07.13-3'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
 
 // 예전 서비스 워커가 남아서 알림이 중복으로 뜨는 것을 방지:
 // 새 버전이 설치되면 바로 활성화하고, 열려있는 페이지도 즉시 이 버전이 담당하게 함
@@ -23,13 +23,12 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 const DEFAULT_LINK = 'https://onesoya.github.io/Buckgu-and-the-Lucky-Charm/';
-const isIOS = /iPad|iPhone|iPod/.test(self.navigator.userAgent);
+const USER_AGENT = self.navigator.userAgent || '';
+// 아이폰/아이팟만 (아이패드 제외) - 실제로 검증된 범위를 그대로 따름
+const IS_IPHONE = /iPhone|iPod/i.test(USER_AGENT);
+const IS_SAMSUNG_INTERNET = /Android/i.test(USER_AGENT) && /SamsungBrowser/i.test(USER_AGENT);
 
-// 아이폰이 화면 잠긴 채로 알림을 받으면, 그 상태에서 자바스크립트 실행이 사실상 멈춰서
-// postMessage가 페이지에 전달되지 못하고 씹히는 경우가 있는 것으로 추정됨.
-// 이를 대비해 최근 알림 하나를 IndexedDB에 잠깐 저장해뒀다가,
-// 화면이 다시 보이게 될 때 앱이 "혹시 놓친 거 있어?"라고 물어보면 꺼내줌.
-// (서비스워커 재시작에도 안 사라지도록 일반 변수 대신 IndexedDB 사용)
+// ---- 화면 잠긴 채로 알림 받았을 때 대비: 최근 알림을 IndexedDB에 잠깐 저장 ----
 const NOTIF_DB_NAME = 'notif-db';
 const NOTIF_STORE = 'pending';
 
@@ -54,36 +53,44 @@ async function savePendingNotif(payload) {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
-  } catch (e) { /* 저장 실패해도 기존 postMessage 경로는 그대로 시도되니 무시 */ }
+  } catch (e) { /* 저장 실패해도 다른 경로로 계속 시도되니 무시 */ }
 }
-async function readAndClearPendingNotif() {
+async function readPendingNotif() {
   try {
     const db = await openNotifDB();
     return await new Promise((resolve, reject) => {
-      const tx = db.transaction(NOTIF_STORE, 'readwrite');
-      const store = tx.objectStore(NOTIF_STORE);
-      const getReq = store.get('latest');
-      getReq.onsuccess = () => {
-        const value = getReq.result;
-        store.delete('latest');
-        resolve(value || null);
-      };
+      const tx = db.transaction(NOTIF_STORE, 'readonly');
+      const getReq = tx.objectStore(NOTIF_STORE).get('latest');
+      getReq.onsuccess = () => resolve(getReq.result || null);
       getReq.onerror = () => reject(getReq.error);
     });
   } catch (e) { return null; }
 }
+async function clearPendingNotif() {
+  try {
+    const db = await openNotifDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(NOTIF_STORE, 'readwrite');
+      tx.objectStore(NOTIF_STORE).delete('latest');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { /* 무시 */ }
+}
 
-// 앱이 "혹시 놓친 알림 있어?"라고 물어보면 IndexedDB에서 꺼내서 돌려줌
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'CHECK_PENDING_NOTIF') {
+    // 앱이 "혹시 놓친 알림 있어?"라고 물어보면 IndexedDB에서 꺼내서 돌려줌 (지우지는 않음 -
+    // 여러 번 물어볼 수 있어서, 정리는 앱이 확실히 처리한 뒤 CLEAR_PENDING_NOTIF로 따로 요청함)
     event.waitUntil(
-      readAndClearPendingNotif().then((pending) => {
+      readPendingNotif().then((pending) => {
         if (pending && event.source) event.source.postMessage(pending);
       })
     );
+  } else if (event.data && event.data.type === 'CLEAR_PENDING_NOTIF') {
+    event.waitUntil(clearPendingNotif());
   } else if (event.data && event.data.type === 'CHECK_SW_VERSION') {
-    // 앱이 "네 버전이 뭐야?"라고 물어보면 알려줌 (app.js 버전만으로는
-    // 서비스워커가 최신인지 알 수 없어서, 따로 확인할 수 있게 함)
+    // 앱이 "네 버전이 뭐야?"라고 물어보면 알려줌
     if (event.source) event.source.postMessage({ type: 'sw_version', version: SW_VERSION });
   }
 });
@@ -93,9 +100,37 @@ self.addEventListener('message', (event) => {
 // 알림을 띄워줌 - 여기서 또 띄우면 알림이 두 번 뜸.
 // 그런데도 이 리스너를 "등록"은 해두는 이유: 삼성인터넷 등 일부 브라우저는
 // onBackgroundMessage가 등록되어 있어야 푸시가 왔을 때 서비스워커가 확실히 깨어남.
-// (등록만 하고 비워두는 게 핵심 - 표시는 SDK한테 맡김)
-messaging.onBackgroundMessage(() => {
-  // 의도적으로 비워둠
+messaging.onBackgroundMessage(async (payload) => {
+  const data = (payload && payload.data) ? payload.data : {};
+  if (!data.tab) return;
+
+  // 앱이 완전히 꺼진 상태에서 새 알림이 와도 배지를 갱신하기 위함
+  // (앱의 Firestore 구독은 앱이 켜져 있을 때만 작동하니까, 서버가 매번
+  // "이 알림까지 포함한 총 안 읽은 개수"를 실어 보내면 여기서 바로 반영함)
+  const unreadCount = Number(data.unreadCount);
+  if ('setAppBadge' in self.navigator && Number.isFinite(unreadCount)) {
+    try {
+      if (unreadCount > 0) await self.navigator.setAppBadge(unreadCount);
+      else if ('clearAppBadge' in self.navigator) await self.navigator.clearAppBadge();
+    } catch (e) { /* 배지 API 미지원 브라우저는 조용히 무시 */ }
+  }
+
+  // 아이폰 전용 우회: WebKit의 알려진 버그(#7309)로, 화면이 잠긴 채로 알림을 누르면
+  // notificationclick 자체가 아예 실행되지 않는 경우가 있음.
+  // 그래서 "클릭 시점"이 아니라 "알림이 도착하는 시점"에 미리 저장해둠.
+  // 다른 플랫폼은 notificationclick이 정상 작동하니 여기 포함시키면 안 됨 -
+  // "알림 안 눌러도 그냥 앱만 열면 최신 글로 이동해버리는" 부작용이 생기기 때문.
+  if (IS_IPHONE) {
+    await savePendingNotif({
+      type: 'navigate',
+      tab: data.tab,
+      itemId: data.itemId,
+      commentTs: data.commentTs,
+      notifId: data.notifId,
+      link: data.link || DEFAULT_LINK,
+      receivedAt: Date.now()
+    });
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -105,27 +140,56 @@ self.addEventListener('notificationclick', (event) => {
   // 두 가지 구조를 다 확인함
   const raw = event.notification.data || {};
   const data = (raw.FCM_MSG && raw.FCM_MSG.data) ? raw.FCM_MSG.data : raw;
-  const { link, tab, itemId, commentTs } = data;
+  const { link, tab, itemId, commentTs, notifId } = data;
   const targetLink = link || DEFAULT_LINK;
-  const navPayload = { type: 'navigate', tab, itemId, commentTs, link: targetLink };
+  const navPayload = { type: 'navigate', tab, itemId, commentTs, notifId, link: targetLink };
 
   event.waitUntil((async () => {
-    if (isIOS) await savePendingNotif(navPayload); // 아이폰만: 화면 잠금 상태 대비 안전망
-
     const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // 이미 열려있는 창이 있으면: postMessage로 "이 탭/게시글로 가" 신호를 보내서 이동시킴.
-    // (예전엔 안전장치로 client.navigate()도 같이 불렀는데, 이게 페이지를 다시 불러오는
-    // 효과를 내서 postMessage로 시작된 스크롤/펼치기 작업을 화면이 초기화되며 끊어버리는
-    // 것으로 확인되어 제거함. 지금은 다들 최신 페이지를 쓰고 있어서 postMessage 하나로 충분함.)
-    for (const client of windowClients) {
-      if ('focus' in client) {
-        client.postMessage(navPayload);
-        return client.focus();
+
+    if (windowClients.length > 0) {
+      const client = windowClients.find((c) => c.focused) || windowClients[0];
+
+      if (IS_SAMSUNG_INTERNET) {
+        // 삼성인터넷 전용: postMessage를 먼저 보내지 않는 게 핵심.
+        // postMessage 직후 focus()를 부르면, 안드로이드가 그 PWA 작업(task)을
+        // 원래 상태로 복원하는 과정과 겹치면서 방금 적용한 이동 결과를 덮어써버리는
+        // 것으로 확인됨. 대신 먼저 저장해두고(위 IS_IPHONE과 같은 패턴을 여기서도 응용),
+        // focus()로 작업 복원을 먼저 끝낸 뒤, 앱이 복귀 시점에 알아서 확인하러 오게 함.
+        await savePendingNotif(navPayload);
+        try { await client.focus(); } catch (e) { /* 실패해도 pending은 이미 저장됨 */ }
+        return;
       }
+
+      // 그 외 플랫폼: 기존처럼 postMessage로 확실하게 이동시킴
+      client.postMessage(navPayload);
+      return client.focus();
     }
+
     // 열려있는 창이 없으면: 새 창을 해당 링크로 열기
     if (self.clients.openWindow) {
       return self.clients.openWindow(targetLink);
     }
   })());
 });
+
+// 알림함에서 "읽음 처리"하면, 잠금화면/알림창에 남아있는 그 알림도 같이 사라지게
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLOSE_NOTIFICATION' && event.data.tag) {
+    event.waitUntil(
+      self.registration.getNotifications({ tag: event.data.tag }).then((notifs) => {
+        notifs.forEach((n) => n.close());
+      })
+    );
+  } else if (event.data && event.data.type === 'CLEAR_ALL_NOTIFICATIONS') {
+    // 알림함의 "전체 삭제" 버튼 전용 - 절대 앱을 열 때마다 자동으로 호출하면 안 됨
+    // (확인하지도 않았는데 시스템 알림이 사라지는 혼란을 방지하기 위해, 명시적으로
+    // "전체 삭제"를 눌렀을 때만 호출되도록 app.js 쪽에서 관리함)
+    event.waitUntil(
+      self.registration.getNotifications().then((notifs) => {
+        notifs.forEach((n) => n.close());
+      })
+    );
+  }
+});
+

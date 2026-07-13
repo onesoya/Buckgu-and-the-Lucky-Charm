@@ -38,6 +38,9 @@
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="icon-btn" id="homeBtn" title="홈으로"><img src="home-icon.png" alt="홈"></button>
       <button class="icon-btn" id="searchOpenBtn" title="검색"><img src="search-icon.png" alt="검색"></button>
+      <button class="icon-btn notif-bell-btn" id="notifBellBtn" title="알림함">
+        🔔<span class="notif-badge-dot hidden" id="notifBadgeCount"></span>
+      </button>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
         <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
         <div class="visit-counter">
@@ -363,6 +366,17 @@
       <button class="search-cat-btn" data-mycat="comment">댓글·답글</button>
     </div>
     <div class="search-results" id="myActivityResults"></div>
+  </div>
+
+  <div class="search-overlay hidden" id="notifOverlay">
+    <div class="search-overlay-header">
+      <div class="my-activity-title">🔔 알림함</div>
+      <button id="notifCloseBtn">✕</button>
+    </div>
+    <div class="notif-clear-row">
+      <button class="link-toggle-btn hidden" id="notifClearAllBtn">전체 삭제</button>
+    </div>
+    <div class="search-results" id="notifResults"></div>
   </div>
 
   <div class="loading-overlay hidden" id="loadingOverlay">

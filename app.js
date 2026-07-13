@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-4'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.13-5'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // iOS 사파리는 이게 없으면 버튼 :active(눌림) CSS가 탭 했을 때 거의 안 켜짐
   document.addEventListener('touchstart', function(){}, {passive:true});
 
@@ -246,6 +246,8 @@ async function uploadPhotos(photosArray, onProgress) {
   // 탭 이름(schedule/wish/datelog/stamp/letter) -> Firestore 컬렉션 이름 매핑
   // (댓글/답글 상태(openCommentSections, replyingToMap)의 키가 컬렉션 이름 기준이라 필요함)
   const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
+  // 탭 이름 -> 실제 Firestore 컬렉션 이름 (삭제 여부를 서버에 직접 확인할 때 씀)
+  const TAB_TO_COLLECTION = { schedule:'schedule', wish:'wishlist', datelog:'datelog', stamp:'stamps', letter:'letters' };
 
   // ---- 알림 등으로 특정 게시물/댓글까지 스크롤하기 (지속 확인 방식) ----
   // "몇 번 재시도하다 포기" 대신, 목표를 전역 상태로 기억해두고
@@ -272,7 +274,15 @@ async function uploadPhotos(photosArray, onProgress) {
     if(!pendingScrollTarget) return;
     const { tab, itemId, commentTs } = pendingScrollTarget;
     const card = document.querySelector(`[data-item-id="${itemId}"]`);
-    if(!card) return; // 아직 카드가 없음 - 다음 기회에 (렌더 훅이 다시 불러줌)
+
+    if(!card){
+      // 4초 넘게 카드를 못 찾았으면, 단순 로딩 지연인지 진짜 삭제된 건지 서버에 직접 확인
+      if(!pendingScrollTarget.postCheckScheduled && Date.now() - pendingScrollTarget.setAt > 4000){
+        pendingScrollTarget.postCheckScheduled = true;
+        verifyDeletedPostTarget({ tab, itemId, commentTs });
+      }
+      return; // 아직 카드가 없음 - 다음 기회에 (렌더 훅이 다시 불러줌)
+    }
 
     const detail = card.querySelector('.post-detail');
     if(detail) detail.classList.remove('hidden');
@@ -292,8 +302,62 @@ async function uploadPhotos(photosArray, onProgress) {
     if(commentEl){
       clearScrollState();
       scrollToEl(commentEl);
+      return;
+    }
+
+    // 게시글은 있는데 그 댓글/답글만 안 보이면, 0.4초 뒤 서버에서 진짜 있는지 확인
+    // (게시글은 이미 있으니 훨씬 짧게 기다려도 됨)
+    if(!pendingScrollTarget.commentCheckScheduled){
+      pendingScrollTarget.commentCheckScheduled = true;
+      setTimeout(() => verifyMissingCommentTarget({ tab, itemId, commentTs }), 400);
     }
     // 못 찾았으면 pendingScrollTarget은 그대로 둬서 다음 기회(렌더/이벤트/폴링)에 다시 시도
+  }
+
+  // 비동기로 서버 확인하는 동안, 사용자가 다른 알림을 눌러서 다른 대상으로 이동했을 수 있음
+  // -> 그 사이 확인 결과가 나와도 화면에 띄우면 안 되므로, 지금 목표가 여전히 같은지 검사
+  function isSamePendingTarget(target){
+    const current = pendingScrollTarget;
+    if(!current) return false;
+    return current.tab === target.tab && current.itemId === target.itemId
+      && String(current.commentTs||'') === String(target.commentTs||'');
+  }
+
+  async function verifyDeletedPostTarget(target){
+    const col = TAB_TO_COLLECTION[target.tab];
+    if(!col) return;
+    try{
+      const snap = await db.collection(col).doc(target.itemId).get({ source: 'server' });
+      if(!isSamePendingTarget(target)) return;
+      if(!snap.exists){
+        clearScrollState();
+        showPushToast('삭제된 게시물이야', null, null, null, true);
+      }
+      // 문서가 있으면 단순 로딩 지연이므로 계속 기다림 (아무것도 안 함)
+    }catch(e){ /* 네트워크 문제 등 - 계속 폴링에 맡김 */ }
+  }
+
+  async function verifyMissingCommentTarget(target){
+    const col = TAB_TO_COLLECTION[target.tab];
+    if(!col) return;
+    try{
+      const snap = await db.collection(col).doc(target.itemId).get({ source: 'server' });
+      if(!isSamePendingTarget(target)) return;
+      if(!snap.exists){
+        clearScrollState();
+        showPushToast('삭제된 게시물이야', null, null, null, true);
+        return;
+      }
+      const comments = (snap.data().comments || []);
+      // 답글이 달린 댓글을 지운 경우 톰스톤(deleted:true)으로 남기 때문에, ts로는 여전히 찾아짐
+      // -> 정상적으로 그 자리로 스크롤됨. 진짜 안내가 필요한 건 "완전히 사라진" 경우뿐.
+      const targetComment = comments.find(c => String(c.ts) === String(target.commentTs));
+      if(!targetComment){
+        clearScrollState();
+        showPushToast('삭제된 댓글이야', null, null, null, true);
+      }
+      // 찾아지면 Firestore엔 있는데 DOM에 아직 안 나타난 것 -> 렌더 지연이므로 계속 재시도
+    }catch(e){ /* 무시 */ }
   }
 
   // 화면이 실제로 "보이게 되는" 시점들을 최대한 포착
@@ -301,13 +365,46 @@ async function uploadPhotos(photosArray, onProgress) {
   window.addEventListener('focus', tryConsumePendingScroll);
   window.addEventListener('pageshow', tryConsumePendingScroll);
 
-  // 아이폰이 화면 잠긴 채로 알림을 눌렀을 때 postMessage가 씹혔을 가능성에 대비:
-  // 화면이 다시 보이게 되면 서비스워커한테 "혹시 놓친 알림 있어?"라고 물어봄
-  document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible' && navigator.serviceWorker && navigator.serviceWorker.controller){
+  // ---- 화면 꺼진 채로(또는 잠긴 채로) 알림 눌렀을 때 대응 ----
+  // 아이폰과 안드로이드(삼성인터넷)는 원인이 서로 완전히 달라서 따로 처리함:
+  // - 아이폰: WebKit 버그(#7309)로 notificationclick 자체가 안 터질 수 있음
+  // - 삼성인터넷: notificationclick은 터지지만, postMessage 직후 focus()가
+  //   안드로이드 자체의 작업(task) 복원과 충돌해서 이동 결과가 덮어써짐
+  // 둘 다 서비스워커가 IndexedDB에 저장해둔 정보를 "복귀 시점"에 확인하는 방식으로 대응
+  const USER_AGENT = navigator.userAgent || '';
+  const IS_SAMSUNG_INTERNET = /Android/i.test(USER_AGENT) && /SamsungBrowser/i.test(USER_AGENT);
+  let lastHandledPushKey = ''; // 같은 알림이 여러 번 재확인되면서 중복 적용되는 것 방지
+  let pendingClearTimer = null;
+  let resumeRetryTimers = [];
+
+  function runResumeCheck(){
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
       navigator.serviceWorker.controller.postMessage({ type: 'CHECK_PENDING_NOTIF' });
     }
+  }
+  function scheduleResumeChecks(){
+    resumeRetryTimers.forEach(t => clearTimeout(t));
+    resumeRetryTimers = [];
+    if(IS_SAMSUNG_INTERNET){
+      // 안드로이드의 작업 복원이 끝날 시간을 벌어주기 위해 살짝 늦춰서 확인
+      resumeRetryTimers.push(
+        setTimeout(runResumeCheck, 700),
+        setTimeout(runResumeCheck, 1500),
+        setTimeout(runResumeCheck, 2600)
+      );
+    } else {
+      runResumeCheck();
+      resumeRetryTimers.push(
+        setTimeout(runResumeCheck, 300),
+        setTimeout(runResumeCheck, 1000),
+        setTimeout(runResumeCheck, 2000)
+      );
+    }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') scheduleResumeChecks();
   });
+  scheduleResumeChecks(); // 페이지가 막 열린 시점에도 한 번 확인 (콜드 스타트 안전망)
 
   function localDateStr(d){
     d = d || new Date();
@@ -1603,6 +1700,111 @@ function renderLetters() {
     });
   });
 
+  // ---- 알림함 (벨) + 배지 ----
+  let unreadNotifications = [];
+
+  function updateAppBadge(count){
+    // 홈 화면 앱 아이콘 배지 (Badging API - 지원 안 하는 브라우저는 조용히 무시됨)
+    if('setAppBadge' in navigator){
+      if(count > 0) navigator.setAppBadge(count).catch(()=>{});
+      else if('clearAppBadge' in navigator) navigator.clearAppBadge().catch(()=>{});
+    }
+  }
+  function updateNotifBadge(){
+    const count = unreadNotifications.length;
+    const dot = document.getElementById('notifBadgeCount');
+    if(dot){
+      if(count > 0){ dot.textContent = count > 99 ? '99+' : String(count); dot.classList.remove('hidden'); }
+      else dot.classList.add('hidden');
+    }
+    updateAppBadge(count);
+  }
+  function watchNotifications(){
+    if(!identity) return;
+    db.collection('notifications').doc(identity).collection('items')
+      .where('read', '==', false)
+      .onSnapshot(snap => {
+        unreadNotifications = [];
+        snap.forEach(doc => unreadNotifications.push({ id: doc.id, ...doc.data() }));
+        unreadNotifications.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+        updateNotifBadge();
+        renderNotifResults();
+      }, err => console.error('알림함 구독 실패', err));
+  }
+  function markNotifRead(notifId){
+    if(!identity || !notifId) return;
+    db.collection('notifications').doc(identity).collection('items').doc(notifId)
+      .update({ read: true }).catch(()=>{});
+    // 보낼 때 같은 ID를 시스템 알림의 "태그"로 심어뒀어서, 그 태그로 콕 집어서 지울 수 있음
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({ type: 'CLOSE_NOTIFICATION', tag: notifId });
+    }
+  }
+  function renderNotifResults(){
+    const container = document.getElementById('notifResults');
+    const clearBtn = document.getElementById('notifClearAllBtn');
+    if(!container) return;
+    clearBtn.classList.toggle('hidden', unreadNotifications.length === 0);
+    if(unreadNotifications.length === 0){
+      container.innerHTML = '<div class="empty-state" style="padding:30px 10px;">읽지 않은 알림이 없어.</div>';
+      return;
+    }
+    container.innerHTML = unreadNotifications.map((n,i) => `
+      <div class="search-result-item notif-item" data-notif-idx="${i}">
+        <div>
+          <div class="search-result-title">${escapeHTML(n.title || '')}</div>
+          ${n.body ? `<div class="search-result-sub">${escapeHTML((n.body||'').slice(0,44))}</div>` : ''}
+        </div>
+        <button class="notif-item-dismiss" data-notif-dismiss="${n.id}">✕</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('.notif-item').forEach((el,i)=>{
+      el.addEventListener('click', (e)=>{
+        if(e.target.closest('.notif-item-dismiss')) return; // ✕ 버튼은 아래에서 따로 처리
+        const n = unreadNotifications[i];
+        markNotifRead(n.id);
+        closeNotifOverlay();
+        navigateToItem(n.tab, n.itemId, n.commentTs || undefined);
+      });
+    });
+    container.querySelectorAll('.notif-item-dismiss').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        markNotifRead(btn.dataset.notifDismiss); // 이동은 안 하고 읽음 처리만
+      });
+    });
+  }
+  function openNotifOverlay(){
+    document.getElementById('notifOverlay').classList.remove('hidden');
+    renderNotifResults();
+  }
+  function closeNotifOverlay(){
+    document.getElementById('notifOverlay').classList.add('hidden');
+  }
+  document.getElementById('notifBellBtn').addEventListener('click', openNotifOverlay);
+  document.getElementById('notifCloseBtn').addEventListener('click', closeNotifOverlay);
+  document.getElementById('notifClearAllBtn').addEventListener('click', ()=>{
+    if(!confirm(`안 읽은 알림 ${unreadNotifications.length}개를 전부 지울까?`)) return;
+    const batch = db.batch();
+    unreadNotifications.forEach(n => batch.delete(db.collection('notifications').doc(identity).collection('items').doc(n.id)));
+    batch.commit().catch(err=>console.error('알림 전체 삭제 실패', err));
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ALL_NOTIFICATIONS' });
+    }
+  });
+
+  // 앱이 완전히 꺼져있다가 알림 링크(콜드 스타트)로 열렸을 때, 주소의 ?notif= 쿼리로 읽음 처리
+  function handleNotifQueryParam(){
+    const params = new URLSearchParams(window.location.search);
+    const notifId = params.get('notif');
+    if(notifId){
+      markNotifRead(notifId);
+      params.delete('notif');
+      const newSearch = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
+    }
+  }
+
   let signInInProgress = false;
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
     signInInProgress = true;
@@ -2225,13 +2427,14 @@ function watch(query, collectionName, onData){
   let pushToastTab = null;
   let pushToastItemId = null;
   let pushToastCommentTs = null;
-  function showPushToast(title, tab, itemId, commentTs){
+  function showPushToast(title, tab, itemId, commentTs, centered){
     pushToastTab = tab || null;
     pushToastItemId = itemId || null;
     pushToastCommentTs = commentTs || null;
     document.getElementById('pushToastTitle').textContent = title || '';
     document.getElementById('pushToastBody').textContent = '';
     const toast = document.getElementById('pushToast');
+    toast.classList.toggle('centered', !!centered);
     toast.classList.remove('hidden');
     clearTimeout(pushToastTimer);
     pushToastTimer = setTimeout(()=>{ toast.classList.add('hidden'); }, 5000);
@@ -2248,8 +2451,28 @@ function watch(query, collectionName, onData){
     navigator.serviceWorker.addEventListener('message', (event)=>{
       const msg = event.data;
       if(msg && msg.type === 'navigate' && msg.tab){
-        if(msg.itemId) navigateToItem(msg.tab, msg.itemId, msg.commentTs);
-        else activateTab(msg.tab);
+        const pushKey = [msg.tab||'', msg.itemId||'', msg.commentTs||''].join('|');
+        const isDuplicate = IS_SAMSUNG_INTERNET && pushKey === lastHandledPushKey;
+
+        if(!isDuplicate){
+          if(IS_SAMSUNG_INTERNET) lastHandledPushKey = pushKey;
+          if(msg.itemId) navigateToItem(msg.tab, msg.itemId, msg.commentTs);
+          else activateTab(msg.tab);
+          if(msg.notifId) markNotifRead(msg.notifId); // 잠금화면 알림 클릭도 읽음 처리
+        }
+
+        const clearInSW = () => {
+          if(navigator.serviceWorker.controller){
+            navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_PENDING_NOTIF' });
+          }
+          pendingClearTimer = null;
+        };
+        if(IS_SAMSUNG_INTERNET){
+          // 세 번의 재확인 기회(0.7/1.5/2.6초)를 다 주기 위해 바로 안 지우고 유지
+          if(!pendingClearTimer) pendingClearTimer = setTimeout(clearInSW, 3500);
+        } else {
+          clearInSW(); // 다른 브라우저는 기존처럼 즉시 정리
+        }
       } else if(msg && msg.type === 'sw_version'){
         // app.js 버전만으론 서비스워커가 최신인지 알 수 없어서, 따로 물어봐서 같이 표시함
         const tag = document.getElementById('appVersionTag');
@@ -2266,6 +2489,16 @@ function watch(query, collectionName, onData){
     navigator.serviceWorker.addEventListener('controllerchange', requestSWVersion); // 새 버전으로 갱신될 때도 다시 확인
   }
 
+  // 기기마다 안정적인 ID를 하나 만들어서 계속 재사용 (같은 기기에서 여러 번 등록해도 새 항목 안 생김)
+  function getOrCreateDeviceId(){
+    let id = localStorage.getItem('deviceId');
+    if(!id){
+      id = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('deviceId', id);
+    }
+    return id;
+  }
+
   async function setupPushNotifications(){
     try{
       if(!('serviceWorker' in navigator) || !('Notification' in window)) return;
@@ -2275,7 +2508,9 @@ function watch(query, collectionName, onData){
       const messaging = firebase.messaging();
       const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
       if(token){
-        await db.collection('fcmTokens').doc(identity).set({ token, updatedAt: Date.now() });
+        const deviceId = getOrCreateDeviceId();
+        await db.collection('fcmTokens').doc(identity).collection('devices').doc(deviceId)
+          .set({ token, updatedAt: Date.now(), userAgent: navigator.userAgent || '' });
       }
       messaging.onMessage((payload)=>{
         showPushToast(
@@ -2284,6 +2519,9 @@ function watch(query, collectionName, onData){
           payload.data && payload.data.itemId,
           payload.data && payload.data.commentTs
         );
+        // 앱이 켜져있을 때 온 알림도 배지 개수를 서버가 계산해둔 값으로 갱신
+        const unreadCount = Number(payload.data && payload.data.unreadCount);
+        if(Number.isFinite(unreadCount)) updateAppBadge(unreadCount);
       });
     }catch(e){
       console.error('푸시 알림 설정 실패', e);
@@ -2310,6 +2548,8 @@ function watch(query, collectionName, onData){
 function startWatchers(){
     if(watchersStarted) return;
     watchersStarted = true;
+
+    watchNotifications();
 
     // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
     // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
@@ -2734,7 +2974,7 @@ function startWatchers(){
 
     // 목표를 전역 상태로 기억해두고, 즉시 1회 시도 + 이후 렌더/이벤트/폴링에서 계속 확인
     if(scrollPollInterval) clearInterval(scrollPollInterval); // 이전 목표용 폴링이 남아있으면 정리
-    pendingScrollTarget = { tab, itemId, commentTs };
+    pendingScrollTarget = { tab, itemId, commentTs, setAt: Date.now() };
     tryConsumePendingScroll();
 
     let pollCount = 0;
@@ -2888,6 +3128,7 @@ function startWatchers(){
         hideGate();
         startWatchers();
         activateTabFromHash();
+        handleNotifQueryParam();
         trackVisit();
         watchVisitCounter();
         if('Notification' in window && Notification.permission === 'granted'){
