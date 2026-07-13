@@ -41,8 +41,8 @@
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
         <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
         <div class="visit-counter">
-          <div id="visitToday"></div>
           <div id="visitTotal"></div>
+          <div id="visitToday"></div>
           <div id="appVersionTag"></div>
         </div>
       </div>
@@ -309,6 +309,17 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="identityPopup">
+    <div class="modal-card">
+      <div class="modal-title" id="identityPopupTitle">나는 ...</div>
+      <div class="modal-btns" style="flex-direction:column;gap:8px;">
+        <button class="btn" id="myActivityBtn" style="width:100%;">📋 나의 활동</button>
+        <button class="btn" id="logoutBtn" style="width:100%;background:#F0E4E9;color:var(--plum);">로그아웃</button>
+        <button class="cancel-edit-btn" id="identityPopupCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <div class="notif-prompt hidden" id="notifPrompt">
     <span>🔔 알림을 켜면 상대방이 뭔가 남길 때 바로 알 수 있어</span>
     <button id="notifEnableBtn">켜기</button>
@@ -339,6 +350,19 @@
       <button class="search-cat-btn" data-cat="stamp">스탬프</button>
     </div>
     <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div class="search-overlay hidden" id="myActivityOverlay">
+    <div class="search-overlay-header">
+      <div class="my-activity-title">📋 나의 활동</div>
+      <button id="myActivityCloseBtn">✕</button>
+    </div>
+    <div class="search-category-row" id="myActivityCategoryRow">
+      <button class="search-cat-btn active" data-mycat="all">전체</button>
+      <button class="search-cat-btn" data-mycat="post">쓴 글</button>
+      <button class="search-cat-btn" data-mycat="comment">댓글·답글</button>
+    </div>
+    <div class="search-results" id="myActivityResults"></div>
   </div>
 
   <div class="loading-overlay hidden" id="loadingOverlay">

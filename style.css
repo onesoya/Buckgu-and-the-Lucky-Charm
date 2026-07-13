@@ -758,6 +758,9 @@
   font-family:'DungGeunMo',sans-serif; color:var(--plum); outline:none;
 }
 .search-overlay-header input:focus{ border-color:var(--pink); }
+.my-activity-title{
+  flex:1; font-family:'DungGeunMo',sans-serif; font-size:17px; color:var(--plum);
+}
 .search-overlay-header button{
   background:var(--white); border:none; border-radius:50%; width:36px; height:36px;
   font-size:17px; color:var(--plum-soft); cursor:pointer; flex-shrink:0;

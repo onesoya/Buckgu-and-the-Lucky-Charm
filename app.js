@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-1'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.13-3'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // iOS 사파리는 이게 없으면 버튼 :active(눌림) CSS가 탭 했을 때 거의 안 켜짐
   document.addEventListener('touchstart', function(){}, {passive:true});
 
@@ -208,6 +208,41 @@ async function uploadPhotos(photosArray, onProgress) {
     resize();
   }
 
+  // 작성 중인 글 자동 임시저장 (알림 등으로 화면이 새로고침돼도 쓰던 내용이 안 날아가게)
+  function setupDraftAutosave(storageKey, fieldIds){
+    // 복원
+    try{
+      const saved = localStorage.getItem(storageKey);
+      if(saved){
+        const data = JSON.parse(saved);
+        fieldIds.forEach(id => {
+          const el = document.getElementById(id);
+          if(el && data[id]){
+            el.value = data[id];
+            if(el._autoGrowResize) el._autoGrowResize();
+          }
+        });
+      }
+    }catch(e){}
+
+    // 입력할 때마다 저장
+    const save = () => {
+      const data = {};
+      fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) data[id] = el.value;
+      });
+      try{ localStorage.setItem(storageKey, JSON.stringify(data)); }catch(e){}
+    };
+    fieldIds.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('input', save);
+    });
+  }
+  function clearDraftAutosave(storageKey){
+    try{ localStorage.removeItem(storageKey); }catch(e){}
+  }
+
   // 탭 이름(schedule/wish/datelog/stamp/letter) -> Firestore 컬렉션 이름 매핑
   // (댓글/답글 상태(openCommentSections, replyingToMap)의 키가 컬렉션 이름 기준이라 필요함)
   const tabToColName = { datelog:'datelog', stamp:'stamps', letter:'letters' };
@@ -265,6 +300,14 @@ async function uploadPhotos(photosArray, onProgress) {
   document.addEventListener('visibilitychange', tryConsumePendingScroll);
   window.addEventListener('focus', tryConsumePendingScroll);
   window.addEventListener('pageshow', tryConsumePendingScroll);
+
+  // 아이폰이 화면 잠긴 채로 알림을 눌렀을 때 postMessage가 씹혔을 가능성에 대비:
+  // 화면이 다시 보이게 되면 서비스워커한테 "혹시 놓친 알림 있어?"라고 물어봄
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_PENDING_NOTIF' });
+    }
+  });
 
   function localDateStr(d){
     d = d || new Date();
@@ -1473,8 +1516,93 @@ function renderLetters() {
     document.getElementById('identityChip').textContent = identity ? `나는 ${identity}` : '나는 ...';
   }
   document.getElementById('identityChip').addEventListener('click', ()=>{
+    document.getElementById('identityPopupTitle').textContent = identity ? `나는 ${identity}` : '나는 ...';
+    document.getElementById('identityPopup').classList.remove('hidden');
+  });
+  document.getElementById('identityPopupCloseBtn').addEventListener('click', ()=>{
+    document.getElementById('identityPopup').classList.add('hidden');
+  });
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    document.getElementById('identityPopup').classList.add('hidden');
     if(confirm('로그아웃할까?')) firebase.auth().signOut();
   });
+
+  // ---- 나의 활동 (내가 쓴 글 + 댓글/답글 모아보기) ----
+  function buildMyActivityIndex(){
+    const items = [];
+    schedule.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'schedule', label:'일정', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
+    wishes.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'wish', label:'위시', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
+    dateLogs.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'datelog', label:'데이트기록', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
+    stamps.forEach(it => { if((it.author||it.person) === identity) items.push({ type:'post', tab:'stamp', label:'스탬프', ts: it.createdAt||0, title: it.text, sub:'', itemId: it.id }); });
+    letters.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'letter', label:'편지', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
+
+    // 다른 사람 글에 단 것까지 포함해서, 내가 쓴 댓글/답글 전부 모으기
+    const commentSources = [
+      { list: dateLogs, tab:'datelog', label:'데이트기록' },
+      { list: stamps, tab:'stamp', label:'스탬프' },
+      { list: letters, tab:'letter', label:'편지' }
+    ];
+    commentSources.forEach(({list, tab, label}) => {
+      list.forEach(it => {
+        (it.comments||[]).forEach(c => {
+          if(c.author === identity && !c.deleted){
+            items.push({
+              type:'comment', tab, label: c.parentTs ? '답글' : '댓글',
+              ts: c.ts, title: `${label} · ${escapeHTML((it.title || it.text || '').slice(0,20))}`,
+              sub: c.text, itemId: it.id, commentTs: c.ts
+            });
+          }
+        });
+      });
+    });
+
+    return items.sort((a,b)=> b.ts - a.ts);
+  }
+
+  let myActivityCategory = 'all';
+  function renderMyActivity(){
+    const container = document.getElementById('myActivityResults');
+    let items = buildMyActivityIndex();
+    if(myActivityCategory !== 'all') items = items.filter(r => r.type === myActivityCategory);
+    if(items.length === 0){
+      container.innerHTML = '<div class="empty-state" style="padding:30px 10px;">아직 활동이 없어.</div>';
+      return;
+    }
+    container.innerHTML = items.map((r,i) => `
+      <div class="search-result-item" data-my-idx="${i}">
+        <span class="search-result-label">${r.label}</span>
+        <div>
+          <div class="search-result-title">${r.title || ''}</div>
+          ${r.sub ? `<div class="search-result-sub">${escapeHTML(r.sub.slice(0,44))}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.search-result-item').forEach((el,i)=>{
+      el.addEventListener('click', ()=>{
+        closeMyActivityOverlay();
+        navigateToItem(items[i].tab, items[i].itemId, items[i].commentTs);
+      });
+    });
+  }
+  function openMyActivityOverlay(){
+    document.getElementById('identityPopup').classList.add('hidden');
+    document.getElementById('myActivityOverlay').classList.remove('hidden');
+    renderMyActivity();
+  }
+  function closeMyActivityOverlay(){
+    document.getElementById('myActivityOverlay').classList.add('hidden');
+  }
+  document.getElementById('myActivityBtn').addEventListener('click', openMyActivityOverlay);
+  document.getElementById('myActivityCloseBtn').addEventListener('click', closeMyActivityOverlay);
+  document.querySelectorAll('#myActivityCategoryRow .search-cat-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#myActivityCategoryRow .search-cat-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      myActivityCategory = btn.dataset.mycat;
+      renderMyActivity();
+    });
+  });
+
   let signInInProgress = false;
   document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
     signInInProgress = true;
@@ -1688,6 +1816,7 @@ function renderLetters() {
     renderPhotoPreviewGrid('wishPhotoPreviewWrap', ()=>pendingWishPhotos, (v)=>{ pendingWishPhotos = v; });
     document.getElementById('wishAddBtn').textContent = '게시하기';
     document.getElementById('wishCancelBtn').classList.add('hidden');
+    clearDraftAutosave('draft_wish');
   }
   document.getElementById('wishCancelBtn').addEventListener('click', resetWishForm);
     document.getElementById('wishAddBtn').addEventListener('click', async () => {
@@ -1804,6 +1933,7 @@ function renderLetters() {
     renderPhotoPreviewGrid('dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
     document.getElementById('dateLogAddBtn').textContent = '기록하기';
     document.getElementById('dateLogCancelBtn').classList.add('hidden');
+    clearDraftAutosave('draft_datelog');
   }
   document.getElementById('dateLogLocation').addEventListener('input', ()=>{
     pendingDateLogGeo = null;
@@ -1951,6 +2081,7 @@ function renderLetters() {
     renderStamp();
     document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
     document.getElementById('stampCancelBtn').classList.add('hidden');
+    clearDraftAutosave('draft_stamp');
   }
   document.getElementById('stampCancelBtn').addEventListener('click', resetStampForm);
     
@@ -2013,6 +2144,7 @@ function renderLetters() {
     document.getElementById('letterLockToggleBtn').textContent = '+ 특정 날짜까지 잠그기 (선택)';
     document.getElementById('letterAddBtn').textContent = '편지 보내기';
     document.getElementById('letterCancelBtn').classList.add('hidden');
+    clearDraftAutosave('draft_letter');
   }
   document.getElementById('letterCancelBtn').addEventListener('click', resetLetterForm);
   document.getElementById('letterLockToggleBtn').addEventListener('click', ()=>{
@@ -2524,6 +2656,31 @@ function startWatchers(){
   function navigateToItem(tab, itemId, commentTs){
     activateTab(tab);
 
+    // 이동하려는 탭에 필터가 걸려있으면 먼저 강제로 "전체"로 풀어줌.
+    // 안 그러면 필터에 안 걸리는 게시글은 화면(DOM)에 아예 안 그려져서
+    // 스크롤할 대상을 영영 못 찾게 됨.
+    if(tab === 'letter' && letterFilterTarget !== 'all'){
+      letterFilterTarget = 'all';
+      document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>{
+        b.classList.toggle('active', b.dataset.letterFilter === 'all');
+      });
+    } else if(tab === 'stamp' && stampFilterTarget !== 'all'){
+      stampFilterTarget = 'all';
+      document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>{
+        b.classList.toggle('active', b.dataset.stampFilter === 'all');
+      });
+    } else if(tab === 'wish' && wishFilterTarget !== 'all'){
+      wishFilterTarget = 'all';
+      document.querySelectorAll('#wishFilterRow .filter-chip').forEach(b=>{
+        b.classList.toggle('active', b.dataset.wishFilter === 'all');
+      });
+    } else if(tab === 'datelog' && dateLogFilterTarget !== 'all'){
+      dateLogFilterTarget = 'all';
+      document.querySelectorAll('#dateLogFilterRow .filter-chip').forEach(b=>{
+        b.classList.toggle('active', b.dataset.datelogFilter === 'all');
+      });
+    }
+
     // 데이터가 아직 안 왔어도, 나중에 렌더링될 때 펼쳐지도록 미리 예약해둠
     if(itemId) expandedPostIds.add(itemId);
 
@@ -2694,6 +2851,10 @@ function startWatchers(){
     setupAutoGrow('dateLogMemo', 240);
     setupAutoGrow('letterBody', 280);
     setupAutoGrow('stampText', 200);
+    setupDraftAutosave('draft_wish', ['wishTitle','wishBody']);
+    setupDraftAutosave('draft_datelog', ['dateLogTitle','dateLogMemo']);
+    setupDraftAutosave('draft_letter', ['letterTitle','letterBody']);
+    setupDraftAutosave('draft_stamp', ['stampText']);
     document.getElementById('appVersionTag').textContent = `v${APP_VERSION}`;
     document.querySelector('.app-shell').style.visibility = 'hidden';
 
