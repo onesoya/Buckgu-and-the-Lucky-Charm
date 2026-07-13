@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-12'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.13-13'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -1668,7 +1668,6 @@ function renderLetters() {
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> activateTab(btn.dataset.tab));
   });
-  document.getElementById('homeBtn').addEventListener('click', ()=> activateTab('home'));
   document.getElementById('homeThrowbackCard').addEventListener('click', ()=>{
     const target = document.getElementById('homeThrowbackCard').dataset.tabTarget;
     if(target) activateTab(target);
