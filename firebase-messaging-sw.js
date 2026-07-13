@@ -1,6 +1,8 @@
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js');
 
+const SW_VERSION = '2026.07.13-1'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+
 // 예전 서비스 워커가 남아서 알림이 중복으로 뜨는 것을 방지:
 // 새 버전이 설치되면 바로 활성화하고, 열려있는 페이지도 즉시 이 버전이 담당하게 함
 self.addEventListener('install', () => {
@@ -79,6 +81,10 @@ self.addEventListener('message', (event) => {
         if (pending && event.source) event.source.postMessage(pending);
       })
     );
+  } else if (event.data && event.data.type === 'CHECK_SW_VERSION') {
+    // 앱이 "네 버전이 뭐야?"라고 물어보면 알려줌 (app.js 버전만으로는
+    // 서비스워커가 최신인지 알 수 없어서, 따로 확인할 수 있게 함)
+    if (event.source) event.source.postMessage({ type: 'sw_version', version: SW_VERSION });
   }
 });
 

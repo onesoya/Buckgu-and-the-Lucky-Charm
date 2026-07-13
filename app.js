@@ -2250,8 +2250,20 @@ function watch(query, collectionName, onData){
       if(msg && msg.type === 'navigate' && msg.tab){
         if(msg.itemId) navigateToItem(msg.tab, msg.itemId, msg.commentTs);
         else activateTab(msg.tab);
+      } else if(msg && msg.type === 'sw_version'){
+        // app.js 버전만으론 서비스워커가 최신인지 알 수 없어서, 따로 물어봐서 같이 표시함
+        const tag = document.getElementById('appVersionTag');
+        if(tag) tag.textContent = `v${APP_VERSION} · SW ${msg.version}`;
       }
     });
+
+    function requestSWVersion(){
+      if(navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage({ type: 'CHECK_SW_VERSION' });
+      }
+    }
+    requestSWVersion(); // 페이지 열릴 때 한 번 확인
+    navigator.serviceWorker.addEventListener('controllerchange', requestSWVersion); // 새 버전으로 갱신될 때도 다시 확인
   }
 
   async function setupPushNotifications(){
