@@ -81,6 +81,18 @@
         <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩이" onerror="this.style.display='none'">
       </div>
       <div class="home-anniv-mini" id="homeAnnivMini"></div>
+
+      <div class="love-signal-card" id="loveSignalCard">
+        <div class="love-signal-title" id="loveSignalTitle">마음 보내기</div>
+        <div class="love-signal-grid" id="loveSignalGrid"></div>
+        <div class="love-signal-pending hidden" id="loveSignalPending">
+          <span id="loveSignalPendingText"></span>
+          <button id="loveSignalCancelBtn">취소</button>
+        </div>
+        <div class="love-signal-received hidden" id="loveSignalReceived"></div>
+        <button type="button" class="love-signal-history-link" id="loveSignalHistoryBtn">지난 신호 보기</button>
+      </div>
+
       <div class="home-next-card" id="homeNextDateCard"></div>
       <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
@@ -402,6 +414,14 @@
       <button class="link-toggle-btn hidden" id="notifClearAllBtn">전체 삭제</button>
     </div>
     <div class="search-results" id="notifResults"></div>
+  </div>
+
+  <div class="search-overlay hidden" id="loveSignalHistoryOverlay">
+    <div class="search-overlay-header">
+      <div class="my-activity-title">💌 지난 신호</div>
+      <button id="loveSignalHistoryCloseBtn">✕</button>
+    </div>
+    <div class="search-results" id="loveSignalHistoryResults"></div>
   </div>
 
   <div class="loading-overlay hidden" id="loadingOverlay">

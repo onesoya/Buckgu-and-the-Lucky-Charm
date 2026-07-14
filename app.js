@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.13-15'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.14-3'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -547,6 +547,10 @@ async function uploadPhotos(photosArray, onProgress) {
     if(author === '소정') return '선호';
     if(author === '선호') return '소정';
     return '상대방';
+  }
+  // 주격조사(이/가): 받침 있으면 "이가", 없으면 "가" -> 소정이가 / 선호가
+  function particleFor(name){
+    return name === '소정' ? '이가' : '가';
   }
   function isMine(item){
     if(item.author === undefined || item.author === null) return true;
@@ -1472,6 +1476,179 @@ function renderLetters() {
   }
 
   let renderHomeDebounceTimer = null;
+  // ---- 애정 신호 (마음 보내기) ----
+  const LOVE_SIGNAL_TYPES = [
+    { type:'missYou', emoji:'❤️', label:'보고 싶어' },
+    { type:'hug',     emoji:'🫂', label:'안아주기' },
+    { type:'thought', emoji:'🐶', label:'생각났어' },
+    { type:'cheer',   emoji:'💪', label:'힘내' },
+    { type:'rest',    emoji:'☕', label:'쉬었다 해' },
+    { type:'love',    emoji:'😘', label:'사랑해' }
+  ];
+  let loveSignals = [];
+  let pendingSignalTimer = null;
+  let pendingSignalInterval = null;
+  let pendingSignalType = null;
+  const localSignalSentAt = {};
+
+  function watchLoveSignals(){
+    if(!identity) return;
+    // 두 사람만 쓰는 앱이라, receiver==... 같은 복합 인덱스 쿼리보다
+    // 최근 100개를 통째로 불러온 뒤 앱에서 걸러 쓰는 게 더 단순하고 안전함
+    const unsubscribe = db.collection('loveSignals')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .onSnapshot(snap => {
+        loveSignals = [];
+        snap.forEach(doc => loveSignals.push({ id: doc.id, ...doc.data() }));
+        renderLoveSignalCard();
+      }, err => console.error('애정 신호 구독 실패', err));
+    rememberUnsubscribe(unsubscribe);
+  }
+
+  function renderLoveSignalCard(){
+    const grid = document.getElementById('loveSignalGrid');
+    const titleEl = document.getElementById('loveSignalTitle');
+    if(!grid || !identity) return;
+    const otherName = otherPerson(identity);
+    titleEl.textContent = `${otherName}에게 마음 보내기`;
+
+    grid.innerHTML = LOVE_SIGNAL_TYPES.map(s => `
+      <button class="love-signal-btn" data-signal-type="${s.type}" ${pendingSignalType ? 'disabled' : ''}>${s.emoji} ${s.label}</button>
+    `).join('');
+    grid.querySelectorAll('.love-signal-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=> startSendSignal(btn.dataset.signalType));
+    });
+
+    // 최근 받은 신호 하나만 표시
+    const received = document.getElementById('loveSignalReceived');
+    const lastReceived = loveSignals.find(s => s.receiver === identity);
+    if(lastReceived){
+      received.classList.remove('hidden');
+      const def = LOVE_SIGNAL_TYPES.find(s => s.type === lastReceived.type) || {};
+      received.innerHTML = `
+        <div>
+          <span class="love-signal-received-text">${lastReceived.sender}${particleFor(lastReceived.sender)} ${def.label || ''}(${def.emoji || ''}) 신호를 보냈어</span>
+          <span class="love-signal-received-time">${relativeTimeKR(lastReceived.createdAt)}</span>
+        </div>
+        <div class="love-signal-received-actions">
+          <button id="loveSignalReturnBtn" data-signal-type="${lastReceived.type}">같은 신호 보내기</button>
+        </div>
+      `;
+      document.getElementById('loveSignalReturnBtn').addEventListener('click', (e)=> startSendSignal(e.target.dataset.signalType));
+    } else {
+      received.classList.add('hidden');
+      received.innerHTML = '';
+    }
+  }
+
+  function startSendSignal(type){
+    if(!identity || pendingSignalType) return; // 이미 대기 중이면 무시 (버튼도 비활성화되어 있음)
+
+    const def = LOVE_SIGNAL_TYPES.find(s => s.type === type);
+    if(!def) return;
+
+    const now = Date.now();
+    // 같은 신호는 마지막 전송 후 60초 동안 다시 못 보내게 제한
+    // (서버에 이미 저장된 기록 + 아직 서버에 반영 안 됐을 수 있는 방금 보낸 기록 둘 다 확인)
+    const recentSame = loveSignals.find(s => s.sender === identity && s.type === type && now - Number(s.createdAt || 0) < 60000);
+    const recentlySentLocally = now - Number(localSignalSentAt[type] || 0) < 60000;
+    if(recentSame || recentlySentLocally){
+      alert('같은 신호는 1분 뒤에 다시 보낼 수 있어.');
+      return;
+    }
+
+    const senderAtStart = identity; // 대기 중 로그아웃/계정전환 대비, 시작 시점 신원을 고정해둠
+
+    pendingSignalType = type;
+    renderLoveSignalCard();
+
+    const pendingRow = document.getElementById('loveSignalPending');
+    const pendingText = document.getElementById('loveSignalPendingText');
+    pendingRow.classList.remove('hidden');
+    let secondsLeft = 4;
+    pendingText.textContent = `${def.emoji} ${def.label}를 보낼게 · ${secondsLeft}초`;
+
+    // 타이머(setTimeout)와 초읽기(setInterval)를 각각 별도 변수로 관리함 - 브라우저의
+    // setTimeout()은 (Node.js와 달리) 객체가 아니라 숫자를 반환해서, 그 반환값에
+    // 프로퍼티를 붙여서 참조를 보관하는 방식은 브라우저에서 조용히 실패함
+    pendingSignalInterval = setInterval(()=>{
+      secondsLeft--;
+      if(secondsLeft > 0) pendingText.textContent = `${def.emoji} ${def.label}를 보낼게 · ${secondsLeft}초`;
+    }, 1000);
+
+    pendingSignalTimer = setTimeout(async ()=>{
+      clearInterval(pendingSignalInterval);
+      pendingSignalInterval = null;
+      pendingRow.classList.add('hidden');
+      const sentType = pendingSignalType;
+      pendingSignalType = null;
+      pendingSignalTimer = null;
+      renderLoveSignalCard();
+
+      // 기다리는 동안 로그아웃했거나 계정이 바뀌었다면 전송하지 않음
+      if(!sentType || identity !== senderAtStart) return;
+
+      const sentAt = Date.now();
+      localSignalSentAt[sentType] = sentAt;
+      // 대기 시간이 끝난 뒤에만 실제로 저장 (그래야 취소가 "진짜 취소"가 됨 -
+      // 먼저 저장해두면 Functions가 바로 푸시를 보내버려서 나중에 지워도 알림은 이미 감)
+      try{
+        await db.collection('loveSignals').add({
+          sender: senderAtStart,
+          receiver: otherPerson(senderAtStart),
+          type: sentType,
+          emoji: def.emoji,
+          label: def.label,
+          createdAt: sentAt
+        });
+      }catch(e){
+        delete localSignalSentAt[sentType];
+        console.error('애정 신호 전송 실패', e);
+        alert('마음을 보내지 못했어. 인터넷 연결을 확인하고 다시 시도해줘.');
+      }
+    }, 4000);
+  }
+
+  function cancelPendingSignal(){
+    if(pendingSignalTimer) clearTimeout(pendingSignalTimer);
+    if(pendingSignalInterval) clearInterval(pendingSignalInterval);
+    pendingSignalTimer = null;
+    pendingSignalInterval = null;
+    pendingSignalType = null;
+    const pendingRow = document.getElementById('loveSignalPending');
+    if(pendingRow) pendingRow.classList.add('hidden');
+    renderLoveSignalCard();
+  }
+  document.getElementById('loveSignalCancelBtn').addEventListener('click', cancelPendingSignal);
+
+  function renderLoveSignalHistory(){
+    const container = document.getElementById('loveSignalHistoryResults');
+    if(loveSignals.length === 0){
+      container.innerHTML = '<div class="empty-state" style="padding:30px 10px;">아직 주고받은 신호가 없어.</div>';
+      return;
+    }
+    container.innerHTML = loveSignals.map(s => {
+      const def = LOVE_SIGNAL_TYPES.find(d => d.type === s.type) || {};
+      return `
+        <div class="search-result-item love-signal-history-item">
+          <div>
+            <div class="search-result-title">${s.sender} → ${s.receiver} · ${def.emoji || ''} ${def.label || s.type}</div>
+            <div class="search-result-sub">${formatDateTimeKR(s.createdAt)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  function openLoveSignalHistory(){
+    document.getElementById('loveSignalHistoryOverlay').classList.remove('hidden');
+    renderLoveSignalHistory();
+  }
+  document.getElementById('loveSignalHistoryBtn').addEventListener('click', openLoveSignalHistory);
+  document.getElementById('loveSignalHistoryCloseBtn').addEventListener('click', ()=>{
+    document.getElementById('loveSignalHistoryOverlay').classList.add('hidden');
+  });
+
   function renderHome(){
     clearTimeout(renderHomeDebounceTimer);
     renderHomeDebounceTimer = setTimeout(renderHomeImmediate, 120);
@@ -1692,6 +1869,9 @@ function renderLetters() {
   async function logoutCurrentUser(){
     const oldIdentity = identity;
     const deviceId = getOrCreateDeviceId();
+
+    // 서버 통신(기기 토큰 삭제)을 기다리는 동안 4초 대기가 끝나서 신호가 전송되는 것을 방지
+    cancelPendingSignal();
 
     try{
       // 같은 기기에서 나중에 다른 사람 계정으로 로그인해도 이 기기가 예전 사람 알림까지
@@ -2710,6 +2890,7 @@ function startWatchers(){
     watchersStarted = true;
 
     watchNotifications();
+    watchLoveSignals();
 
     // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
     // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
@@ -2752,6 +2933,22 @@ function startWatchers(){
     dateLogs = [];
     stamps = [];
     letters = [];
+
+    // 취소 버튼·로그아웃·인증 변경이 모두 같은 정리 함수를 사용
+    cancelPendingSignal();
+
+    loveSignals = [];
+
+    // 같은 브라우저에서 다른 계정으로 로그인했을 때
+    // 이전 사용자의 60초 제한이 이어지지 않도록 초기화
+    Object.keys(localSignalSentAt).forEach(type => {
+      delete localSignalSentAt[type];
+    });
+
+    const historyOverlay = document.getElementById('loveSignalHistoryOverlay');
+    if(historyOverlay){
+      historyOverlay.classList.add('hidden');
+    }
   }
 
   function startCollectionWatcher(tabName){
@@ -3092,6 +3289,14 @@ function startWatchers(){
 
   function navigateToItem(tab, itemId, commentTs){
     if(!activateTab(tab)) return false; // 작성 중 내용 있어서 이동을 취소한 경우, 여기서도 멈춤
+
+    // 애정 신호 알림은 실제 "게시물"이 아니라 홈 화면의 카드 하나일 뿐이라서,
+    // 일반 게시물 탐색 로직(카드를 못 찾으면 삭제됐다고 간주하는 등)을 타면 안 됨
+    if(tab === 'home' && itemId === 'loveSignal'){
+      const card = document.getElementById('loveSignalCard');
+      if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+      return true;
+    }
 
     // 일정 탭인데 날짜 필터가 걸려있으면 전체 일정으로 복원 (안 그러면 필터에 안 걸리는
     // 날짜의 일정은 화면에 안 그려져서 알림이 가리키는 카드를 영영 못 찾게 됨)
