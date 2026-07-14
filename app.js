@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.14-3'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.14-5'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -445,6 +445,7 @@ async function uploadPhotos(photosArray, onProgress) {
   function handleAppResume(){
     if(document.visibilityState !== 'visible') return;
     scheduleResumeChecks();
+    renderTodayStatusCard();
   }
   // visibilitychange 하나에만 의존하면, 삼성인터넷이 화면 복귀 시 이 이벤트를 놓치고
   // focus나 pageshow만 발생시키는 경우 pending 알림을 확인하지 못할 수 있음 -> 다 연결해둠
@@ -1647,6 +1648,182 @@ function renderLetters() {
   document.getElementById('loveSignalHistoryBtn').addEventListener('click', openLoveSignalHistory);
   document.getElementById('loveSignalHistoryCloseBtn').addEventListener('click', ()=>{
     document.getElementById('loveSignalHistoryOverlay').classList.add('hidden');
+  });
+
+  // ---- 오늘의 상태 ----
+  const TODAY_STATUS_TYPES = [
+    { type:'good',      emoji:'😊', label:'기분 좋아' },
+    { type:'focus',     emoji:'📚', label:'집중 중' },
+    { type:'busy',      emoji:'🔥', label:'바쁜 중' },
+    { type:'tired',     emoji:'😴', label:'피곤해' },
+    { type:'rest',      emoji:'🏠', label:'쉬는 중' },
+    { type:'talk',      emoji:'💬', label:'이야기하고 싶어' },
+    { type:'restAlone', emoji:'🌿', label:'혼자 쉬는 중' },
+    { type:'missYou',   emoji:'❤️', label:'보고 싶어' }
+  ];
+  // 이 두 종류를 선택했을 때만 "알림으로 알려주기" 체크박스가 나타남
+  const NOTIFIABLE_STATUS_TYPES = new Set(['talk', 'missYou']);
+  const STATUS_STALE_MS = 24 * 60 * 60 * 1000;
+
+  let todayStatuses = {};
+  let selectedTodayStatusType = null;
+  let todayStatusAgeTimer = null;
+
+  function watchTodayStatuses(){
+    if(!identity) return;
+    const unsubscribe = db.collection('todayStatuses').onSnapshot(snap => {
+      todayStatuses = {};
+      snap.forEach(doc => { todayStatuses[doc.id] = doc.data(); });
+      renderTodayStatusCard();
+    }, err => console.error('오늘의 상태 구독 실패', err));
+    rememberUnsubscribe(unsubscribe);
+
+    // 시간이 지날수록 "24시간 지남" 흐림 표시가 바뀌어야 하니 1분마다 다시 그림.
+    // startWatchers()가 여러 번 불려도 타이머가 중복 생기지 않게 기존 것부터 정리
+    if(todayStatusAgeTimer) clearInterval(todayStatusAgeTimer);
+    todayStatusAgeTimer = setInterval(renderTodayStatusCard, 60000);
+  }
+
+  function renderTodayStatusCard(){
+    const list = document.getElementById('todayStatusList');
+    if(!list || !identity) return;
+    const names = ['소정', '선호'];
+    const now = Date.now();
+
+    list.innerHTML = names.map(name => {
+      const status = todayStatuses[name];
+      if(!status){
+        return `
+          <div class="today-status-person">
+            <div>
+              <div class="today-status-name">${name}</div>
+              <div class="today-status-empty">아직 오늘 상태를 안 남겼어</div>
+            </div>
+          </div>
+        `;
+      }
+      const def = TODAY_STATUS_TYPES.find(t => t.type === status.type) || {};
+      const age = now - Number(status.updatedAt || 0);
+      const isStale = age >= STATUS_STALE_MS;
+      const isMe = name === identity;
+      // 오래된(24시간 지난) 상태에는 반응 버튼을 안 보여줌 - 이미 바뀌었을 수 있는
+      // 상황에 뒤늦게 반응하는 것을 막기 위함
+      const showReactions = !isMe && !isStale;
+
+      return `
+        <div class="today-status-person ${isStale ? 'stale' : ''}">
+          <div>
+            <div class="today-status-name">${name}</div>
+            <div class="today-status-emoji-label">${def.emoji || ''} ${def.label || status.type}</div>
+            ${status.memo ? `<div class="today-status-memo">${escapeHTML(status.memo)}</div>` : ''}
+            ${isStale
+              ? `<span class="today-status-stale-label">24시간이 지난 상태야</span>`
+              : `<span class="today-status-time">${relativeTimeKR(status.updatedAt)}</span>`}
+          </div>
+          ${showReactions ? `
+            <div class="today-status-reactions">
+              <button data-status-reaction="cheer">힘내 보내기</button>
+              <button data-status-reaction="hug">안아주기</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    list.querySelectorAll('[data-status-reaction]').forEach(btn=>{
+      // 상태에 대한 반응은 별도 기능이 아니라 1단계 애정 신호를 그대로 재사용함
+      // (4초 취소, 60초 제한, 알림, 지난 기록까지 전부 동일하게 적용됨)
+      btn.addEventListener('click', ()=>{
+        startSendSignal(btn.dataset.statusReaction);
+        // 오늘의 상태 카드에서 눌렀는데 취소 안내는 애정 신호 카드에 나타나서
+        // 화면 밖에 있으면 안 보일 수 있어서, 실제로 대기가 시작된 경우에만 스크롤해줌
+        // (60초 제한에 걸려서 대기가 시작 안 됐으면 스크롤도 하지 않음)
+        const pendingRow = document.getElementById('loveSignalPending');
+        if(pendingRow && !pendingRow.classList.contains('hidden')){
+          pendingRow.scrollIntoView({behavior:'smooth', block:'center'});
+        }
+      });
+    });
+  }
+
+  function openTodayStatusModal(){
+    const myStatus = todayStatuses[identity];
+    selectedTodayStatusType = myStatus ? myStatus.type : null;
+    document.getElementById('todayStatusMemo').value = myStatus ? (myStatus.memo || '') : '';
+    document.getElementById('todayStatusNotifyCheck').checked = false;
+    renderTodayStatusGrid();
+    updateTodayStatusNotifyRow();
+    document.getElementById('todayStatusModal').classList.remove('hidden');
+  }
+  function renderTodayStatusGrid(){
+    const grid = document.getElementById('todayStatusGrid');
+    grid.innerHTML = TODAY_STATUS_TYPES.map(s => `
+      <button type="button" class="${s.type === selectedTodayStatusType ? 'selected' : ''}" data-status-type="${s.type}">${s.emoji} ${s.label}</button>
+    `).join('');
+    grid.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selectedTodayStatusType = btn.dataset.statusType;
+        renderTodayStatusGrid();
+        updateTodayStatusNotifyRow();
+      });
+    });
+  }
+  function updateTodayStatusNotifyRow(){
+    const row = document.getElementById('todayStatusNotifyRow');
+    const label = document.getElementById('todayStatusNotifyLabel');
+    const otherName = identity ? otherPerson(identity) : '상대방';
+    if(NOTIFIABLE_STATUS_TYPES.has(selectedTodayStatusType)){
+      row.classList.remove('hidden');
+      label.textContent = `${otherName}에게 알림으로 알려주기`;
+    } else {
+      // 다른 상태를 고르면 체크박스 자체를 숨기고 체크도 반드시 해제함
+      row.classList.add('hidden');
+      document.getElementById('todayStatusNotifyCheck').checked = false;
+    }
+  }
+  document.getElementById('todayStatusEditBtn').addEventListener('click', openTodayStatusModal);
+  document.getElementById('todayStatusCancelBtn').addEventListener('click', ()=>{
+    document.getElementById('todayStatusModal').classList.add('hidden');
+  });
+  document.getElementById('todayStatusSaveBtn').addEventListener('click', async ()=>{
+    if(!selectedTodayStatusType){
+      alert('상태를 하나 골라줘.');
+      return;
+    }
+    if(!identity) return;
+    const def = TODAY_STATUS_TYPES.find(s => s.type === selectedTodayStatusType);
+    if(!def) return;
+
+    const saveBtn = document.getElementById('todayStatusSaveBtn');
+    if(saveBtn.disabled) return; // 저장 중 중복 클릭 방지
+    saveBtn.disabled = true;
+
+    const memo = document.getElementById('todayStatusMemo').value.trim().slice(0, 50);
+    const wantsNotify = NOTIFIABLE_STATUS_TYPES.has(selectedTodayStatusType)
+      && document.getElementById('todayStatusNotifyCheck').checked;
+
+    try{
+      await db.collection('todayStatuses').doc(identity).set({
+        owner: identity,
+        type: selectedTodayStatusType,
+        emoji: def.emoji,
+        label: def.label,
+        memo,
+        updatedAt: Date.now(),
+        // 매번 true/false로만 두면, 나중에 메모만 고쳐도 "새 알림 요청"인지 구분이 안 돼서
+        // 알림이 중복되거나 반대로 안 갈 수 있음 -> 요청할 때마다 고유한 값을 새로 넣음
+        notifyRequestId: wantsNotify ? `${Date.now()}_${Math.random().toString(36).slice(2, 8)}` : null
+      });
+      // 저장에 성공한 뒤에만 닫음 - 실패했는데 먼저 닫아버리면 사용자가
+      // 방금 고른 상태/메모를 다시 입력해야 하는 불편함이 생김
+      document.getElementById('todayStatusModal').classList.add('hidden');
+    }catch(e){
+      console.error('오늘의 상태 저장 실패', e);
+      // 창을 그대로 유지하므로 상태와 메모를 다시 입력하지 않아도 됨
+      alert('상태를 저장하지 못했어. 인터넷 연결을 확인하고 다시 시도해줘.');
+    }finally{
+      saveBtn.disabled = false;
+    }
   });
 
   function renderHome(){
@@ -2891,6 +3068,7 @@ function startWatchers(){
 
     watchNotifications();
     watchLoveSignals();
+    watchTodayStatuses();
 
     // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
     // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
@@ -2948,6 +3126,18 @@ function startWatchers(){
     const historyOverlay = document.getElementById('loveSignalHistoryOverlay');
     if(historyOverlay){
       historyOverlay.classList.add('hidden');
+    }
+
+    // 오늘의 상태: 구독 데이터와 선택 상태, 1분 재렌더 타이머까지 정리
+    todayStatuses = {};
+    selectedTodayStatusType = null;
+    if(todayStatusAgeTimer){
+      clearInterval(todayStatusAgeTimer);
+      todayStatusAgeTimer = null;
+    }
+    const statusModal = document.getElementById('todayStatusModal');
+    if(statusModal){
+      statusModal.classList.add('hidden');
     }
   }
 
@@ -3290,12 +3480,16 @@ function startWatchers(){
   function navigateToItem(tab, itemId, commentTs){
     if(!activateTab(tab)) return false; // 작성 중 내용 있어서 이동을 취소한 경우, 여기서도 멈춤
 
-    // 애정 신호 알림은 실제 "게시물"이 아니라 홈 화면의 카드 하나일 뿐이라서,
+    // 애정 신호/오늘의 상태 알림은 실제 "게시물"이 아니라 홈 화면의 카드일 뿐이라서,
     // 일반 게시물 탐색 로직(카드를 못 찾으면 삭제됐다고 간주하는 등)을 타면 안 됨
-    if(tab === 'home' && itemId === 'loveSignal'){
-      const card = document.getElementById('loveSignalCard');
-      if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
-      return true;
+    if(tab === 'home'){
+      const homeTargetIds = { loveSignal: 'loveSignalCard', todayStatus: 'todayStatusCard' };
+      const targetId = homeTargetIds[itemId];
+      if(targetId){
+        const card = document.getElementById(targetId);
+        if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+        return true;
+      }
     }
 
     // 일정 탭인데 날짜 필터가 걸려있으면 전체 일정으로 복원 (안 그러면 필터에 안 걸리는

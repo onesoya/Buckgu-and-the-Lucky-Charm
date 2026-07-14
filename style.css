@@ -238,6 +238,53 @@
     display:flex; align-items:center; gap:8px;
   }
 
+  .today-status-card{
+    border:2.5px solid var(--plum); background:var(--white); border-radius:10px;
+    padding:16px; margin-bottom:14px; box-shadow:3px 3px 0 rgba(74,53,72,0.25);
+  }
+  .today-status-list{ display:flex; flex-direction:column; gap:10px; }
+  .today-status-person{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    padding-bottom:10px; border-bottom:1.5px dashed rgba(74,53,72,0.15);
+  }
+  .today-status-person:last-child{ border-bottom:none; padding-bottom:0; }
+  .today-status-person.stale{ opacity:0.5; }
+  .today-status-name{ font-family:'DungGeunMo',sans-serif; font-size:13px; margin-bottom:2px; }
+  .today-status-emoji-label{ font-size:14px; }
+  .today-status-memo{ font-size:13px; color:var(--plum-soft); margin-top:2px; }
+  .today-status-time{ font-size:11px; color:var(--plum-soft); display:block; margin-top:3px; }
+  .today-status-stale-label{ font-size:11px; color:var(--plum-soft); display:block; margin-top:3px; }
+  .today-status-empty{ font-size:13px; color:var(--plum-soft); }
+  .today-status-reactions{ display:flex; gap:6px; flex-shrink:0; }
+  .today-status-reactions button{
+    background:var(--pink-soft); border:none; border-radius:7px;
+    padding:5px 8px; font-family:'DungGeunMo',sans-serif; font-size:11px; cursor:pointer; color:#C24065;
+  }
+  .today-status-edit-btn{
+    display:block; width:100%; margin-top:12px; padding:9px;
+    background:var(--pink-soft); border:2px solid var(--plum); border-radius:9px;
+    font-family:'DungGeunMo',sans-serif; font-size:13px; color:var(--plum); cursor:pointer;
+  }
+  .today-status-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0;
+  }
+  .today-status-grid button{
+    border:2px solid var(--plum); background:var(--cream); border-radius:9px;
+    padding:9px 6px; font-family:'DungGeunMo',sans-serif; font-size:12.5px; color:var(--plum);
+    cursor:pointer;
+  }
+  .today-status-grid button.selected{
+    background:var(--pink); color:#fff;
+  }
+  #todayStatusMemo{
+    width:100%; border:2px solid var(--plum); border-radius:9px; padding:9px;
+    font-family:inherit; font-size:13px; resize:none; box-sizing:border-box; margin-bottom:6px;
+  }
+  .today-status-notify-row{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--plum-soft);
+    margin-bottom:8px; cursor:pointer;
+  }
+
   .home-next-card{border:2.5px solid var(--plum);
     background:var(--white); border-radius:10px; padding:16px; margin-bottom:14px;
     box-shadow:3px 3px 0 rgba(74,53,72,0.25); cursor:pointer;

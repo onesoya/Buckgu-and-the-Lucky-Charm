@@ -93,6 +93,12 @@
         <button type="button" class="love-signal-history-link" id="loveSignalHistoryBtn">지난 신호 보기</button>
       </div>
 
+      <div class="today-status-card" id="todayStatusCard">
+        <div class="love-signal-title">오늘의 우리</div>
+        <div class="today-status-list" id="todayStatusList"></div>
+        <button type="button" class="today-status-edit-btn" id="todayStatusEditBtn">내 상태 바꾸기</button>
+      </div>
+
       <div class="home-next-card" id="homeNextDateCard"></div>
       <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
@@ -356,6 +362,22 @@
         <button class="btn" id="myActivityBtn" style="width:100%;">📋 나의 활동</button>
         <button class="btn" id="logoutBtn" style="width:100%;background:#F0E4E9;color:var(--plum);">로그아웃</button>
         <button class="cancel-edit-btn" id="identityPopupCloseBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="todayStatusModal">
+    <div class="modal-card">
+      <div class="modal-title">오늘의 상태</div>
+      <div class="today-status-grid" id="todayStatusGrid"></div>
+      <textarea id="todayStatusMemo" placeholder="한마디 남기기 (선택)" maxlength="50"></textarea>
+      <label class="today-status-notify-row hidden" id="todayStatusNotifyRow">
+        <input type="checkbox" id="todayStatusNotifyCheck">
+        <span id="todayStatusNotifyLabel"></span>
+      </label>
+      <div class="modal-btns">
+        <button class="btn" id="todayStatusCancelBtn" style="background:#F0E4E9;color:var(--plum);">취소</button>
+        <button class="btn" id="todayStatusSaveBtn">저장</button>
       </div>
     </div>
   </div>
