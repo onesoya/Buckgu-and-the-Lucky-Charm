@@ -19,7 +19,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="벅구와 복덩이">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2026.07.15-2">
 </head>
 <body>
 
@@ -99,6 +99,12 @@
         <button type="button" class="today-status-edit-btn" id="todayStatusEditBtn">내 상태 바꾸기</button>
       </div>
 
+      <div class="daily-question-card" id="dailyQuestionCard">
+        <div class="home-next-label">💭 오늘의 질문</div>
+        <div id="dailyQuestionBody"><div class="home-next-sub">질문을 불러오는 중이야...</div></div>
+        <button type="button" class="daily-question-archive-link" id="dailyQuestionArchiveBtn">지난 질문 보기</button>
+      </div>
+
       <div class="home-next-card" id="homeNextDateCard"></div>
       <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
@@ -130,6 +136,13 @@
           </div>
         </div>
         <button type="button" class="link-toggle-btn" id="schedRangeToggleBtn">+ 종료일 추가 (선택)</button>
+        <div class="schedule-source-wish hidden" id="schedSourceWishRow">
+          <div>
+            <span class="schedule-source-label">💫 관련 위시</span>
+            <strong id="schedSourceWishTitle"></strong>
+          </div>
+          <button type="button" id="schedSourceWishClearBtn">연결 해제</button>
+        </div>
         <div class="add-row">
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
@@ -382,6 +395,14 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="dailyQuestionArchiveModal">
+    <div class="modal-card daily-question-archive-modal">
+      <div class="modal-title">지난 질문</div>
+      <div class="daily-question-archive-list" id="dailyQuestionArchiveList"></div>
+      <button type="button" class="cancel-edit-btn" id="dailyQuestionArchiveCloseBtn">닫기</button>
+    </div>
+  </div>
+
   <div class="notif-prompt hidden" id="notifPrompt">
     <span>🔔 알림을 켜면 상대방이 뭔가 남길 때 바로 알 수 있어</span>
     <button id="notifEnableBtn">켜기</button>
@@ -480,6 +501,6 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-storage-compat.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2026.07.15-2"></script>
 </body>
 </html>

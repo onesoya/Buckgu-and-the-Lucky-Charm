@@ -285,6 +285,46 @@
     margin-bottom:8px; cursor:pointer;
   }
 
+  .daily-question-card{
+    border:2.5px solid var(--plum); background:var(--white); border-radius:10px;
+    padding:16px; margin-bottom:14px; box-shadow:3px 3px 0 rgba(74,53,72,0.25);
+  }
+  .daily-question-text{
+    font-family:'DungGeunMo',sans-serif; font-size:16px; line-height:1.45;
+    color:var(--plum); margin:8px 0 12px;
+  }
+  .daily-question-answer-row{
+    display:flex; align-items:flex-start; gap:8px; margin-top:8px; font-size:13px;
+  }
+  .daily-question-name{
+    flex:0 0 38px; font-family:'DungGeunMo',sans-serif; color:var(--pink);
+  }
+  .daily-question-answer{ flex:1; min-width:0; color:var(--plum); line-height:1.4; }
+  .daily-question-hidden-answer{ color:var(--plum-soft); font-size:12px; }
+  .daily-question-input-row{ display:flex; gap:7px; margin-top:10px; }
+  .daily-question-input-row input{
+    flex:1; min-width:0; border:2px solid var(--plum); border-radius:8px;
+    padding:8px 9px; font-family:inherit; font-size:13px; box-sizing:border-box;
+  }
+  .daily-question-input-row button{ flex:0 0 auto; }
+  .daily-question-edit-link{
+    background:none; border:none; font-size:11.5px; color:var(--plum-soft);
+    text-decoration:underline; cursor:pointer; margin-top:6px; padding:0;
+  }
+  .daily-question-archive-link{
+    display:block; width:100%; text-align:center; margin:12px auto 0; border:0;
+    background:transparent; color:var(--plum-soft); font-family:inherit;
+    font-size:12px; text-decoration:underline; cursor:pointer;
+  }
+  .daily-question-archive-modal{ max-width:420px; }
+  .daily-question-archive-list{ max-height:60vh; overflow-y:auto; text-align:left; }
+  .daily-question-archive-item{
+    border-bottom:1.5px dashed rgba(74,53,72,0.15); padding:10px 0;
+  }
+  .daily-question-archive-item:last-child{ border-bottom:none; }
+  .daily-question-archive-date{ font-size:11px; color:var(--plum-soft); margin-bottom:3px; }
+  .daily-question-archive-question{ font-family:'DungGeunMo',sans-serif; font-size:13.5px; margin-bottom:6px; cursor:pointer; }
+
   .home-next-card{border:2.5px solid var(--plum);
     background:var(--white); border-radius:10px; padding:16px; margin-bottom:14px;
     box-shadow:3px 3px 0 rgba(74,53,72,0.25); cursor:pointer;
@@ -960,6 +1000,27 @@
   color:var(--white); font-size:11.5px; text-align:center; line-height:1.5;
   font-family:'DungGeunMo',sans-serif;
 }
+
+.schedule-source-wish{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin:10px 0; padding:10px 12px; border:2px solid #ffb8ca; border-radius:12px; background:#fff1f5;
+}
+.schedule-source-label{ display:block; margin-bottom:3px; color:#a48591; font-size:10px; }
+.schedule-source-wish strong{ color:#5b3c56; font-size:12px; }
+.schedule-source-wish button, .schedule-source-link, .wish-plan-btn{
+  border:2px solid #5b3c56; border-radius:10px; background:#fff; color:#5b3c56;
+  font-family:inherit; cursor:pointer;
+}
+.schedule-source-wish button{ flex:0 0 auto; padding:6px 8px; font-size:10px; }
+.schedule-source-link{
+  display:block; margin-top:6px; padding:5px 8px; border-color:#ffb8ca; color:#a25a72;
+  font-size:10px; text-align:left;
+}
+.wish-schedule-status{ margin-top:6px; color:#94838d; font-size:10px; }
+.wish-schedule-status.scheduled{ color:#e76788; }
+.wish-schedule-status.done{ color:#ad8395; }
+.wish-plan-btn{ padding:7px 10px; background:#fff0f5; font-size:11px; }
+.wish-plan-btn.linked{ background:#fff; }
 
 /* 반드시 기본 스타일 선언들보다 뒤에 둠 - 안 그러면 나중에 나온 기본 규칙이 이겨서 적용 안 됨 */
 @media (max-width:390px){

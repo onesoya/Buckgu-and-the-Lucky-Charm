@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.14-5'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.15-2'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -8,6 +8,51 @@
 
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
   const ANNIV = '2026-02-02';
+
+  // ---- 오늘의 질문 100개 (가벼운 일상·취향 60 / 데이트와 추억 20 / 애정 표현 15 / 관계 돌아보기 5) ----
+  const DAILY_QUESTIONS = [
+    '오늘 가장 먹고 싶은 것은?', '요즘 가장 자주 듣는 노래는?', '지금 당장 가장 하고 싶은 일은?',
+    '오늘 하루 컨디션을 색깔로 표현한다면?', '요즘 제일 자주 보는 콘텐츠는?', '아침형 인간이야, 저녁형 인간이야?',
+    '오늘 점심 메뉴는 뭐였어?', '요즘 꽂힌 취미가 있어?', '지금 제일 먹고 싶은 디저트는?',
+    '오늘 날씨에 어울리는 음악 장르는?', '라면 먹을 때 계란 넣어 안 넣어?', '요즘 자주 가는 SNS는 어디야?',
+    '좋아하는 계절은?', '아이스아메리카노 vs 따뜻한 아메리카노?', '요즘 제일 편한 옷차림은?',
+    '오늘 하루 한 단어로 표현한다면?', '최근에 산 물건 중 제일 만족스러운 건?', '좋아하는 향(냄새)이 있어?',
+    '지금 핸드폰 배터리는 몇 %야?', '요즘 자기 전에 하는 루틴이 있어?', '좋아하는 과일은?',
+    '오늘 몇 시에 일어났어?', '최근에 웃겼던 일이 있어?', '여름 vs 겨울, 뭐가 더 좋아?',
+    '요즘 자주 가는 곳이 있어?', '매운 음식 잘 먹어?', '오늘 걸음 수는 얼마나 될 것 같아?',
+    '좋아하는 색깔은?', '최근에 본 영화나 드라마는?', '커피 하루에 몇 잔 마셔?',
+    '집순이/집돌이야, 밖순이/밖돌이야?', '요즘 관심 있는 주제가 있어?', '오늘 저녁엔 뭐 먹을까?',
+    '좋아하는 동물은?', '최근에 갖고 싶은 물건이 있어?', '아침 먹었어?',
+    '요즘 자주 듣는 팟캐스트나 라디오 있어?', '좋아하는 계절 향은?', '오늘 컨디션 1~10점 중 몇 점이야?',
+    '최근에 재밌게 한 게임 있어?', '물 하루에 얼마나 마셔?', '좋아하는 빵 종류는?',
+    '요즘 자주 입는 색은?', '오늘 하늘 색은 어땠어?', '좋아하는 야식 메뉴는?',
+    '최근에 산 옷이 있어?', '아이스크림 좋아하는 맛은?', '오늘 제일 기억에 남는 순간은?',
+    '요즘 자주 하는 생각이 있어?', '좋아하는 계절 음식은?', '최근에 배우고 싶어진 게 있어?',
+    '집에 있을 때 뭐 하면서 시간 보내?', '좋아하는 인테리어 스타일은?', '오늘 몇 시간 잤어?',
+    '최근에 산책한 적 있어?', '좋아하는 국은?', '요즘 자주 쓰는 이모티콘 있어?',
+    '오늘 옷 고를 때 뭘 기준으로 골랐어?', '좋아하는 향수나 섬유유연제 향 있어?', '오늘 하루 제일 잘한 일은?',
+    '우리가 처음 만난 날 기억나?', '다음 데이트 때 가장 하고 싶은 것은?', '우리 데이트 중 다시 가고 싶은 곳은?',
+    '같이 가보고 싶은 여행지는?', '기억에 남는 데이트 음식은?', '처음 손 잡았던 순간 기억나?',
+    '같이 해보고 싶은 액티비티가 있어?', '우리 첫 데이트 장소 기억나?', '같이 가고 싶은 맛집이 있어?',
+    '가장 웃겼던 데이트 에피소드는?', '같이 보고 싶은 영화나 공연이 있어?', '우리만의 아지트가 있다면 어디야?',
+    '다음 여행 가고 싶은 계절은?', '같이 찍은 사진 중 제일 마음에 드는 건?', '기억에 남는 선물이 있어?',
+    '같이 만들어보고 싶은 추억이 있어?', '우리가 자주 가는 장소는 어디야?', '데이트할 때 제일 좋아하는 코스는?',
+    '같이 배워보고 싶은 게 있어?', '다음에 같이 가고 싶은 계절 축제 있어?',
+    '요즘 나의 어떤 점이 제일 좋아?', '오늘 나한테 하고 싶은 말 있어?', '나 없을 때 제일 보고 싶은 순간은 언제야?',
+    '나한테 고마웠던 순간이 있어?', '요즘 나 때문에 웃었던 적 있어?', '나의 습관 중에 귀엽다고 생각하는 게 있어?',
+    '오늘 나에게 칭찬 한마디 해줘!', '우리 사이에서 제일 소중한 게 뭐야?', '나랑 있을 때 제일 편한 순간은 언제야?',
+    '오늘 나한테 하트 하나 준다면 왜?', '나의 목소리 중 좋아하는 톤이 있어?', '나랑 같이 있고 싶은 순간이 언제야?',
+    '오늘 나 보고 싶었어?', '나에게 어울리는 단어 하나를 고른다면?', '요즘 나한테 제일 하고 싶은 말은?',
+    '요즘 우리 사이는 어때?', '우리가 서로에게 더 해주면 좋을 게 있을까?', '우리 관계에서 가장 든든한 부분은?',
+    '요즘 서로에게 부족했던 부분이 있을까?', '1년 후 우리는 어떤 모습일 것 같아?'
+  ];
+  // 날짜를 기준으로 질문을 고름 (Math.random 금지 - 두 기기에서 항상 같은 질문이 나와야 하고,
+  // 자정마다 자동으로 바뀌어야 함)
+  function dailyQuestionIndexForDate(dateStr){
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dayNumber = Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+    return ((dayNumber % DAILY_QUESTIONS.length) + DAILY_QUESTIONS.length) % DAILY_QUESTIONS.length;
+  }
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQ3_IMYp3R_w68Pd8UuFZ6NJQBIgL4AG4",
@@ -446,6 +491,7 @@ async function uploadPhotos(photosArray, onProgress) {
     if(document.visibilityState !== 'visible') return;
     scheduleResumeChecks();
     renderTodayStatusCard();
+    if(identity) watchDailyQuestion();
   }
   // visibilitychange 하나에만 의존하면, 삼성인터넷이 화면 복귀 시 이 이벤트를 놓치고
   // focus나 pageshow만 발생시키는 경우 pending 알림을 확인하지 못할 수 있음 -> 다 연결해둠
@@ -898,6 +944,7 @@ async function uploadPhotos(photosArray, onProgress) {
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         ${item.isDate ? '' : `<div class="item-meta">${authorTagHTML(item.author)}</div>`}
+        ${item.sourceWishId ? `<button type="button" class="schedule-source-link" data-open-source-wish="${item.sourceWishId}">💫 ${escapeHTML((wishes.find(w => w.id === item.sourceWishId) || {}).title || item.sourceWishTitle || '관련 위시')}</button>` : ''}
       </div>
       ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">${pixelEditSVG()}</button>` : ''}
       ${canDeletePost(item) ? `<button class="del-btn" data-del-schedule="${item.id}">✕</button>` : ''}
@@ -1115,18 +1162,24 @@ function renderCalendar(){
   function wishCardHTML(item){
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')}`;
+    const linkedSchedule = findScheduleForWish(item.id);
+    const wishStatus = item.done ? '다녀왔어' : linkedSchedule ? `날짜를 정했어 · ${formatScheduleRange(linkedSchedule)}` : '언젠가 하고 싶어';
     return `<div class="wish-card ${item.done?'wish-done':''}" data-item-id="${item.id}">
       <div class="wish-content">
         <div class="post-summary" data-post-toggle="${item.id}">
           <div class="post-summary-title">${escapeHTML(item.title)}</div>
           <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${dateStr}</span><span class="post-summary-arrow">▾</span></div>
+          <div class="wish-schedule-status ${item.done ? 'done' : linkedSchedule ? 'scheduled' : ''}">${item.done ? '💖' : linkedSchedule ? '📅' : '💭'} ${escapeHTML(wishStatus)}</div>
         </div>
         <div class="post-detail hidden">
           ${item.body ? `<div class="wish-body">${escapeHTML(item.body)}</div>` : ''}
           ${cardPhotosHTML(item)}
           ${item.link ? `<a class="wish-link" href="${escapeHTML(item.link)}" target="_blank" rel="noopener">🔗 ${escapeHTML(linkHost(item.link))}</a>` : ''}
           <div class="wish-footer">
-            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;">
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;width:100%;flex-wrap:wrap;">
+              ${!item.done ? (linkedSchedule
+                ? `<button type="button" class="wish-plan-btn linked" data-view-wish-schedule="${linkedSchedule.id}">📅 일정 보기</button>`
+                : `<button type="button" class="wish-plan-btn" data-plan-wish="${item.id}">📅 날짜 잡기</button>`) : ''}
               <button class="wish-check ${item.done?'checked':''}" data-check-wish="${item.id}">${item.done ? '✓ 완료함' : '완료로 표시'}</button>
               ${isMine(item) ? `<button class="edit-btn" data-edit-wish="${item.id}">${pixelEditSVG()}</button>` : ''}
               ${canDeletePost(item) ? `<button class="del-btn" data-del-wish="${item.id}">✕</button>` : ''}
@@ -2341,6 +2394,41 @@ function renderLetters() {
   // ---- 일정 ----
   let editingScheduleId = null;
   let schedIsDatePlan = false;
+  // 현재 일정 입력창과 연결된 위시 (일정 문서에 sourceWishId로 저장됨 - 위시 쪽엔 아무것도 안 남김.
+  // 이렇게 단방향으로 연결해야 일정을 지워도 위시에 낡은 연결 정보가 안 남음)
+  let scheduleSourceWish = null;
+
+  function findScheduleForWish(wishId){
+    return schedule.filter(item => item.sourceWishId === wishId)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0] || null;
+  }
+  function setScheduleSourceWish(wish){
+    scheduleSourceWish = wish ? { id: wish.id, title: wish.title || '하고 싶은 일' } : null;
+    const row = document.getElementById('schedSourceWishRow');
+    const title = document.getElementById('schedSourceWishTitle');
+    row.classList.toggle('hidden', !scheduleSourceWish);
+    title.textContent = scheduleSourceWish ? scheduleSourceWish.title : '';
+  }
+  document.getElementById('schedSourceWishClearBtn').addEventListener('click', ()=>{
+    setScheduleSourceWish(null);
+  });
+  function startScheduleFromWish(wish){
+    if(!wish) return;
+    // 이미 이 위시로 만든 일정이 있으면 새로 만들지 않고 기존 일정으로 이동
+    const linkedSchedule = findScheduleForWish(wish.id);
+    if(linkedSchedule){
+      if(isPast(linkedSchedule)) showPastSchedule = true;
+      navigateToItem('schedule', linkedSchedule.id);
+      return;
+    }
+    if(!activateTab('schedule')) return;
+    resetScheduleForm();
+    setScheduleSourceWish(wish);
+    document.getElementById('schedTitle').value = wish.title || '';
+    document.getElementById('schedMemo').value = wish.body || '';
+    setDatePlanToggle(true); // 위시에서 만든 일정은 데이트 일정으로 자동 설정
+    document.getElementById('schedAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
+  }
   function setDatePlanToggle(v){
     schedIsDatePlan = v;
     document.getElementById('schedDatePlanToggle').classList.toggle('active', v);
@@ -2372,6 +2460,9 @@ function renderLetters() {
     document.getElementById('schedTitle').value = item.title;
     document.getElementById('schedMemo').value = item.memo || '';
     setDatePlanToggle(!!item.isDate);
+    setScheduleSourceWish(item.sourceWishId
+      ? { id: item.sourceWishId, title: (wishes.find(w => w.id === item.sourceWishId) || {}).title || item.sourceWishTitle || '하고 싶은 일' }
+      : null);
     if(item.endDate && item.endDate !== item.date){
       document.getElementById('schedEndDate').value = item.endDate;
       document.getElementById('schedEndTime').value = item.endTime || '';
@@ -2387,6 +2478,7 @@ function renderLetters() {
   }
   function resetScheduleForm(){
     editingScheduleId = null;
+    setScheduleSourceWish(null);
     document.getElementById('schedTitle').value='';
     document.getElementById('schedMemo').value='';
     document.getElementById('schedTime').value='';
@@ -2409,28 +2501,29 @@ function renderLetters() {
     if(endDate && endDate < date) endDate = date;
     const endTime = endDate ? (document.getElementById('schedEndTime').value || null) : null;
     const isDate = schedIsDatePlan;
+    const scheduleData = {
+      date, endDate, time, endTime, title, memo, isDate,
+      sourceWishId: scheduleSourceWish ? scheduleSourceWish.id : null,
+      sourceWishTitle: scheduleSourceWish ? scheduleSourceWish.title : null
+    };
     try{
       if(editingScheduleId){
-        await db.collection('schedule').doc(editingScheduleId).update({ date, endDate, time, endTime, title, memo, isDate });
-        resetScheduleForm();
+        await db.collection('schedule').doc(editingScheduleId).update(scheduleData);
       } else {
-        await db.collection('schedule').doc(genId()).set({ date, endDate, time, endTime, title, memo, isDate, author: identity, createdAt: Date.now() });
-        document.getElementById('schedTitle').value='';
-        document.getElementById('schedMemo').value='';
-        document.getElementById('schedTime').value='';
-        document.getElementById('schedEndDate').value='';
-        document.getElementById('schedEndTime').value='';
-        setRangeToggleState('schedEndDateRow', 'schedRangeToggleBtn', false);
-        setDatePlanToggle(false);
+        await db.collection('schedule').doc(genId()).set({ ...scheduleData, author: identity, createdAt: Date.now() });
       }
+      resetScheduleForm();
     }catch(e){ console.error('일정 저장 실패', e); alert('저장에 실패했어. 인터넷 연결을 확인해줘.'); }
   });
   function handleScheduleClick(e){
     const editBtn = e.target.closest('[data-edit-schedule]');
     const delBtn = e.target.closest('[data-del-schedule]');
+    const sourceWishBtn = e.target.closest('[data-open-source-wish]');
     const editId = editBtn && editBtn.dataset.editSchedule;
     const delId = delBtn && delBtn.dataset.delSchedule;
-    if(editId){
+    if(sourceWishBtn){
+      navigateToItem('wish', sourceWishBtn.dataset.openSourceWish);
+    } else if(editId){
       const item = schedule.find(s=>s.id===editId);
       if(item) startEditSchedule(item);
     } else if(delId){
@@ -2484,7 +2577,11 @@ function renderLetters() {
     document.getElementById('wishAddBtn').addEventListener('click', async () => {
       const title = document.getElementById('wishTitle').value.trim();
       if (!title) return;
-    
+
+      // 완료된 위시를 수정할 때, 항상 done:false를 보내면 수정할 때마다
+      // 완료 상태가 풀려버려서 기존 값을 유지해야 함
+      const existingWish = editingWishId ? wishes.find(item => item.id === editingWishId) : null;
+
       await saveItem(
         'wishlist',
         !!editingWishId,
@@ -2493,7 +2590,7 @@ function renderLetters() {
           title, 
           body: document.getElementById('wishBody').value.trim(), 
           link: document.getElementById('wishLink').value.trim(), 
-          done: false 
+          done: existingWish ? !!existingWish.done : false
         },
         pendingWishPhotos,
         resetWishForm
@@ -2505,10 +2602,23 @@ function renderLetters() {
     const editBtn = e.target.closest('[data-edit-wish]');
     const delBtn = e.target.closest('[data-del-wish]');
     const checkBtn = e.target.closest('[data-check-wish]');
+    const planBtn = e.target.closest('[data-plan-wish]');
+    const viewScheduleBtn = e.target.closest('[data-view-wish-schedule]');
     const editId = editBtn && editBtn.dataset.editWish;
     const delId = delBtn && delBtn.dataset.delWish;
     const checkId = checkBtn && checkBtn.dataset.checkWish;
 
+    if(planBtn){
+      startScheduleFromWish(wishes.find(item => item.id === planBtn.dataset.planWish));
+      return;
+    }
+    if(viewScheduleBtn){
+      const scheduleId = viewScheduleBtn.dataset.viewWishSchedule;
+      const linkedSchedule = schedule.find(item => item.id === scheduleId);
+      if(linkedSchedule && isPast(linkedSchedule)) showPastSchedule = true;
+      navigateToItem('schedule', scheduleId);
+      return;
+    }
     if (editId) startEditWish(wishes.find(s => s.id === editId));
     else if (delId) deleteItem('wishlist', delId, wishes.find(s => s.id === delId));
     else if (checkId) {
@@ -3069,6 +3179,7 @@ function startWatchers(){
     watchNotifications();
     watchLoveSignals();
     watchTodayStatuses();
+    watchDailyQuestion();
 
     // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
     // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
@@ -3139,7 +3250,257 @@ function startWatchers(){
     if(statusModal){
       statusModal.classList.add('hidden');
     }
+
+    stopDailyQuestionWatch();
   }
+
+  // ---- 오늘의 질문 ----
+  let todayQuestionData = null;
+  let dailyQuestionWatchedDate = null;
+  let dailyQuestionUnsubscribe = null;
+  let dailyQuestionRolloverTimer = null;
+  let dailyQuestionEditMode = false;
+  let dailyQuestionDraft = '';
+
+  // 소정과 선호가 거의 동시에 앱을 열어도 질문 문서가 하나만 생기도록 트랜잭션으로 생성
+  async function ensureDailyQuestion(dateStr){
+    const ref = db.collection('dailyQuestions').doc(dateStr);
+    try{
+      await db.runTransaction(async (t)=>{
+        const snap = await t.get(ref);
+        if(snap.exists) return;
+        const questionId = dailyQuestionIndexForDate(dateStr);
+        t.set(ref, {
+          questionId,
+          question: DAILY_QUESTIONS[questionId],
+          answers: {},
+          createdAt: Date.now()
+        });
+      });
+    }catch(e){ console.error('오늘의 질문 준비 실패', e); }
+  }
+
+  async function watchDailyQuestion(){
+    if(!identity) return;
+    const dateStr = localDateStr();
+    if(dailyQuestionWatchedDate === dateStr) return; // 이미 오늘 날짜를 구독 중이면 아무것도 안 함
+
+    if(dailyQuestionUnsubscribe){
+      dailyQuestionUnsubscribe();
+      dailyQuestionUnsubscribe = null;
+    }
+
+    dailyQuestionWatchedDate = dateStr;
+    todayQuestionData = null;
+    dailyQuestionEditMode = false;
+    dailyQuestionDraft = '';
+    renderDailyQuestionCard();
+
+    await ensureDailyQuestion(dateStr);
+
+    dailyQuestionUnsubscribe = db.collection('dailyQuestions').doc(dateStr).onSnapshot(snap => {
+      todayQuestionData = snap.exists ? snap.data() : null;
+      renderDailyQuestionCard();
+    }, err => console.error('오늘의 질문 구독 실패', err));
+
+    // 화면을 켜둔 채로 자정을 넘기는 경우를 위해 1분마다 날짜가 바뀌었는지 확인
+    if(!dailyQuestionRolloverTimer){
+      dailyQuestionRolloverTimer = setInterval(() => {
+        if(identity) watchDailyQuestion();
+      }, 60000);
+    }
+  }
+
+  function stopDailyQuestionWatch(){
+    if(dailyQuestionUnsubscribe){
+      dailyQuestionUnsubscribe();
+      dailyQuestionUnsubscribe = null;
+    }
+    dailyQuestionWatchedDate = null;
+    todayQuestionData = null;
+    dailyQuestionEditMode = false;
+    dailyQuestionDraft = '';
+    if(dailyQuestionRolloverTimer){
+      clearInterval(dailyQuestionRolloverTimer);
+      dailyQuestionRolloverTimer = null;
+    }
+    const archiveModal = document.getElementById('dailyQuestionArchiveModal');
+    if(archiveModal) archiveModal.classList.add('hidden');
+  }
+
+  function renderDailyQuestionCard(){
+    const body = document.getElementById('dailyQuestionBody');
+    if(!body || !identity) return;
+
+    if(!todayQuestionData){
+      body.innerHTML = `<div class="home-next-sub">질문을 불러오는 중이야...</div>`;
+      return;
+    }
+    body.innerHTML = renderQuestionBlock(todayQuestionData, dailyQuestionWatchedDate, true);
+    wireQuestionBlockEvents(body, dailyQuestionWatchedDate, todayQuestionData);
+  }
+
+  // 오늘의 질문 카드와 지난 질문 아카이브 항목이 구조가 같아서 공통 렌더 함수로 뺌
+  function renderQuestionBlock(qData, dateStr, isToday){
+    const myAnswer = (qData.answers || {})[identity];
+    const otherName = otherPerson(identity);
+    const otherAnswer = (qData.answers || {})[otherName];
+    const editing = isToday && dailyQuestionEditMode;
+
+    let answersHtml;
+    if(editing || !myAnswer){
+      // 내가 아직 안 답했으면(또는 수정 중이면) 입력창을 보여줌 - 이 시점엔 상대 답도 가려둠.
+      // ||로 빈 문자열 폴백하면, 수정 중 글자를 전부 지웠을 때 저장된 예전 답변으로 되돌아가버리는
+      // 문제가 있어서, 상황별로 명확하게 분기함
+      let draftValue = '';
+      if(isToday){
+        draftValue = editing ? dailyQuestionDraft : (myAnswer ? (myAnswer.text || '') : dailyQuestionDraft);
+      } else {
+        draftValue = myAnswer ? (myAnswer.text || '') : '';
+      }
+      answersHtml = `
+        ${otherAnswer
+          ? `<div class="daily-question-hidden-answer">${otherName}가 먼저 답했어 · 내 답을 남기면 확인할 수 있어</div>`
+          : `<div class="daily-question-hidden-answer">${otherName}는 아직 답하지 않았어</div>`}
+        <div class="daily-question-input-row">
+          <input type="text" maxlength="100" placeholder="한 줄로 답해줘" value="${escapeHTML(draftValue)}" data-question-input="${dateStr}">
+          <button class="btn" data-question-save="${dateStr}">저장</button>
+        </div>
+      `;
+    } else {
+      // 나도 답했으면 둘 다 공개
+      answersHtml = `
+        <div class="daily-question-answer-row">
+          <span class="daily-question-name">${identity}</span>
+          <span class="daily-question-answer">${escapeHTML(myAnswer.text)}</span>
+        </div>
+        <div class="daily-question-answer-row">
+          <span class="daily-question-name">${otherName}</span>
+          <span class="daily-question-answer">${otherAnswer ? escapeHTML(otherAnswer.text) : '아직 답하지 않았어'}</span>
+        </div>
+        ${isToday ? `<button type="button" class="daily-question-edit-link" data-question-edit="${dateStr}">내 답 수정하기</button>` : ''}
+      `;
+    }
+
+    return `
+      <div class="daily-question-text">${escapeHTML(qData.question)}</div>
+      ${answersHtml}
+    `;
+  }
+
+  function wireQuestionBlockEvents(container, dateStr, qData){
+    const input = container.querySelector(`[data-question-input="${dateStr}"]`);
+    if(input){
+      input.addEventListener('input', ()=>{
+        // 입력 도중 상대방 답이 도착해서 구독 콜백이 다시 그리더라도, 이 변수 덕분에
+        // 작성 중이던 내용이 사라지지 않음 (오늘 질문일 때만 - 아카이브는 열려있는 동안 안 닫히니 상관없음)
+        if(dateStr === dailyQuestionWatchedDate) dailyQuestionDraft = input.value;
+      });
+    }
+    const saveBtn = container.querySelector(`[data-question-save="${dateStr}"]`);
+    if(saveBtn){
+      saveBtn.addEventListener('click', ()=> saveDailyQuestionAnswer(dateStr, input));
+    }
+    // 과거 질문에는 수정 버튼 자체가 없으므로(위에서 isToday일 때만 렌더링), 여기선 오늘 질문만 해당됨
+    const editLink = container.querySelector(`[data-question-edit="${dateStr}"]`);
+    if(editLink){
+      editLink.addEventListener('click', ()=>{
+        dailyQuestionEditMode = true;
+        dailyQuestionDraft = ((qData.answers || {})[identity] || {}).text || '';
+        renderDailyQuestionCard();
+        const newInput = document.querySelector(`[data-question-input="${dateStr}"]`);
+        if(newInput) newInput.focus();
+      });
+    }
+  }
+
+  async function saveDailyQuestionAnswer(dateStr, input){
+    if(!identity) return;
+    const text = (input?.value || '').trim().slice(0, 100);
+    if(!text){
+      alert('답변을 한 줄 남겨줘!');
+      return;
+    }
+    // 날짜가 바뀐 채로 예전 질문 입력창에 대고 저장하려는 경우 방지
+    if(dateStr === dailyQuestionWatchedDate && dailyQuestionWatchedDate !== localDateStr()){
+      watchDailyQuestion();
+      alert('날짜가 바뀌어서 오늘 질문을 새로 불러왔어. 다시 답해줘!');
+      return;
+    }
+
+    const saveBtn = input?.parentElement?.querySelector(`[data-question-save="${dateStr}"]`);
+    if(saveBtn){
+      if(saveBtn.disabled) return;
+      saveBtn.disabled = true;
+    }
+
+    try{
+      // answers 전체를 덮어쓰면 안 됨 - 두 사람이 거의 동시에 답하면 한쪽이 사라질 수 있어서
+      // 반드시 내 이름 필드만 콕 집어서 업데이트함
+      const field = `answers.${identity}`;
+      await db.collection('dailyQuestions').doc(dateStr).update({
+        [field]: { text, updatedAt: Date.now() }
+      });
+      if(dateStr === dailyQuestionWatchedDate){
+        dailyQuestionEditMode = false;
+        dailyQuestionDraft = '';
+        // 구독이 다시 그려줄 가능성이 크지만, 저장 직후 입력창이 확실히 닫히도록 직접 그림
+        renderDailyQuestionCard();
+      } else {
+        // 지난 질문 목록은 실시간 구독이 아니라 창을 열 때 한 번만 불러온 스냅샷이라서,
+        // 저장 후 목록만 다시 그리면 저장 전 데이터가 그대로 남아있게 됨 -> 새로 불러와야 함
+        await openDailyQuestionArchive();
+      }
+    }catch(e){
+      console.error('오늘의 질문 답변 저장 실패', e);
+      alert('답변을 저장하지 못했어. 인터넷 연결을 확인하고 다시 시도해줘.');
+    }finally{
+      if(saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  // ---- 지난 질문 아카이브 ----
+  let dailyQuestionArchiveData = [];
+  async function openDailyQuestionArchive(){
+    document.getElementById('dailyQuestionArchiveModal').classList.remove('hidden');
+    const list = document.getElementById('dailyQuestionArchiveList');
+    list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">불러오는 중...</div>';
+    try{
+      const snap = await db.collection('dailyQuestions')
+        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+        .get();
+      dailyQuestionArchiveData = [];
+      snap.forEach(doc => {
+        if(doc.id === dailyQuestionWatchedDate) return; // 오늘 질문은 홈 카드에 이미 보이니 제외
+        dailyQuestionArchiveData.push({ date: doc.id, ...doc.data() });
+      });
+      renderDailyQuestionArchiveList();
+    }catch(e){
+      console.error('지난 질문 불러오기 실패', e);
+      list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">불러오지 못했어.</div>';
+    }
+  }
+  function renderDailyQuestionArchiveList(){
+    const list = document.getElementById('dailyQuestionArchiveList');
+    if(dailyQuestionArchiveData.length === 0){
+      list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">아직 지난 질문이 없어.</div>';
+      return;
+    }
+    list.innerHTML = dailyQuestionArchiveData.map(q => `
+      <div class="daily-question-archive-item">
+        <div class="daily-question-archive-date">${q.date}</div>
+        ${renderQuestionBlock(q, q.date, false)}
+      </div>
+    `).join('');
+    dailyQuestionArchiveData.forEach(q => {
+      const item = Array.from(list.querySelectorAll('.daily-question-archive-item')).find(el => el.querySelector('.daily-question-archive-date').textContent === q.date);
+      if(item) wireQuestionBlockEvents(item, q.date, q);
+    });
+  }
+  document.getElementById('dailyQuestionArchiveBtn').addEventListener('click', openDailyQuestionArchive);
+  document.getElementById('dailyQuestionArchiveCloseBtn').addEventListener('click', ()=>{
+    document.getElementById('dailyQuestionArchiveModal').classList.add('hidden');
+  });
 
   function startCollectionWatcher(tabName){
     if(collectionWatchersStarted[tabName]) return;
@@ -3152,10 +3513,24 @@ function startWatchers(){
       const scheduleQuery = db.collection('schedule')
                               .where('date', '>=', pastDateStr)
                               .orderBy('date', 'asc');
-      watch(scheduleQuery, 'schedule', items=>{ schedule = items; renderSchedule(); renderCalendar(); renderHome(); });
+      watch(scheduleQuery, 'schedule', items=>{
+        schedule = items;
+        renderSchedule();
+        renderCalendar();
+        renderHome();
+        // 위시의 "날짜를 정했어/언젠가 하고 싶어" 상태도 일정 데이터를 기준으로 표시하므로
+        // 위시 탭을 이미 열어본 적 있다면(구독 중이면) 같이 다시 그림
+        if(collectionWatchersStarted.wish) renderWish();
+      });
     } else if(tabName === 'wish'){
       const wishQuery = db.collection('wishlist').orderBy('createdAt', 'desc').limit(100);
-      watch(wishQuery, 'wishlist', items=>{ wishes = items; renderWish(); renderHome(); });
+      watch(wishQuery, 'wishlist', items=>{
+        wishes = items;
+        renderWish();
+        renderHome();
+        // 위시 제목을 수정하면 연결된 일정 카드의 "💫 관련 위시" 표시도 갱신되어야 함
+        if(collectionWatchersStarted.schedule) renderSchedule();
+      });
     } else if(tabName === 'datelog'){
       const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
       watch(dateLogQuery, 'datelog', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
@@ -3483,7 +3858,7 @@ function startWatchers(){
     // 애정 신호/오늘의 상태 알림은 실제 "게시물"이 아니라 홈 화면의 카드일 뿐이라서,
     // 일반 게시물 탐색 로직(카드를 못 찾으면 삭제됐다고 간주하는 등)을 타면 안 됨
     if(tab === 'home'){
-      const homeTargetIds = { loveSignal: 'loveSignalCard', todayStatus: 'todayStatusCard' };
+      const homeTargetIds = { loveSignal: 'loveSignalCard', todayStatus: 'todayStatusCard', dailyQuestion: 'dailyQuestionCard' };
       const targetId = homeTargetIds[itemId];
       if(targetId){
         const card = document.getElementById(targetId);
@@ -3497,6 +3872,12 @@ function startWatchers(){
     if(tab === 'schedule' && calendarFilterDate){
       calendarFilterDate = null;
       renderCalendar();
+    }
+    // 이동하려는 일정이 지난 일정이면, 접혀있는 지난 일정 영역도 미리 펼쳐둠
+    // (안 그러면 지난 일정 카드가 화면(DOM)에 안 그려져서 스크롤할 대상을 못 찾음)
+    if(tab === 'schedule' && itemId){
+      const targetSchedule = schedule.find(s => s.id === itemId);
+      if(targetSchedule && isPast(targetSchedule)) showPastSchedule = true;
     }
 
     // 이동하려는 탭에 필터가 걸려있으면 먼저 강제로 "전체"로 풀어줌.
