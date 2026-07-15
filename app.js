@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.15-8'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.15-12'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -77,10 +77,35 @@ db.enablePersistence()
   
   let identity = null;
   let schedule = [], wishes = [], dateLogs = [], stamps = [], letters = [];
-  let stampPerson = null;
+  // 예전 "참 잘했어요 스탬프"의 stampPerson(누가 잘했는지)은 "우리의 순간"에서
+  // selectedMomentType(오늘 어떤 순간이었는지)으로 완전히 대체됨
+  let selectedMomentType = null;
   let pendingWishPhotos = [], pendingDateLogPhotos = [], pendingStampPhotos = [], pendingLetterPhotos = [];
   let pendingDateLogGeo = null;
+  // ---- 추억 다시 보기 (매일 하나씩 오래된 데이트기록/편지를 홈에 보여줌) ----
+  let dailyMemoryPick = null;      // { type, item, reason }
+  let dailyMemoryLoadKey = null;   // 오늘 날짜 - 하루에 한 번만 다시 고르기 위함
+  let openedMemoryDoc = null;      // 최신 100개 밖에 있는 추억을 열었을 때, 그 문서 하나만 별도로 구독 중인 상태
+  let openedMemoryUnsubscribe = null;
+  // 최신 100개 구독이 실제로 갖고 있는 ID 목록 - 이게 있어야 "원래 100개 안에 있던 기록"과
+  // "추억 보기 때문에 임시로 넣어둔 100개 밖 기록"을 정확히 구분해서, 후자만 안전하게 뺄 수 있음
+  let recentDateLogIds = new Set();
+  let recentLetterIds = new Set();
   let searchQuery = '';
+
+  // ---- 우리의 순간 (예전 "참 잘했어요 스탬프"를 대체) ----
+  const MOMENT_DEFS = {
+    kindness: { emoji:'💗', label:'오늘의 다정함', summary:'다정했던 날' },
+    laugh: { emoji:'😂', label:'오늘의 웃음', summary:'함께 웃은 날' },
+    hug: { emoji:'🫂', label:'오늘의 포옹', summary:'포옹한 날' },
+    meal: { emoji:'🍽️', label:'맛있는 것 함께 먹음', summary:'함께 맛있는 걸 먹은 날' },
+    talk: { emoji:'📞', label:'오래 이야기함', summary:'오래 이야기한 날' },
+    walk: { emoji:'🚶', label:'같이 걸음', summary:'같이 걸은 날' },
+    newExperience: { emoji:'✨', label:'새로운 경험', summary:'새로운 경험' },
+    support: { emoji:'💪', label:'서로 응원함', summary:'서로 응원한 날' },
+    cozy: { emoji:'🏠', label:'편안하게 함께함', summary:'편안하게 함께한 날' },
+    anniversary: { emoji:'🎉', label:'작은 기념일', summary:'작은 기념일' }
+  };
   
   async function searchLocations(query){
     if(!query) return [];
@@ -936,9 +961,16 @@ async function uploadPhotos(photosArray, onProgress) {
       }
     }, 50);
   }
-  document.getElementById('dateMapOpenBtn').addEventListener('click', openDateMap);
+  document.getElementById('dateMapOpenBtn').addEventListener('click', ()=>{
+    // 우리의 순간 탭 등 다른 곳에서 바로 지도를 열어도 데이트 기록 데이터가 준비되게 함
+    startCollectionWatcher('datelog');
+    document.querySelectorAll('#memorySubtabs button').forEach(button => button.classList.remove('active'));
+    document.getElementById('dateMapOpenBtn').classList.add('active');
+    openDateMap();
+  });
   document.getElementById('dateMapClose').addEventListener('click', ()=>{
     document.getElementById('dateMapModal').classList.add('hidden');
+    syncSectionNavigation(getCurrentActiveTab());
   });
 
 
@@ -1333,7 +1365,14 @@ function renderDateLog() {
 }
 
 // 2. 스탬프
+  // momentType 필드 유무로 예전 스탬프/새 순간을 구분함 (기존 데이터는 일괄 변환하지 않고 그대로 둠)
   function stampCardHTML(item, popId){
+    if(!item.momentType) return legacyStampCardHTML(item, popId);
+    return momentCardHTML(item, popId);
+  }
+
+  // 예전 "참 잘했어요 스탬프" 카드 (기존 문서는 계속 이 모습 그대로 보여줌)
+  function legacyStampCardHTML(item, popId){
     const badgeSrc = item.person === '소정' ? 'stamp-sojeong.png' : 'stamp-seonho.png';
     const dt = new Date(item.createdAt || Date.now());
     const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
@@ -1371,32 +1410,92 @@ function renderDateLog() {
       </div>
     </div>`;
   }
-let stampFilterTarget = 'all';
-let wishFilterTarget = 'all';
-let dateLogFilterTarget = 'all';
-function renderStamp(popId) {
-  // 통계는 전체 데이터 기준으로!
-  const sojeongCount = stamps.filter(s=>s.person==='소정').length;
-  const seonhoCount = stamps.filter(s=>s.person==='선호').length;
-  document.getElementById('statSojeong').textContent = sojeongCount;
-  document.getElementById('statSeonho').textContent = seonhoCount;
 
-  document.getElementById('pickSojeong').classList.toggle('selected-sojeong', stampPerson==='소정');
-  document.getElementById('pickSeonho').classList.toggle('selected-seonho', stampPerson==='선호');
+  // 새 "우리의 순간" 카드 - 누가 받았는지(To/From)가 아니라 둘이 함께한 순간을 보여줌
+  // 한마디(text)는 선택사항이라 비어있을 수 있음 - 그 경우 홈/검색/활동 목록에
+  // 빈칸으로 나오지 않도록, 순간 종류 이모지+라벨로 대신 보여주는 공통 함수
+  function stampPreviewText(item){
+    const text = (item.text || '').trim();
+    if(text) return text;
+    if(item.momentType){
+      const def = MOMENT_DEFS[item.momentType] || {};
+      return `${def.emoji || item.momentEmoji || '✨'} ${def.label || item.momentLabel || '우리의 순간'}`;
+    }
+    return `${item.person || ''}에게 남긴 예전 스탬프`;
+  }
 
-  const filteredStamps = stampFilterTarget === 'all' ? stamps : stamps.filter(s => s.person === stampFilterTarget);
+  function momentCardHTML(item, popId){
+    const def = MOMENT_DEFS[item.momentType] || {};
+    const dt = new Date(item.createdAt || Date.now());
+    const dateStr = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
 
-  renderGroupedByTime(
-    'stampList',
-    filteredStamps,
-    item => item.createdAt || Date.now(),
-    item => stampCardHTML(item, popId),
-    stampExpandedGroups,
-    stampFilterTarget === 'all'
-      ? '<div class="empty-state"><span class="empty-emoji">🏅</span>잘한 순간을<br>도장으로 남겨봐!</div>'
-      : '<div class="empty-state"><span class="empty-emoji">🏅</span>해당하는 스탬프가 없어.</div>'
-  );
-}
+    const likes = item.likes || [];
+    const isLiked = likes.includes(identity);
+    const likeIcon = pixelHeartSVG(isLiked);
+    const commentCount = (item.comments || []).filter(c => !c.deleted).length;
+
+    return `<div class="stamp-card moment-card" data-item-id="${item.id}">
+      <div class="stamp-body">
+        <div class="moment-category">${def.emoji || '✨'} ${escapeHTML(def.label || item.momentLabel || '우리의 순간')}</div>
+        ${item.text ? `<div class="stamp-text moment-card-title">${escapeHTML(item.text)}</div>` : ''}
+        ${cardPhotosHTML(item)}
+        <div class="stamp-date moment-card-author">${item.author ? `작성자 ${escapeHTML(item.author)} · ` : ''}${dateStr}</div>
+
+        <div class="reaction-row">
+          <div style="display:flex; gap:10px;">
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="stamps" data-like-id="${item.id}">
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+            </button>
+            <button class="comment-btn" data-toggle-comment="stamps" data-toggle-id="${item.id}">
+              <span class="chat-icon">${pixelChatSVG()}</span> ${commentCount > 0 ? commentCount : ''}
+            </button>
+          </div>
+          <div class="reaction-row-right">
+            ${isMine(item) ? `<button class="edit-btn" data-edit-stamp="${item.id}">${pixelEditSVG()}</button>` : ''}
+            ${canDeletePost(item) ? `<button class="del-btn" data-del-stamp="${item.id}">✕</button>` : ''}
+          </div>
+        </div>
+        ${renderCommentsHTML(item, 'stamps')}
+      </div>
+    </div>`;
+  }
+
+  // 이번 달의 새 순간을 종류별로 집계 (사람별 집계는 하지 않음 - 평가가 아니므로)
+  function renderMomentMonthSummary(){
+    const now = new Date();
+    const monthMoments = stamps.filter(item => {
+      if(!item.momentType || !item.createdAt) return false;
+      const date = new Date(item.createdAt);
+      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    });
+    const counts = {};
+    monthMoments.forEach(item => { counts[item.momentType] = (counts[item.momentType] || 0) + 1; });
+    const rows = Object.entries(counts).map(([type, count]) => {
+      const def = MOMENT_DEFS[type];
+      if(!def) return '';
+      return `<div class="moment-summary-row"><span>${def.emoji} ${def.summary}</span><strong>${count}번</strong></div>`;
+    }).filter(Boolean).join('');
+    const el = document.getElementById('momentMonthSummary');
+    el.innerHTML = `
+      <div class="moment-summary-title">${now.getMonth() + 1}월의 우리</div>
+      ${rows || '<div class="moment-summary-empty">이번 달의 첫 순간을 남겨볼까?</div>'}
+    `;
+  }
+
+  let wishFilterTarget = 'all';
+  let dateLogFilterTarget = 'all';
+  function renderStamp(popId) {
+    renderMomentMonthSummary();
+    renderGroupedByTime(
+      'stampList',
+      stamps,
+      item => item.createdAt || Date.now(),
+      item => stampCardHTML(item, popId),
+      stampExpandedGroups,
+      '<div class="empty-state"><span class="empty-emoji">🏅</span>오늘 우리에게 있었던<br>순간을 남겨봐!</div>'
+    );
+  }
+
 
 // 3. 편지
   function letterCardHTML(item){
@@ -1525,26 +1624,281 @@ function renderLetters() {
     return DAILY_MESSAGES[idx];
   }
 
-  function findThrowback(){
-    const today = new Date();
-    const mm = today.getMonth(), dd = today.getDate(), curYear = today.getFullYear();
-    const candidates = [];
-    dateLogs.forEach(item=>{
-      if(!item.date) return;
-      const d = new Date(item.date + 'T00:00:00');
-      if(d.getMonth() === mm && d.getDate() === dd && d.getFullYear() < curYear){
-        candidates.push({ type:'datelog', yearsAgo: curYear - d.getFullYear(), item });
+  // 잠금 편지는 작성자에게는 화면상 안 잠긴 것처럼 보이지만(isLetterLocked가 false 반환),
+  // 추억 추천에서는 "정말로 개봉일이 지났는지"만 따져야 함 - 안 그러면 작성자 자신에게
+  // 아직 안 열린 자기 편지가 추천될 수 있음
+  function isLetterActuallyUnlocked(item){
+    if(!item || !item.unlockDate) return true;
+    const time = item.unlockTime || '00:00';
+    const unlockTs = new Date(`${item.unlockDate}T${time}:00`).getTime();
+    return Number.isFinite(unlockTs) && unlockTs <= Date.now();
+  }
+
+  // 날짜 문자열을 시드로 써서, 기기가 달라도 같은 날엔 항상 같은 결과가 나오게 함 (Math.random 금지)
+  function dailyMemoryIndex(length, seed){
+    if(length <= 0) return -1;
+    let hash = 0;
+    for(const char of seed){ hash = ((hash * 31) + char.charCodeAt(0)) >>> 0; }
+    return hash % length;
+  }
+
+  function memoryDateValue(item, type){
+    if(type === 'datelog') return item.date || '';
+    if(type === 'letter'){
+      // 편지는 unlockDate(있으면)를 기준으로 삼고, 없으면(잠금 없는 일반 편지) 작성일을 기준으로 함.
+      // createdAt만 있고 문자열 날짜가 없는 경우가 많아서 로컬 날짜 문자열로 변환해줌
+      return item.unlockDate || (item.createdAt ? localDateStr(new Date(item.createdAt)) : '');
+    }
+    return '';
+  }
+
+  function dateFromLocalKey(dateKey){
+    if(!dateKey) return null;
+    const parsed = new Date(`${dateKey}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  // 오늘 보여줄 추억 하나를 고름: 1)같은 월일(기념일) 2)정확히 100일 전 3)그 외 카테고리 중 하나
+  function chooseDailyMemory(allDateLogs, allLetters, todayKey){
+    const today = dateFromLocalKey(todayKey);
+    if(!today) return null;
+
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const hundredDaysAgo = new Date(today);
+    hundredDaysAgo.setDate(hundredDaysAgo.getDate() - 100);
+
+    const oldDateLogs = (allDateLogs || [])
+      .map(item => ({ type:'datelog', item, date: dateFromLocalKey(item.date) }))
+      .filter(entry => entry.date && entry.date < thirtyDaysAgo);
+
+    const unlockedLetters = (allLetters || [])
+      .filter(isLetterActuallyUnlocked)
+      .map(item => ({ type:'letter', item, date: dateFromLocalKey(memoryDateValue(item, 'letter')) }))
+      .filter(entry => entry.date && entry.date < thirtyDaysAgo);
+
+    // 1. 같은 월·일의 과거 기록 (기념일)을 가장 먼저 - 데이트기록만 대상 (편지는 "매년 이맘때"라는 개념이 약함)
+    const anniversaries = oldDateLogs.filter(entry =>
+      entry.date.getMonth() === today.getMonth() && entry.date.getDate() === today.getDate()
+    );
+    if(anniversaries.length > 0){
+      const index = dailyMemoryIndex(anniversaries.length, `${todayKey}:anniversary`);
+      const selected = anniversaries[index];
+      const yearsAgo = today.getFullYear() - selected.date.getFullYear();
+      return {
+        type: selected.type, item: selected.item,
+        reason: yearsAgo === 1 ? '1년 전 오늘의 우리' : `${yearsAgo}년 전 오늘의 우리`
+      };
+    }
+
+    // 2. 정확히 100일 전 기록
+    const hundredDayKey = localDateStr(hundredDaysAgo);
+    const hundredDayMemories = oldDateLogs.filter(entry => entry.item.date === hundredDayKey);
+    if(hundredDayMemories.length > 0){
+      const index = dailyMemoryIndex(hundredDayMemories.length, `${todayKey}:hundred`);
+      return { type:'datelog', item: hundredDayMemories[index].item, reason:'100일 전의 우리' };
+    }
+
+    // 3. 그 외에는 날짜 기준으로 카테고리 하나, 그 안에서 항목 하나를 선택
+    const categories = [];
+
+    const firstPlace = [...oldDateLogs]
+      .filter(entry => entry.item.location || entry.item.place || entry.item.address)
+      .sort((a,b) => a.date - b.date)[0];
+    if(firstPlace) categories.push({ reason:'처음 함께 간 장소', entries:[firstPlace] });
+
+    const currentSeason = Math.floor(today.getMonth() / 3);
+    const sameSeason = oldDateLogs.filter(entry => Math.floor(entry.date.getMonth() / 3) === currentSeason);
+    if(sameSeason.length > 0) categories.push({ reason:'이맘때의 추억', entries: sameSeason });
+
+    if(unlockedLetters.length > 0) categories.push({ reason:'다시 읽는 편지', entries: unlockedLetters });
+    if(oldDateLogs.length > 0) categories.push({ reason:'오늘 다시 보는 데이트', entries: oldDateLogs });
+
+    if(categories.length === 0) return null;
+
+    const category = categories[dailyMemoryIndex(categories.length, `${todayKey}:category`)];
+    const selected = category.entries[dailyMemoryIndex(category.entries.length, `${todayKey}:${category.reason}`)];
+    return { type: selected.type, item: selected.item, reason: category.reason };
+  }
+
+  // 화면에 불러온 최신 100개 안에 없을 수도 있으니, 하루 한 번은 전체 컬렉션을 확인해서 추억을 고름
+  // (두 사람만 쓰는 앱이라 기록 수가 적으므로 이 정도 전체조회는 현실적으로 괜찮음)
+  async function loadDailyMemory(){
+    if(!identity) return;
+    const todayKey = localDateStr(new Date());
+    if(dailyMemoryLoadKey === todayKey) return; // 오늘 이미 골랐으면 다시 안 함
+    dailyMemoryLoadKey = todayKey;
+
+    const cacheKey = `${STORAGE_PREFIX}daily_memory_${todayKey}`;
+    try{
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if(cached && cached.type && cached.id){
+        const collectionName = cached.type === 'datelog' ? 'datelog' : 'letters';
+        const cachedSnap = await db.collection(collectionName).doc(cached.id).get();
+        if(cachedSnap.exists){
+          const cachedItem = { id: cachedSnap.id, ...cachedSnap.data() };
+          if(cached.type !== 'letter' || isLetterActuallyUnlocked(cachedItem)){
+            dailyMemoryPick = { type: cached.type, reason: cached.reason, item: cachedItem };
+            renderHome();
+            return;
+          }
+        }
+        localStorage.removeItem(cacheKey);
       }
-    });
-    letters.forEach(item=>{
-      const d = new Date(item.createdAt || 0);
-      if(d.getMonth() === mm && d.getDate() === dd && d.getFullYear() < curYear && d.getFullYear() > 2000){
-        candidates.push({ type:'letter', yearsAgo: curYear - d.getFullYear(), item });
+
+      const [datelogSnap, letterSnap] = await Promise.all([
+        db.collection('datelog').get(),
+        db.collection('letters').get()
+      ]);
+      const allDateLogs = datelogSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const allLetters = letterSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      dailyMemoryPick = chooseDailyMemory(allDateLogs, allLetters, todayKey);
+      if(dailyMemoryPick){
+        localStorage.setItem(cacheKey, JSON.stringify({ type: dailyMemoryPick.type, id: dailyMemoryPick.item.id, reason: dailyMemoryPick.reason }));
       }
-    });
-    if(candidates.length === 0) return null;
-    candidates.sort((a,b)=> a.yearsAgo - b.yearsAgo);
-    return candidates[0];
+      renderHome();
+    }catch(e){
+      console.warn('오늘의 추억 불러오기 실패', e);
+      // 네트워크 오류시엔 이미 불러온 최근 100개 안에서라도 찾아봄 (완전히 없는 것보단 나으니까)
+      dailyMemoryPick = chooseDailyMemory(dateLogs, letters.filter(isLetterActuallyUnlocked), todayKey);
+      // 아직 일반 목록도 안 불러와져 후보가 없었다면, 다음 구독·복귀 시 다시 시도할 수 있게 함
+      if(!dailyMemoryPick) dailyMemoryLoadKey = null;
+      renderHome();
+    }
+  }
+
+  // ---- 최신 100개 밖에 있는 추억을 열었을 때, 그 문서 하나만 별도로 실시간 구독 ----
+  // removeTemporaryItem=false: 구독만 해제하고 배열은 그대로 둠 (로그아웃 등 어차피 배열 전체를 비우는 상황에 사용)
+  function clearOpenedMemory(removeTemporaryItem = true){
+    const closing = openedMemoryDoc;
+    if(openedMemoryUnsubscribe){ openedMemoryUnsubscribe(); openedMemoryUnsubscribe = null; }
+    openedMemoryDoc = null;
+    if(!removeTemporaryItem || !closing) return;
+
+    // 원래 최신 100개 구독 안에 있던 기록이면 그대로 두고(중복 없이 이미 정상 배열에 있음),
+    // 추억 보기 때문에 임시로 넣어둔 100개 밖 기록일 때만 안전하게 뺌
+    const recentIds = closing.type === 'datelog' ? recentDateLogIds : recentLetterIds;
+    if(recentIds.has(closing.id)) return;
+
+    if(closing.type === 'datelog'){
+      dateLogs = dateLogs.filter(item => item.id !== closing.id);
+      renderDateLog();
+    } else {
+      letters = letters.filter(item => item.id !== closing.id);
+      renderLetters();
+    }
+  }
+  function upsertMemoryItem(type, item){
+    const list = type === 'datelog' ? dateLogs : letters;
+    const index = list.findIndex(entry => entry.id === item.id);
+    if(index >= 0) list[index] = item; else list.push(item);
+  }
+  async function watchOpenedMemory(type, id){
+    clearOpenedMemory();
+    const collectionName = type === 'datelog' ? 'datelog' : 'letters';
+    const ref = db.collection(collectionName).doc(id);
+    const firstSnap = await ref.get();
+    if(!firstSnap.exists) throw new Error('삭제된 추억이야');
+
+    const firstItem = { id: firstSnap.id, ...firstSnap.data() };
+    openedMemoryDoc = { type, id, item: firstItem };
+    upsertMemoryItem(type, firstItem);
+
+    openedMemoryUnsubscribe = ref.onSnapshot(snapshot => {
+      if(!snapshot.exists){
+        if(type === 'datelog'){
+          dateLogs = dateLogs.filter(item => item.id !== id);
+          renderDateLog();
+        } else {
+          letters = letters.filter(item => item.id !== id);
+          renderLetters();
+        }
+
+        const todayKey = localDateStr();
+        localStorage.removeItem(`${STORAGE_PREFIX}daily_memory_${todayKey}`);
+
+        if(dailyMemoryPick && dailyMemoryPick.item.id === id) dailyMemoryPick = null;
+        dailyMemoryLoadKey = null;
+
+        clearOpenedMemory(false); // 배열은 이미 위에서 직접 정리했으니 구독 해제만
+        renderHome();
+
+        // 삭제된 추억 대신 오늘의 다른 후보를 고름
+        loadDailyMemory();
+        return;
+      }
+      const updatedItem = { id: snapshot.id, ...snapshot.data() };
+      openedMemoryDoc = { type, id, item: updatedItem };
+      upsertMemoryItem(type, updatedItem);
+      if(dailyMemoryPick && dailyMemoryPick.item.id === id){
+        // 오늘의 추억으로 선택된 편지가 다시 미래로 잠겼다면 홈 카드와 하루 캐시에서 즉시 제외
+        if(type === 'letter' && !isLetterActuallyUnlocked(updatedItem)){
+          const todayKey = localDateStr();
+          localStorage.removeItem(`${STORAGE_PREFIX}daily_memory_${todayKey}`);
+          dailyMemoryPick = null;
+          dailyMemoryLoadKey = null;
+          renderHome();
+          loadDailyMemory(); // 잠긴 편지 대신 다른 추억을 다시 선택
+        } else {
+          // 제목·본문·사진을 수정한 경우 홈 카드에도 즉시 반영
+          dailyMemoryPick.item = updatedItem;
+          renderDailyMemoryCard();
+        }
+      }
+      if(type === 'datelog') renderDateLog(); else renderLetters();
+    }, err => console.warn('추억 문서 구독 실패', err));
+  }
+
+  async function openDailyMemory(openComments = false){
+    if(!dailyMemoryPick) return;
+    const { type, item } = dailyMemoryPick;
+    const tab = type === 'datelog' ? 'datelog' : 'letter';
+    // 작성 중인 내용 때문에 탭 이동을 취소하면 추억 구독도 시작하지 않음
+    if(!activateTab(tab)) return;
+    try{
+      await watchOpenedMemory(type, item.id);
+      if(openComments){
+        const collectionName = type === 'datelog' ? 'datelog' : 'letters';
+        openCommentSections.add(`${collectionName}-${item.id}`);
+      }
+      navigateToItem(tab, item.id);
+    }catch(e){
+      console.warn('추억 열기 실패', e);
+      alert('이 추억을 찾을 수 없어. 삭제됐을 수도 있어.');
+    }
+  }
+
+  function renderDailyMemoryCard(){
+    const card = document.getElementById('homeThrowbackCard');
+    if(!card) return;
+    if(!dailyMemoryPick){
+      card.classList.add('hidden');
+      card.innerHTML = '';
+      return;
+    }
+    const { type, item, reason } = dailyMemoryPick;
+    const photos = getItemPhotos(item);
+    const firstPhoto = photos[0] || '';
+    const title = item.title || item.body || item.text || (type === 'letter' ? '다시 읽는 편지' : '우리의 데이트 기록');
+    const dateText = memoryDateValue(item, type);
+
+    card.classList.remove('hidden');
+    card.innerHTML = `
+      <div class="home-memory-heading">
+        <span class="home-memory-icon">🕰️</span>
+        <div>
+          <div class="home-throwback-label">${escapeHTML(reason)}</div>
+          <div class="home-throwback-title">${escapeHTML(String(title).slice(0, 45))}</div>
+          ${dateText ? `<div class="home-memory-date">${escapeHTML(dateText)}</div>` : ''}
+        </div>
+      </div>
+      ${firstPhoto ? `<img class="home-memory-photo" src="${escapeHTML(firstPhoto)}" alt="">` : ''}
+      <div class="home-memory-actions">
+        <button type="button" class="home-memory-open-btn" data-open-daily-memory>추억 열어보기</button>
+        <button type="button" class="home-memory-comment-btn" data-comment-daily-memory>한마디 남기기</button>
+      </div>
+    `;
   }
 
   function relativeTimeKR(ts){
@@ -1561,27 +1915,15 @@ function renderLetters() {
     return `${d.getMonth()+1}.${d.getDate()}`;
   }
 
-  function buildActivityFeed(){
-    const items = [];
-    schedule.forEach(it=>{
-      if(!it.createdAt) return;
-      items.push({ id: it.id, ts: it.createdAt, author: it.author, label:'일정', text: it.title, tab:'schedule' });
-    });
-    wishes.forEach(it=>{
-      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'위시', text: it.title, tab:'wish' });
-    });
-    dateLogs.forEach(it=>{
-      if(!it.createdAt) return;
-      items.push({ id: it.id, ts: it.createdAt, author: it.author, label:'데이트기록', text: it.title, tab:'datelog' });
-    });
-    stamps.forEach(it=>{
-      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author || it.person, label:'스탬프', text: it.text, tab:'stamp' });
-    });
-    letters.forEach(it=>{
-      const text = isLetterLocked(it) ? '🔒 잠긴 편지' : (it.title || it.body);
-      items.push({ id: it.id, ts: it.createdAt || 0, author: it.author, label:'편지', text, tab:'letter' });
-    });
-    return items.sort((a,b)=> b.ts - a.ts).slice(0, 2);
+  // 9단계: 여러 종류를 섞은 "최근 활동" 대신, 오늘 남긴 "우리의 순간" 하나만 홈에 보여줌
+  function findTodayMoment(){
+    const todayKey = localDateStr();
+    return [...stamps]
+      .filter(item => {
+        const createdAt = Number(item.createdAt || 0);
+        return createdAt > 0 && localDateStr(new Date(createdAt)) === todayKey;
+      })
+      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))[0] || null;
   }
 
   let renderHomeDebounceTimer = null;
@@ -1970,54 +2312,76 @@ function renderLetters() {
 
     const feedCard = document.getElementById('homeFeedCard');
     if(feedCard){
-      const feed = buildActivityFeed();
-      if(feed.length === 0){
-        feedCard.innerHTML = `<div class="home-next-label">🕓 최근 활동</div><div class="home-next-sub">아직 활동이 없어</div>`;
-      } else {
-        const authorClass = a => a === '소정' ? 'author-sojeong' : 'author-seonho';
+      const moment = findTodayMoment();
+      const authorClass = a => a === '소정' ? 'author-sojeong' : 'author-seonho';
+      if(moment){
         feedCard.innerHTML = `
-          <div class="home-next-label">🕓 최근 활동</div>
-          ${feed.map(f => `<div class="home-feed-item" data-tab-target="${f.tab}" data-item-target="${f.id||''}">
-            <span class="home-feed-author ${authorClass(f.author)}">${f.author||''}</span>
-            <span class="home-feed-text">${f.label} · ${escapeHTML((f.text||'').slice(0,24))}</span>
-            <span class="home-feed-time">${relativeTimeKR(f.ts)}</span>
-          </div>`).join('')}
-        `;
-        feedCard.querySelectorAll('.home-feed-item').forEach(el=>{
-          el.addEventListener('click', ()=>{
-            const itemId = el.dataset.itemTarget;
-            if(itemId) navigateToItem(el.dataset.tabTarget, itemId);
-            else activateTab(el.dataset.tabTarget);
-          });
-        });
-      }
-    }
-
-    const throwbackCard = document.getElementById('homeThrowbackCard');
-    if(throwbackCard){
-      const tb = findThrowback();
-      if(tb){
-        const photo = getItemPhotos(tb.item)[0];
-        const title = tb.type === 'datelog' ? tb.item.title : (tb.item.title || tb.item.body.slice(0,20));
-        throwbackCard.classList.remove('hidden');
-        throwbackCard.dataset.tabTarget = tb.type === 'datelog' ? 'datelog' : 'letter';
-        throwbackCard.innerHTML = `
-          ${photo ? `<img class="home-throwback-photo" src="${photo}" loading="lazy">` : '<div style="font-size:28px;">💭</div>'}
-          <div>
-            <div class="home-throwback-label">${tb.yearsAgo}년 전 오늘</div>
-            <div class="home-throwback-title">${escapeHTML(title)}</div>
+          <div class="home-next-label">✨ 오늘의 우리</div>
+          <div class="home-feed-item" data-tab-target="stamp" data-item-target="${moment.id}">
+            <span class="home-feed-author ${authorClass(moment.author)}">${escapeHTML(moment.author || '')}</span>
+            <span class="home-feed-text">${escapeHTML(stampPreviewText(moment))}</span>
+            <span class="home-feed-time">${relativeTimeKR(moment.createdAt)}</span>
           </div>
         `;
       } else {
-        throwbackCard.classList.add('hidden');
+        feedCard.innerHTML = `
+          <div class="home-next-label">✨ 오늘의 우리</div>
+          <div class="home-feed-item" data-tab-target="stamp" data-item-target="">
+            <span class="home-feed-text">오늘의 순간을 가볍게 남겨볼까?</span>
+          </div>
+        `;
       }
+      feedCard.querySelectorAll('.home-feed-item').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          const itemId = el.dataset.itemTarget;
+          if(itemId) navigateToItem(el.dataset.tabTarget, itemId);
+          else activateTab(el.dataset.tabTarget);
+        });
+      });
     }
+
+    renderDailyMemoryCard();
   }
 
   function getCurrentActiveTab(){
     const activePanel = document.querySelector('.tab-panel.active');
     return activePanel ? activePanel.id.replace('panel-','') : null;
   }
+
+  // ---- 하단 4개 메뉴(우리/약속/추억/편지)와 내부 탭 매핑 ----
+  // 내부 탭 이름(schedule/wish/datelog/stamp/letter)과 panel-* ID는 그대로 유지해야
+  // 기존 알림·검색·해시 딥링크가 계속 작동함 - 여기서는 "어느 그룹 버튼을 눌렀을 때 보여줄지"만 관리
+  const TAB_TO_SECTION = {
+    home: 'home', schedule: 'promise', wish: 'promise',
+    datelog: 'memory', stamp: 'memory', letter: 'letter'
+  };
+  // 그룹 버튼을 눌렀을 때 마지막으로 보던 내부 탭으로 복귀하기 위한 기억
+  const lastTabBySection = { home: 'home', promise: 'schedule', memory: 'datelog', letter: 'letter' };
+
+  function sectionForTab(tabName){
+    return TAB_TO_SECTION[tabName] || tabName;
+  }
+
+  function syncSectionNavigation(tabName){
+    const section = sectionForTab(tabName);
+    const promiseSubtabs = document.getElementById('promiseSubtabs');
+    const memorySubtabs = document.getElementById('memorySubtabs');
+    if(promiseSubtabs) promiseSubtabs.classList.toggle('hidden', section !== 'promise');
+    if(memorySubtabs) memorySubtabs.classList.toggle('hidden', section !== 'memory');
+    document.querySelectorAll('[data-inner-tab]').forEach(button=>{
+      button.classList.toggle('active', button.dataset.innerTab === tabName);
+    });
+    document.querySelectorAll('.tab-btn').forEach(button=>{
+      button.classList.toggle('active', button.dataset.section === section);
+    });
+  }
+
+  function openMainSection(section){
+    const targetTab = lastTabBySection[section]
+      || { home:'home', promise:'schedule', memory:'datelog', letter:'letter' }[section];
+    if(targetTab) activateTab(targetTab);
+  }
+
   function hasUnsavedDraft(tabName){
     switch(tabName){
       case 'schedule': return document.getElementById('schedTitle').value.trim() !== ''
@@ -2032,7 +2396,9 @@ function renderLetters() {
         || selectedQuickDateLogMood !== ''
         || pendingQuickDateLogPhotos.length > 0;
       case 'letter': return document.getElementById('letterBody').value.trim() !== '';
-      case 'stamp': return document.getElementById('stampText').value.trim() !== '';
+      case 'stamp': return selectedMomentType !== null
+        || document.getElementById('stampText').value.trim() !== ''
+        || pendingStampPhotos.length > 0;
       default: return false;
     }
   }
@@ -2059,6 +2425,12 @@ function renderLetters() {
     if(currentTab === 'datelog' && currentTab !== tabName && activeDateLogLockScheduleId){
       resetDatelogForm();
     }
+    // 오래된 추억을 열어서 임시로 목록에 넣어둔 채로 그 탭을 떠나면, 다음에 다른 추억을
+    // 또 열었을 때 예전 임시 기록이 계속 쌓일 수 있어서 탭을 벗어나는 시점에 정리함
+    if(openedMemoryDoc && currentTab && currentTab !== tabName){
+      const openedTab = openedMemoryDoc.type === 'datelog' ? 'datelog' : 'letter';
+      if(currentTab === openedTab) clearOpenedMemory();
+    }
     // 떠나는 탭에서 펼쳐뒀던 게시물은 접어둬서, 다음에 다시 왔을 때 깔끔하게 시작하도록 함
     if(currentTab && currentTab !== tabName){
       const oldPanel = document.getElementById('panel-'+currentTab);
@@ -2084,13 +2456,6 @@ function renderLetters() {
           b.classList.toggle('active', b.dataset.letterFilter === 'all');
         });
         renderLetters();
-      }
-      if(currentTab === 'stamp' && stampFilterTarget !== 'all'){
-        stampFilterTarget = 'all';
-        document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>{
-          b.classList.toggle('active', b.dataset.stampFilter === 'all');
-        });
-        renderStamp();
       }
       if(currentTab === 'wish' && wishFilterTarget !== 'all'){
         wishFilterTarget = 'all';
@@ -2119,10 +2484,14 @@ function renderLetters() {
     }
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     panel.classList.add('active');
+
+    const section = sectionForTab(tabName);
+    // 약속/추억 그룹 안에서는 "마지막으로 보던 내부 탭"을 기억해둬서, 그룹 버튼을
+    // 다시 눌렀을 때 항상 같은 서브탭(예: schedule)이 아니라 방금 보던 탭으로 복귀함
+    if(section === 'promise' || section === 'memory') lastTabBySection[section] = tabName;
+    syncSectionNavigation(tabName);
+
     window.scrollTo(0, 0);
-    document.querySelectorAll('.tab-btn').forEach(b=>{
-      b.classList.toggle('active', b.dataset.tab === tabName);
-    });
     if(typeof startCollectionWatcher === 'function') startCollectionWatcher(tabName);
     return true;
   }
@@ -2141,11 +2510,19 @@ function renderLetters() {
     else activateTab(tab);
   }
   document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> activateTab(btn.dataset.tab));
+    btn.addEventListener('click', ()=> openMainSection(btn.dataset.section));
   });
-  document.getElementById('homeThrowbackCard').addEventListener('click', ()=>{
-    const target = document.getElementById('homeThrowbackCard').dataset.tabTarget;
-    if(target) activateTab(target);
+  document.querySelectorAll('[data-inner-tab]').forEach(btn=>{
+    btn.addEventListener('click', ()=> activateTab(btn.dataset.innerTab));
+  });
+  document.getElementById('homeThrowbackCard').addEventListener('click', (e)=>{
+    if(e.target.closest('[data-comment-daily-memory]')){
+      openDailyMemory(true);
+      return;
+    }
+    if(e.target.closest('[data-open-daily-memory]')){
+      openDailyMemory(false);
+    }
   });
   document.getElementById('homeNextDateCard').addEventListener('click', ()=>{
     const nextDate = findNextDatePlan();
@@ -2205,22 +2582,23 @@ function renderLetters() {
     schedule.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'schedule', label:'일정', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
     wishes.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'wish', label:'위시', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
     dateLogs.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'datelog', label:'데이트기록', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
-    stamps.forEach(it => { if((it.author||it.person) === identity) items.push({ type:'post', tab:'stamp', label:'스탬프', ts: it.createdAt||0, title: it.text, sub:'', itemId: it.id }); });
+    stamps.forEach(it => { if((it.author||it.person) === identity) items.push({ type:'post', tab:'stamp', label:'우리의 순간', ts: it.createdAt||0, title: stampPreviewText(it), sub:'', itemId: it.id }); });
     letters.forEach(it => { if(it.author === identity) items.push({ type:'post', tab:'letter', label:'편지', ts: it.createdAt||0, title: it.title, sub:'', itemId: it.id }); });
 
     // 다른 사람 글에 단 것까지 포함해서, 내가 쓴 댓글/답글 전부 모으기
     const commentSources = [
       { list: dateLogs, tab:'datelog', label:'데이트기록' },
-      { list: stamps, tab:'stamp', label:'스탬프' },
+      { list: stamps, tab:'stamp', label:'우리의 순간' },
       { list: letters, tab:'letter', label:'편지' }
     ];
     commentSources.forEach(({list, tab, label}) => {
       list.forEach(it => {
         (it.comments||[]).forEach(c => {
           if(c.author === identity && !c.deleted){
+            const postPreview = tab === 'stamp' ? stampPreviewText(it) : (it.title || it.text || '');
             items.push({
               type:'comment', tab, label: c.parentTs ? '답글' : '댓글',
-              ts: c.ts, title: `${label} · ${escapeHTML((it.title || it.text || '').slice(0,20))}`,
+              ts: c.ts, title: `${label} · ${escapeHTML(postPreview.slice(0,20))}`,
               sub: c.text, itemId: it.id, commentTs: c.ts
             });
           }
@@ -3348,13 +3726,23 @@ function renderLetters() {
   // ---- 스탬프 ----
   let editingStampId = null;
   setupPhotoPicker('stampPhotoInput','stampPhotoBtn','stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
-  document.getElementById('pickSojeong').addEventListener('click', ()=>{ stampPerson='소정'; renderStamp(); });
-  document.getElementById('pickSeonho').addEventListener('click', ()=>{ stampPerson='선호'; renderStamp(); });
+  document.getElementById('momentTypeOptions').addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-moment-type]');
+    if(!btn) return;
+    selectedMomentType = btn.dataset.momentType;
+    document.querySelectorAll('[data-moment-type]').forEach(el=>{
+      el.classList.toggle('active', el.dataset.momentType === selectedMomentType);
+    });
+  });
 
   function startEditStamp(item){
     editingStampId = item.id;
-    stampPerson = item.person;
-    document.getElementById('stampText').value = item.text;
+    // 예전 스탬프(momentType 없음)를 수정하는 경우는 종류 선택이 없으므로 selectedMomentType은 그대로 null
+    selectedMomentType = item.momentType || null;
+    document.querySelectorAll('[data-moment-type]').forEach(el=>{
+      el.classList.toggle('active', el.dataset.momentType === selectedMomentType);
+    });
+    document.getElementById('stampText').value = item.text || '';
     if(document.getElementById('stampText')._autoGrowResize) document.getElementById('stampText')._autoGrowResize();
     pendingStampPhotos = getItemPhotos(item).slice();
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
@@ -3366,14 +3754,15 @@ function renderLetters() {
   }
   function resetStampForm(){
     editingStampId = null;
-    stampPerson = null;
+    selectedMomentType = null;
+    document.querySelectorAll('[data-moment-type]').forEach(btn => btn.classList.remove('active'));
     document.getElementById('stampText').value = '';
     if(document.getElementById('stampText')._autoGrowResize) document.getElementById('stampText')._autoGrowResize();
     revokePendingPhotoUrls(pendingStampPhotos);
     pendingStampPhotos = [];
     renderPhotoPreviewGrid('stampPhotoPreviewWrap', ()=>pendingStampPhotos, (v)=>{ pendingStampPhotos = v; });
     renderStamp();
-    document.getElementById('stampAddBtn').textContent = '도장 쾅! 찍기';
+    document.getElementById('stampAddBtn').textContent = '우리의 순간 남기기';
     document.getElementById('stampCancelBtn').classList.add('hidden');
     clearDraftAutosave(STORAGE_PREFIX + 'draft_stamp');
   }
@@ -3382,8 +3771,19 @@ function renderLetters() {
  // 버튼 이벤트는 함수 바깥에 딱 한 번만 정의해!
   document.getElementById('stampAddBtn').addEventListener('click', async () => {
     const text = document.getElementById('stampText').value.trim();
-    if (!text || !stampPerson) return;
-    await saveItem('stamps', !!editingStampId, editingStampId, { person: stampPerson, text }, pendingStampPhotos, resetStampForm);
+    const def = MOMENT_DEFS[selectedMomentType];
+    // 새로 작성할 때만 종류 선택이 필수 (예전 스탬프를 수정하는 경우는 애초에 종류 개념이 없었으니 요구 안 함)
+    if(!editingStampId && !def){
+      alert('오늘의 순간을 하나 골라줘!');
+      return;
+    }
+    const data = { text };
+    if(def){
+      data.momentType = selectedMomentType;
+      data.momentEmoji = def.emoji;
+      data.momentLabel = def.label;
+    }
+    await saveItem('stamps', !!editingStampId, editingStampId, data, pendingStampPhotos, resetStampForm);
   });
 
   document.getElementById('stampList').addEventListener('click', (e) => {
@@ -3702,6 +4102,7 @@ function startWatchers(){
     watchLoveSignals();
     watchTodayStatuses();
     watchDailyQuestion();
+    loadDailyMemory();
 
     // [일정] 홈 화면(디데이/캘린더/다음 일정)에 바로 필요해서 즉시 불러옴
     // 성능을 위해 3개월 전 ~ 미래 일정만 불러오기 (너무 옛날 달력은 안 봐도 되니까!)
@@ -3777,6 +4178,13 @@ function startWatchers(){
     }
 
     stopDailyQuestionWatch();
+
+    // 오늘의 추억 관련 상태도 정리 (다음 계정으로 로그인했을 때 이전 계정 것이 안 남도록)
+    dailyMemoryPick = null;
+    dailyMemoryLoadKey = null;
+    clearOpenedMemory(false); // 배열은 이 함수 위쪽에서 이미 통째로 비웠으니 구독 해제만 하면 됨
+    recentDateLogIds.clear();
+    recentLetterIds.clear();
   }
 
   // ---- 오늘의 질문 ----
@@ -3831,7 +4239,9 @@ function startWatchers(){
     // 화면을 켜둔 채로 자정을 넘기는 경우를 위해 1분마다 날짜가 바뀌었는지 확인
     if(!dailyQuestionRolloverTimer){
       dailyQuestionRolloverTimer = setInterval(() => {
-        if(identity) watchDailyQuestion();
+        if(!identity) return;
+        watchDailyQuestion();
+        loadDailyMemory();
       }, 60000);
     }
   }
@@ -3986,7 +4396,7 @@ function startWatchers(){
 
   // ---- 지난 질문 아카이브 ----
   let dailyQuestionArchiveData = [];
-  async function openDailyQuestionArchive(){
+  async function openDailyQuestionArchive(targetDate = ''){
     document.getElementById('dailyQuestionArchiveModal').classList.remove('hidden');
     const list = document.getElementById('dailyQuestionArchiveList');
     list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">불러오는 중...</div>';
@@ -3999,30 +4409,37 @@ function startWatchers(){
         if(doc.id === dailyQuestionWatchedDate) return; // 오늘 질문은 홈 카드에 이미 보이니 제외
         dailyQuestionArchiveData.push({ date: doc.id, ...doc.data() });
       });
-      renderDailyQuestionArchiveList();
+      renderDailyQuestionArchiveList(targetDate);
     }catch(e){
       console.error('지난 질문 불러오기 실패', e);
       list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">불러오지 못했어.</div>';
     }
   }
-  function renderDailyQuestionArchiveList(){
+  function renderDailyQuestionArchiveList(targetDate = ''){
     const list = document.getElementById('dailyQuestionArchiveList');
     if(dailyQuestionArchiveData.length === 0){
       list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">아직 지난 질문이 없어.</div>';
       return;
     }
     list.innerHTML = dailyQuestionArchiveData.map(q => `
-      <div class="daily-question-archive-item">
+      <div class="daily-question-archive-item" data-question-date="${q.date}">
         <div class="daily-question-archive-date">${q.date}</div>
         ${renderQuestionBlock(q, q.date, false)}
       </div>
     `).join('');
     dailyQuestionArchiveData.forEach(q => {
-      const item = Array.from(list.querySelectorAll('.daily-question-archive-item')).find(el => el.querySelector('.daily-question-archive-date').textContent === q.date);
+      const item = Array.from(list.querySelectorAll('.daily-question-archive-item')).find(el => el.dataset.questionDate === q.date);
       if(item) wireQuestionBlockEvents(item, q.date, q);
     });
+    // 알림을 통해 특정 날짜로 들어온 경우, 그 항목으로 자동 스크롤
+    if(targetDate){
+      setTimeout(() => {
+        const target = Array.from(list.querySelectorAll('.daily-question-archive-item')).find(el => el.dataset.questionDate === targetDate);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+      }, 0);
+    }
   }
-  document.getElementById('dailyQuestionArchiveBtn').addEventListener('click', openDailyQuestionArchive);
+  document.getElementById('dailyQuestionArchiveBtn').addEventListener('click', () => openDailyQuestionArchive());
   document.getElementById('dailyQuestionArchiveCloseBtn').addEventListener('click', ()=>{
     document.getElementById('dailyQuestionArchiveModal').classList.add('hidden');
   });
@@ -4059,18 +4476,39 @@ function startWatchers(){
     } else if(tabName === 'datelog'){
       const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
       watch(dateLogQuery, 'datelog', items=>{
+        // 이 목록에 실제로 있는 ID만 기록해둬야, 나중에 clearOpenedMemory()가
+        // "원래 100개 안에 있던 기록"과 "추억 보기 때문에 임시로 넣은 것"을 정확히 구분할 수 있음
+        recentDateLogIds = new Set(items.map(item => item.id));
         dateLogs = items;
+        // 오래된 추억(최신 100개 밖)을 열어서 별도 구독 중이라면, 이 배열 교체로 사라지지 않게 다시 넣어줌
+        if(openedMemoryDoc && openedMemoryDoc.type === 'datelog' && !dateLogs.some(item => item.id === openedMemoryDoc.id)){
+          dateLogs.push(openedMemoryDoc.item);
+        }
         renderDateLog();
         renderHome();
         // 데이트 기록 생성·삭제 결과를 지난 일정의 "추억 남기기" 버튼에 바로 반영
         if(collectionWatchersStarted.schedule) renderSchedule();
+        // 오늘의 추억을 아직 못 골랐다면(첫 로드 시 조회 실패 등) 여기서 재시도
+        if(!dailyMemoryPick && dailyMemoryLoadKey === null) loadDailyMemory();
+
+        const mapModal = document.getElementById('dateMapModal');
+        if(mapModal && !mapModal.classList.contains('hidden')) openDateMap();
       });
     } else if(tabName === 'stamp'){
       const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
       watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
     } else if(tabName === 'letter'){
       const letterQuery = db.collection('letters').orderBy('createdAt', 'desc').limit(100);
-      watch(letterQuery, 'letters', items=>{ letters = items; renderLetters(); renderHome(); });
+      watch(letterQuery, 'letters', items=>{
+        recentLetterIds = new Set(items.map(item => item.id));
+        letters = items;
+        if(openedMemoryDoc && openedMemoryDoc.type === 'letter' && !letters.some(item => item.id === openedMemoryDoc.id)){
+          letters.push(openedMemoryDoc.item);
+        }
+        renderLetters();
+        renderHome();
+        if(!dailyMemoryPick && dailyMemoryLoadKey === null) loadDailyMemory();
+      });
     }
   }
   
@@ -4340,9 +4778,12 @@ function startWatchers(){
       match: `${it.title||''} ${it.memo||''} ${it.location||''}`.toLowerCase()
     }));
     stamps.forEach(it => items.push({
-      tab:'stamp', label:'스탬프', ts: it.createdAt || 0,
-      title: it.text, sub: `${it.person} 스탬프`, item: it,
-      match: `${it.text||''} ${it.person||''}`.toLowerCase()
+      tab:'stamp', label:'우리의 순간', ts: it.createdAt || 0,
+      title: stampPreviewText(it), item: it,
+      sub: it.momentType
+        ? `${it.momentEmoji || '✨'} ${it.momentLabel || '우리의 순간'}`
+        : `${it.person || ''}에게 남긴 예전 스탬프`,
+      match: `${it.text||''} ${it.person||''} ${it.momentLabel||''}`.toLowerCase()
     }));
     letters.forEach(it => {
       if(isLetterLocked(it)) return; // 잠긴 편지는 검색에서도 제외
@@ -4389,6 +4830,11 @@ function startWatchers(){
     // 애정 신호/오늘의 상태 알림은 실제 "게시물"이 아니라 홈 화면의 카드일 뿐이라서,
     // 일반 게시물 탐색 로직(카드를 못 찾으면 삭제됐다고 간주하는 등)을 타면 안 됨
     if(tab === 'home'){
+      // 지난 날짜의 질문 알림(다음날 늦게 눌렀을 때 등)은 오늘 카드가 아니라 그날의 아카이브로 이동
+      if(itemId === 'dailyQuestion' && commentTs && String(commentTs) !== localDateStr()){
+        openDailyQuestionArchive(String(commentTs));
+        return true;
+      }
       const homeTargetIds = { loveSignal: 'loveSignalCard', todayStatus: 'todayStatusCard', dailyQuestion: 'dailyQuestionCard' };
       const targetId = homeTargetIds[itemId];
       if(targetId){
@@ -4418,11 +4864,6 @@ function startWatchers(){
       letterFilterTarget = 'all';
       document.querySelectorAll('#letterFilterRow .filter-chip').forEach(b=>{
         b.classList.toggle('active', b.dataset.letterFilter === 'all');
-      });
-    } else if(tab === 'stamp' && stampFilterTarget !== 'all'){
-      stampFilterTarget = 'all';
-      document.querySelectorAll('#stampFilterRow .filter-chip').forEach(b=>{
-        b.classList.toggle('active', b.dataset.stampFilter === 'all');
       });
     } else if(tab === 'wish' && wishFilterTarget !== 'all'){
       wishFilterTarget = 'all';
@@ -4599,7 +5040,6 @@ function startWatchers(){
     });
   }
   setupToggleFilterRow('letterFilterRow', 'letterFilter', (val)=>{ letterFilterTarget = val; renderLetters(); });
-  setupToggleFilterRow('stampFilterRow', 'stampFilter', (val)=>{ stampFilterTarget = val; renderStamp(); });
   setupToggleFilterRow('wishFilterRow', 'wishFilter', (val)=>{ wishFilterTarget = val; renderWish(); });
   setupToggleFilterRow('dateLogFilterRow', 'datelogFilter', (val)=>{ dateLogFilterTarget = val; renderDateLog(); });
 

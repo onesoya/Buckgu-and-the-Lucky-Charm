@@ -19,7 +19,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="벅구와 복덩이">
-<link rel="stylesheet" href="style.css?v=2026.07.15-8">
+<link rel="stylesheet" href="style.css?v=2026.07.15-11">
 </head>
 <body>
 
@@ -33,7 +33,6 @@
   <header class="app-header">
     <div class="header-brand">
       <div class="app-title">🐶벅구와 복덩이💝</div>
-      <div class="dday-pill" id="ddayPill"></div>
     </div>
     <div class="header-actions">
       <button class="icon-btn" id="searchOpenBtn" title="검색">
@@ -62,41 +61,51 @@
         </svg>
         <span class="notif-badge-dot hidden" id="notifBadgeCount"></span>
       </button>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
-        <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
-        <div class="visit-counter">
-          <div id="visitTotal"></div>
-          <div id="visitToday"></div>
-        </div>
-      </div>
+      <button class="identity-chip" id="identityChip" title="탭하면 로그아웃">나는 ...</button>
     </div>
   </header>
 
   <main>
 
+    <nav class="section-subtabs hidden" id="promiseSubtabs" aria-label="약속 메뉴">
+      <button type="button" data-inner-tab="schedule">🗓️ 일정</button>
+      <button type="button" data-inner-tab="wish">💫 하고 싶은 것</button>
+    </nav>
+
+    <nav class="section-subtabs hidden" id="memorySubtabs" aria-label="추억 메뉴">
+      <button type="button" data-inner-tab="datelog">💗 데이트 기록</button>
+      <button type="button" data-inner-tab="stamp">✨ 우리의 순간</button>
+      <button type="button" id="dateMapOpenBtn">🗺️ 지도</button>
+    </nav>
+
     <section class="tab-panel active" id="panel-home">
-      <div class="home-today" id="homeToday"></div>
+      <div class="home-date-summary">
+        <div class="home-today" id="homeToday"></div>
+        <div class="dday-pill" id="ddayPill"></div>
+      </div>
       <div class="home-mascot-row">
         <div class="home-speech-bubble" id="homeSpeechBubble"></div>
         <img src="home-mascot.png" class="home-mascot" alt="벅구와 복덩이" onerror="this.style.display='none'">
       </div>
       <div class="home-anniv-mini" id="homeAnnivMini"></div>
 
-      <div class="love-signal-card" id="loveSignalCard">
-        <div class="love-signal-title" id="loveSignalTitle">마음 보내기</div>
-        <div class="love-signal-grid" id="loveSignalGrid"></div>
-        <div class="love-signal-pending hidden" id="loveSignalPending">
-          <span id="loveSignalPendingText"></span>
-          <button id="loveSignalCancelBtn">취소</button>
+      <div class="home-together-card">
+        <div class="today-status-card" id="todayStatusCard">
+          <div class="love-signal-title">오늘의 우리</div>
+          <div class="today-status-list" id="todayStatusList"></div>
+          <button type="button" class="today-status-edit-btn" id="todayStatusEditBtn">내 상태 바꾸기</button>
         </div>
-        <div class="love-signal-received hidden" id="loveSignalReceived"></div>
-        <button type="button" class="love-signal-history-link" id="loveSignalHistoryBtn">지난 신호 보기</button>
-      </div>
 
-      <div class="today-status-card" id="todayStatusCard">
-        <div class="love-signal-title">오늘의 우리</div>
-        <div class="today-status-list" id="todayStatusList"></div>
-        <button type="button" class="today-status-edit-btn" id="todayStatusEditBtn">내 상태 바꾸기</button>
+        <div class="love-signal-card" id="loveSignalCard">
+          <div class="love-signal-title" id="loveSignalTitle">마음 보내기</div>
+          <div class="love-signal-grid" id="loveSignalGrid"></div>
+          <div class="love-signal-pending hidden" id="loveSignalPending">
+            <span id="loveSignalPendingText"></span>
+            <button id="loveSignalCancelBtn">취소</button>
+          </div>
+          <div class="love-signal-received hidden" id="loveSignalReceived"></div>
+          <button type="button" class="love-signal-history-link" id="loveSignalHistoryBtn">지난 신호 보기</button>
+        </div>
       </div>
 
       <div class="daily-question-card" id="dailyQuestionCard">
@@ -108,7 +117,13 @@
       <div class="home-next-card" id="homeNextDateCard"></div>
       <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
-      <div id="appVersionTag" class="home-version-tag"></div>
+      <div class="home-app-info">
+        <div class="visit-counter">
+          <div id="visitTotal"></div>
+          <div id="visitToday"></div>
+        </div>
+        <div id="appVersionTag" class="home-version-tag"></div>
+      </div>
     </section>
 
     <section class="tab-panel" id="panel-schedule">
@@ -201,7 +216,6 @@
 
     <section class="tab-panel" id="panel-datelog">
       <div class="section-title">데이트 기록</div>
-      <button type="button" class="link-toggle-btn" id="dateMapOpenBtn">🗺️ 우리가 간 곳 지도로 보기</button>
 
       <div id="dateLogModeChooser" class="datelog-mode-chooser">
         <button type="button" class="datelog-mode-card quick" data-datelog-mode="quick">
@@ -347,25 +361,23 @@
     </section>
 
     <section class="tab-panel" id="panel-stamp">
-      <div class="section-title">참 잘했어요 스탬프</div>
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-num" id="statSojeong" style="color:var(--pink);">0</div>
-          <div class="stat-label">소정 스탬프</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-num" id="statSeonho" style="color:var(--yellow);">0</div>
-          <div class="stat-label">선호 스탬프</div>
-        </div>
-      </div>
+      <div class="section-title">우리의 순간</div>
       <div class="add-card">
-        <div class="section-sub" style="margin-bottom:8px;">누가 잘했어?</div>
-        <div class="person-toggle">
-          <button class="person-btn" id="pickSojeong">소정이 잘함 🌷</button>
-          <button class="person-btn" id="pickSeonho">선호가 잘함 🌻</button>
+        <div class="section-sub" style="margin-bottom:8px;">오늘 우리에게 어떤 순간이 있었어?</div>
+        <div class="moment-type-grid" id="momentTypeOptions">
+          <button type="button" data-moment-type="kindness">💗 오늘의 다정함</button>
+          <button type="button" data-moment-type="laugh">😂 오늘의 웃음</button>
+          <button type="button" data-moment-type="hug">🫂 오늘의 포옹</button>
+          <button type="button" data-moment-type="meal">🍽️ 맛있는 것 함께 먹음</button>
+          <button type="button" data-moment-type="talk">📞 오래 이야기함</button>
+          <button type="button" data-moment-type="walk">🚶 같이 걸음</button>
+          <button type="button" data-moment-type="newExperience">✨ 새로운 경험</button>
+          <button type="button" data-moment-type="support">💪 서로 응원함</button>
+          <button type="button" data-moment-type="cozy">🏠 편안하게 함께함</button>
+          <button type="button" data-moment-type="anniversary">🎉 작은 기념일</button>
         </div>
         <div class="add-row">
-          <textarea id="stampText" placeholder="어떤 점이 좋았어?"></textarea>
+          <textarea id="stampText" placeholder="한마디를 덧붙여도 좋아 (선택)"></textarea>
         </div>
         <div class="add-row">
           <input type="file" accept="image/*" id="stampPhotoInput" class="hidden" multiple>
@@ -373,44 +385,32 @@
         </div>
         <div class="photo-preview-grid hidden" id="stampPhotoPreviewWrap"></div>
         <div class="add-row">
-          <button class="btn btn-yellow" id="stampAddBtn" style="width:100%;">도장 쾅! 찍기</button>
+          <button class="btn btn-yellow" id="stampAddBtn" style="width:100%;">우리의 순간 남기기</button>
         </div>
         <button class="cancel-edit-btn hidden" id="stampCancelBtn">수정 취소</button>
       </div>
-      <div class="filter-chip-row" id="stampFilterRow">
-        <button class="filter-chip active" data-stamp-filter="all">전체</button>
-        <button class="filter-chip" data-stamp-filter="선호">선호가 받음</button>
-        <button class="filter-chip" data-stamp-filter="소정">소정이 받음</button>
-      </div>
+      <div id="momentMonthSummary" class="moment-month-summary"></div>
       <div class="stamp-list" id="stampList"></div>
     </section>
   </main>
 
   <div class="tabbar-backdrop"></div>
   <nav class="tabbar">
-    <button class="tab-btn active" data-tab="home">
+    <button class="tab-btn active" data-section="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
-      홈
+      우리
     </button>
-    <button class="tab-btn" data-tab="schedule">
+    <button class="tab-btn" data-section="promise">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-      일정
+      약속
     </button>
-    <button class="tab-btn" data-tab="wish">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l2.4 6.8L21 9.3l-5.4 4.6L17.3 21 12 17.2 6.7 21l1.7-7.1L3 9.3l6.6-0.5z"/></svg>
-      위시
-    </button>
-    <button class="tab-btn" data-tab="datelog">
+    <button class="tab-btn" data-section="memory">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20s-7-4.5-9.5-9C1 7.5 2.5 4 6 4c2 0 3.5 1.2 4.5 2.8C11.5 5.2 13 4 15 4c3.5 0 5 3.5 3.5 7-2.5 4.5-9.5 9-9.5 9z"/></svg>
-      데이트
+      추억
     </button>
-    <button class="tab-btn" data-tab="letter">
+    <button class="tab-btn" data-section="letter">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
       편지
-    </button>
-    <button class="tab-btn" data-tab="stamp">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 21l5-3 5 3-1.5-6.5"/></svg>
-      스탬프
     </button>
   </nav>
 
@@ -487,7 +487,7 @@
       <button class="search-cat-btn" data-cat="wish">위시</button>
       <button class="search-cat-btn" data-cat="datelog">데이트</button>
       <button class="search-cat-btn" data-cat="letter">편지</button>
-      <button class="search-cat-btn" data-cat="stamp">스탬프</button>
+      <button class="search-cat-btn" data-cat="stamp">우리의 순간</button>
     </div>
     <div class="search-results" id="searchResults"></div>
   </div>
@@ -558,6 +558,6 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-storage-compat.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=2026.07.15-8"></script>
+<script src="app.js?v=2026.07.15-12"></script>
 </body>
 </html>
