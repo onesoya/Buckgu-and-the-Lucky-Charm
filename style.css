@@ -1022,8 +1022,51 @@
 .wish-plan-btn{ padding:7px 10px; background:#fff0f5; font-size:11px; }
 .wish-plan-btn.linked{ background:#fff; }
 
+.schedule-memory-btn{
+  display:inline-flex; align-items:center; justify-content:center; margin-top:8px;
+  padding:7px 10px; border:2px solid #5b3c56; border-radius:10px; background:#fff0f5;
+  color:#5b3c56; font-family:inherit; font-size:10px; cursor:pointer;
+}
+.schedule-memory-btn.completed{ border-color:#e9a54b; background:#fff8dc; color:#9a6528; }
+
+.datelog-mode-chooser{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;
+}
+.datelog-mode-card{
+  min-height:100px; padding:14px 10px; border:2.5px solid var(--plum); border-radius:14px;
+  background:var(--white); box-shadow:3px 3px 0 rgba(74,53,72,0.25); color:inherit; cursor:pointer;
+  font-family:inherit; text-align:center;
+}
+.datelog-mode-card.active{ background:var(--pink-soft); border-color:var(--pink); }
+.datelog-mode-card:disabled{ opacity:0.55; cursor:default; transform:none; }
+.datelog-mode-card strong, .datelog-mode-card small{ display:block; }
+.datelog-mode-card strong{ font-family:'DungGeunMo',sans-serif; font-size:13px; }
+.datelog-mode-card small{ margin-top:6px; color:var(--plum-soft); font-size:11px; line-height:1.4; }
+.datelog-mode-icon{ display:block; margin-bottom:7px; font-size:24px; }
+
+.datelog-quick-form{
+  padding:16px; border:2.5px solid var(--plum); border-radius:14px; background:var(--white);
+  box-shadow:3px 3px 0 rgba(74,53,72,0.25); margin-bottom:14px;
+}
+.datelog-quick-form input[type="date"], .datelog-quick-form textarea{
+  width:100%; border:2px solid var(--plum); border-radius:9px; padding:9px;
+  font-family:inherit; font-size:13px; box-sizing:border-box; margin-bottom:10px; resize:none;
+}
+.quick-mood-options{
+  display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:10px 0 16px;
+}
+.quick-mood-options button{
+  min-height:46px; border:2px solid var(--pink-soft); border-radius:12px;
+  background:var(--cream); font-size:22px; cursor:pointer;
+}
+.quick-mood-options button.active{
+  border-color:var(--pink); background:var(--pink-soft); transform:translateY(-2px);
+}
+.datelog-quick-photo-row{ margin-bottom:8px; }
+
 /* 반드시 기본 스타일 선언들보다 뒤에 둠 - 안 그러면 나중에 나온 기본 규칙이 이겨서 적용 안 됨 */
 @media (max-width:390px){
+  .datelog-mode-chooser{ grid-template-columns:1fr; }
   .app-header{ padding:15px 11px 11px; gap:5px; }
   .header-actions{ gap:3px; }
   .app-title{ font-size:16px; letter-spacing:-0.6px; }

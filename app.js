@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.15-2'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.15-8'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -492,6 +492,7 @@ async function uploadPhotos(photosArray, onProgress) {
     scheduleResumeChecks();
     renderTodayStatusCard();
     if(identity) watchDailyQuestion();
+    recheckDateLogLockOnResume();
   }
   // visibilitychange 하나에만 의존하면, 삼성인터넷이 화면 복귀 시 이 이벤트를 놓치고
   // focus나 pageshow만 발생시키는 경우 pending 알림을 확인하지 못할 수 있음 -> 다 연결해둠
@@ -507,7 +508,10 @@ async function uploadPhotos(photosArray, onProgress) {
     const now = Date.now();
     const timerWasSuspended = now - lastResumeTick > 2500;
     lastResumeTick = now;
-    if(timerWasSuspended && document.visibilityState === 'visible') scheduleResumeChecks();
+    if(timerWasSuspended && document.visibilityState === 'visible'){
+      scheduleResumeChecks();
+      recheckDateLogLockOnResume();
+    }
   }, 1000);
 
   scheduleResumeChecks(); // 페이지가 막 열린 시점에도 한 번 확인 (콜드 스타트 안전망)
@@ -538,6 +542,11 @@ async function uploadPhotos(photosArray, onProgress) {
     if(!d) return false;
     const today = new Date(); today.setHours(0,0,0,0);
     return new Date(d + 'T00:00:00') < today;
+  }
+  // "지난 일정" 분류(isPast)와는 별개 기준: 데이트 당일부터(끝나기를 기다리지 않고) 추억 남기기 버튼을 보여줌
+  function canLeaveDateMemory(item){
+    if(!item || !item.isDate || !item.date) return false;
+    return item.date <= localDateStr();
   }
   function itemCoversDate(item, dateStr){
     const end = item.endDate || item.date;
@@ -937,14 +946,22 @@ async function uploadPhotos(photosArray, onProgress) {
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
+    // 데이트 당일부터 버튼을 보여줌 (데이트 끝나고 바로, 또는 집에 돌아가는 길에 기록하고 싶을 수 있어서.
+    // isPast()는 "지난 일정" 분류(past 스타일/지난일정 접기)에 계속 쓰이므로 그대로 두고, 이 버튼에만 별도 기준 사용)
+    const linkedDateLog = canLeaveDateMemory(item) ? findDateLogForSchedule(item.id) : null;
+    const memoryButtonHTML = canLeaveDateMemory(item)
+      ? `<button type="button" class="schedule-memory-btn ${linkedDateLog ? 'completed' : ''}" data-schedule-memory="${item.id}">${linkedDateLog ? '💛 추억을 남겼어' : '✍️ 추억 남기기'}</button>`
+      : '';
     return `<div class="item-card ${isPast(item)?'past':''} ${item.isDate?'date-plan-card':''}" data-item-id="${item.id}">
       <div class="date-badge ${item.isDate?'date-plan-badge':''}"><div class="day">${d.day}</div><div class="mon">${d.mon}</div></div>
       <div class="item-body">
         <div class="item-title">${escapeHTML(item.title)}${item.isDate ? ' ' + pixelHeartSVG(true, 16) : ''}</div>
         ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
+        ${item.location ? `<div class="item-memo">📍 ${escapeHTML(item.location)}</div>` : ''}
         ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
         ${item.isDate ? '' : `<div class="item-meta">${authorTagHTML(item.author)}</div>`}
         ${item.sourceWishId ? `<button type="button" class="schedule-source-link" data-open-source-wish="${item.sourceWishId}">💫 ${escapeHTML((wishes.find(w => w.id === item.sourceWishId) || {}).title || item.sourceWishTitle || '관련 위시')}</button>` : ''}
+        ${memoryButtonHTML}
       </div>
       ${isMine(item) ? `<button class="edit-btn" data-edit-schedule="${item.id}">${pixelEditSVG()}</button>` : ''}
       ${canDeletePost(item) ? `<button class="del-btn" data-del-schedule="${item.id}">✕</button>` : ''}
@@ -1223,6 +1240,7 @@ function renderCalendar(){
 
 // 1. 데이트 기록
   function dateLogCardHTML(item){
+    if(item.entryMode === 'quick') return quickDateLogCardHTML(item);
     const d = fmtDate(item.date);
     const extraLabel = formatScheduleRange(item);
     const hasExtra = extraLabel !== fmtShortDate(item.date);
@@ -1245,6 +1263,8 @@ function renderCalendar(){
           ${hasExtra ? `<div class="item-memo">${extraLabel}</div>` : ''}
           ${item.memo ? `<div class="item-memo">${escapeHTML(item.memo)}</div>` : ''}
           ${cardPhotosHTML(item)}
+          ${item.sourceScheduleId ? `<button type="button" class="schedule-source-link" data-open-source-schedule="${item.sourceScheduleId}">🗓️ ${escapeHTML((schedule.find(s => s.id === item.sourceScheduleId) || {}).title || item.sourceScheduleTitle || '관련 일정')}</button>` : ''}
+          ${item.sourceWishId ? `<button type="button" class="schedule-source-link" data-open-source-wish="${item.sourceWishId}">💫 관련 위시 보기</button>` : ''}
 
           <div class="reaction-row">
             <div style="display:flex; gap:10px;">
@@ -1262,6 +1282,41 @@ function renderCalendar(){
           </div>
           ${renderCommentsHTML(item, 'datelog')}
         </div>
+      </div>
+    </div>`;
+  }
+
+  // 빠른 기록 카드는 상세 기록과 달리, 접었다 펼치는 구조 없이 처음부터 기분과 한 줄이 다 보임
+  // (가볍게 보고 바로 반응하는 게 목적이라, 굳이 또 눌러서 펼치게 만들 필요가 없음)
+  function quickDateLogCardHTML(item){
+    const likes = item.likes || [];
+    const isLiked = likes.includes(identity);
+    const likeIcon = pixelHeartSVG(isLiked);
+    const commentCount = (item.comments || []).filter(c => !c.deleted).length;
+    return `<div class="item-card quick-datelog-card" data-item-id="${item.id}">
+      <div class="date-badge" style="background:var(--yellow-soft);"><div class="day">${fmtDate(item.date).day}</div><div class="mon">${fmtDate(item.date).mon}</div></div>
+      <div class="item-body">
+        <div class="post-summary-meta">${authorTagHTML(item.author)}<span>${fmtShortDate(item.date)} 데이트</span></div>
+        <div class="daily-question-text" style="font-size:15px; margin:6px 0;">${item.mood || ''} ${escapeHTML(item.body || item.memo || '')}</div>
+        ${cardPhotosHTML(item)}
+        ${item.sourceScheduleId ? `<button type="button" class="schedule-source-link" data-open-source-schedule="${item.sourceScheduleId}">🗓️ ${escapeHTML((schedule.find(s => s.id === item.sourceScheduleId) || {}).title || item.sourceScheduleTitle || '관련 일정')}</button>` : ''}
+        ${item.sourceWishId ? `<button type="button" class="schedule-source-link" data-open-source-wish="${item.sourceWishId}">💫 관련 위시 보기</button>` : ''}
+        <div class="reaction-row">
+          <div style="display:flex; gap:10px;">
+            <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-col="datelog" data-like-id="${item.id}">
+              <span class="heart-icon">${likeIcon}</span> ${likes.length > 0 ? likes.length : ''}
+            </button>
+            <button class="comment-btn" data-toggle-comment="datelog" data-toggle-id="${item.id}">
+              <span class="chat-icon">${pixelChatSVG()}</span> ${commentCount > 0 ? commentCount : ''}
+            </button>
+          </div>
+          <div class="reaction-row-right">
+            ${isMine(item) ? `<button class="edit-btn" data-edit-datelog="${item.id}">${pixelEditSVG()}</button>` : ''}
+            ${canDeletePost(item) ? `<button class="del-btn" data-del-datelog="${item.id}">✕</button>` : ''}
+          </div>
+        </div>
+        ${isMine(item) ? `<button type="button" class="daily-question-edit-link" data-convert-quick-datelog="${item.id}">✍️ 정성껏 기록으로 바꾸기</button>` : ''}
+        ${renderCommentsHTML(item, 'datelog')}
       </div>
     </div>`;
   }
@@ -1965,9 +2020,17 @@ function renderLetters() {
   }
   function hasUnsavedDraft(tabName){
     switch(tabName){
-      case 'schedule': return document.getElementById('schedTitle').value.trim() !== '';
+      case 'schedule': return document.getElementById('schedTitle').value.trim() !== ''
+        || document.getElementById('schedLocation').value.trim() !== ''
+        || document.getElementById('schedMemo').value.trim() !== '';
       case 'wish': return document.getElementById('wishTitle').value.trim() !== '' || document.getElementById('wishBody').value.trim() !== '';
-      case 'datelog': return document.getElementById('dateLogTitle').value.trim() !== '';
+      case 'datelog': return document.getElementById('dateLogTitle').value.trim() !== ''
+        || document.getElementById('dateLogLocation').value.trim() !== ''
+        || document.getElementById('dateLogMemo').value.trim() !== ''
+        || pendingDateLogPhotos.length > 0
+        || document.getElementById('dateLogQuickBody').value.trim() !== ''
+        || selectedQuickDateLogMood !== ''
+        || pendingQuickDateLogPhotos.length > 0;
       case 'letter': return document.getElementById('letterBody').value.trim() !== '';
       case 'stamp': return document.getElementById('stampText').value.trim() !== '';
       default: return false;
@@ -1990,6 +2053,11 @@ function renderLetters() {
       const proceed = confirm('작성 중인 내용이 있어.\n다른 탭으로 이동하면 지금 쓴 내용이 사라져.\n\n그래도 이동할까?');
       if(!proceed) return false;
       resetDraftForTab(currentTab);
+    }
+    // 아무것도 안 쓴 채로(hasUnsavedDraft는 false) 데이트 기록 작성 잠금만 쥐고 있는 상태로
+    // 다른 탭으로 나가면, 확인창을 안 거치니 위 분기를 안 타서 잠금이 안 풀릴 수 있음 -> 별도 처리
+    if(currentTab === 'datelog' && currentTab !== tabName && activeDateLogLockScheduleId){
+      resetDatelogForm();
     }
     // 떠나는 탭에서 펼쳐뒀던 게시물은 접어둬서, 다음에 다시 왔을 때 깔끔하게 시작하도록 함
     if(currentTab && currentTab !== tabName){
@@ -2458,6 +2526,7 @@ function renderLetters() {
     document.getElementById('schedDate').value = item.date;
     document.getElementById('schedTime').value = item.time || '';
     document.getElementById('schedTitle').value = item.title;
+    document.getElementById('schedLocation').value = item.location || '';
     document.getElementById('schedMemo').value = item.memo || '';
     setDatePlanToggle(!!item.isDate);
     setScheduleSourceWish(item.sourceWishId
@@ -2480,6 +2549,7 @@ function renderLetters() {
     editingScheduleId = null;
     setScheduleSourceWish(null);
     document.getElementById('schedTitle').value='';
+    document.getElementById('schedLocation').value='';
     document.getElementById('schedMemo').value='';
     document.getElementById('schedTime').value='';
     document.getElementById('schedEndDate').value='';
@@ -2495,6 +2565,7 @@ function renderLetters() {
     const date = document.getElementById('schedDate').value;
     const title = document.getElementById('schedTitle').value.trim();
     if(!date || !title) return;
+    const location = document.getElementById('schedLocation').value.trim();
     const memo = document.getElementById('schedMemo').value.trim();
     const time = document.getElementById('schedTime').value || null;
     let endDate = document.getElementById('schedEndDate').value || null;
@@ -2502,7 +2573,7 @@ function renderLetters() {
     const endTime = endDate ? (document.getElementById('schedEndTime').value || null) : null;
     const isDate = schedIsDatePlan;
     const scheduleData = {
-      date, endDate, time, endTime, title, memo, isDate,
+      date, endDate, time, endTime, title, location, memo, isDate,
       sourceWishId: scheduleSourceWish ? scheduleSourceWish.id : null,
       sourceWishTitle: scheduleSourceWish ? scheduleSourceWish.title : null
     };
@@ -2519,9 +2590,13 @@ function renderLetters() {
     const editBtn = e.target.closest('[data-edit-schedule]');
     const delBtn = e.target.closest('[data-del-schedule]');
     const sourceWishBtn = e.target.closest('[data-open-source-wish]');
+    const memoryBtn = e.target.closest('[data-schedule-memory]');
     const editId = editBtn && editBtn.dataset.editSchedule;
     const delId = delBtn && delBtn.dataset.delSchedule;
-    if(sourceWishBtn){
+    if(memoryBtn){
+      // 문구(추억 남기기 / 추억을 남겼어)와 무관하게 항상 같은 함수: 기록 없으면 작성 시작, 있으면 기존 기록으로 이동
+      startDateLogFromSchedule(schedule.find(item => item.id === memoryBtn.dataset.scheduleMemory));
+    } else if(sourceWishBtn){
       navigateToItem('wish', sourceWishBtn.dataset.openSourceWish);
     } else if(editId){
       const item = schedule.find(s=>s.id===editId);
@@ -2638,6 +2713,328 @@ function renderLetters() {
 
   // ---- 데이트 기록 ----
   let editingDatelogId = null;
+  let dateLogEntryMode = null; // 'quick' | 'detail' | null(아직 선택 안 함)
+  let selectedQuickDateLogMood = '';
+  let pendingQuickDateLogPhotos = [];
+
+  // 수정 중에는 "빠르게/정성껏" 모드 버튼을 잠가서, 다른 방식으로 잘못 전환해
+  // 빈 입력창이 열리거나 내용이 덮어써지는 것을 방지함 (전환은 명시적인 "정성껏 기록으로 바꾸기" 버튼으로만)
+  function lockDateLogModeButtons(locked){
+    document.querySelectorAll('[data-datelog-mode]').forEach(btn=>{ btn.disabled = locked; });
+  }
+
+  function setDateLogEntryMode(mode){
+    dateLogEntryMode = mode;
+    if(mode === 'quick'){
+      const quickDate = document.getElementById('dateLogQuickDate');
+      if(!quickDate.value) quickDate.value = localDateStr();
+    }
+    document.getElementById('dateLogQuickForm').classList.toggle('hidden', mode !== 'quick');
+    document.getElementById('dateLogDetailForm').classList.toggle('hidden', mode !== 'detail');
+    document.querySelectorAll('[data-datelog-mode]').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.datelogMode === mode);
+    });
+  }
+  document.querySelectorAll('[data-datelog-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=> setDateLogEntryMode(btn.dataset.datelogMode));
+  });
+  document.querySelectorAll('[data-quick-mood]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedQuickDateLogMood = btn.dataset.quickMood;
+      document.querySelectorAll('[data-quick-mood]').forEach(moodBtn=>{
+        moodBtn.classList.toggle('active', moodBtn === btn);
+      });
+    });
+  });
+  // 빠른 기록 사진은 여러 장을 누적하는 기존 setupPhotoPicker 대신, 최대 1장만 허용하는 별도 로직 사용
+  document.getElementById('dateLogQuickPhotoBtn').addEventListener('click', ()=>{
+    document.getElementById('dateLogQuickPhotoInput').click();
+  });
+  document.getElementById('dateLogQuickPhotoInput').addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    showLoadingOverlay('사진 처리 중이야...');
+    try{
+      const resized = await resizeImage(file);
+      revokePendingPhotoUrls(pendingQuickDateLogPhotos);
+      pendingQuickDateLogPhotos = [resized];
+      renderPhotoPreviewGrid('dateLogQuickPhotoPreview', ()=>pendingQuickDateLogPhotos, (v)=>{ pendingQuickDateLogPhotos = v; });
+    }catch(err){ console.error('사진 처리 실패', err); }
+    finally{ hideLoadingOverlay(); }
+  });
+  // 현재 데이트 기록 입력창과 연결된 일정 (4단계의 위시-일정 연결과 같은 단방향 방식:
+  // 데이트 기록 문서에 sourceScheduleId를 저장하고, 일정 쪽엔 아무것도 안 남김)
+  let dateLogSourceSchedule = null;
+
+  function findDateLogForSchedule(scheduleId){
+    return dateLogs.find(item => item.sourceScheduleId === scheduleId) || null;
+  }
+  function setDateLogSourceSchedule(item){
+    dateLogSourceSchedule = item
+      ? {
+          id: item.id, title: item.title || '데이트 일정', sourceWishId: item.sourceWishId || null,
+          date: item.date || '', time: item.time || '', endDate: item.endDate || '', endTime: item.endTime || '',
+          location: item.location || ''
+        }
+      : null;
+    const row = document.getElementById('dateLogSourceScheduleRow');
+    const title = document.getElementById('dateLogSourceScheduleTitle');
+    row.classList.toggle('hidden', !dateLogSourceSchedule);
+    title.textContent = dateLogSourceSchedule ? dateLogSourceSchedule.title : '';
+  }
+
+  // 로컬에 불러온 최근 100개만 검사하면 아주 오래된 기록을 놓칠 수 있어서,
+  // 버튼을 누른 시점에 Firestore에서도 한 번 더 확인함 (단일 필드 검색이라 복합 색인 불필요)
+  async function getDateLogForSchedule(scheduleId){
+    const localItem = findDateLogForSchedule(scheduleId);
+    if(localItem) return localItem;
+    // 캐시에 없다는 이유로 기록이 없다고 단정하지 않고 서버에서 확실하게 확인
+    // (여기서 실패를 삼키고 null을 반환하면, 호출부가 "기록 없음"으로 오해해서
+    // 실제로는 있는 기록인데 새로 또 작성하는 중복이 생길 수 있음 -> 에러는 그대로 던짐)
+    const snap = await db.collection('datelog').where('sourceScheduleId', '==', scheduleId).limit(1).get({ source: 'server' });
+    if(snap.empty) return null;
+    const doc = snap.docs[0];
+    const item = { id: doc.id, ...doc.data() };
+    if(!dateLogs.some(log => log.id === item.id)) dateLogs.unshift(item);
+    return item;
+  }
+
+  // 일정과 연결된 신규 빠른 기록 전용 저장 함수. 작성화면 진입 잠금(1차 방어)이 있지만,
+  // 잠금 만료나 네트워크 예외 등으로 혹시 우회되더라도 문서가 두 개 생기지 않도록,
+  // 일정ID를 그대로 문서ID로 써서(schedule_{일정ID}) 트랜잭션으로 "존재하면 중단"을 보장함
+  // 일정 연결된 신규 데이트 기록 저장 (빠른/정성 기록 공통 사용).
+  // 문서ID를 일정ID 기반으로 고정 + 트랜잭션 안에서 "기록 존재 여부"뿐 아니라
+  // "지금 이 잠금이 정말 내 것인지"까지 함께 확인해야, 잠금이 만료된 사이에
+  // 상대가 새로 잠금을 얻어 작성 중인데 내가 뒤늦게 저장해버리는 상황을 막을 수 있음
+  async function saveNewDateLogForSchedule(scheduleId, data, pendingPhotos){
+    showLoadingOverlay('저장 중이야...');
+    let uploadedPhotos = [];
+    try{
+      uploadedPhotos = await uploadPhotos(pendingPhotos, (pct) => showLoadingOverlay(`저장 중이야... ${pct}%`));
+      const recordRef = db.collection('datelog').doc(`schedule_${scheduleId}`);
+      const lockRef = db.collection('datelogDraftLocks').doc(scheduleId);
+      const deviceId = getOrCreateDeviceId();
+      const myToken = activeDateLogLockToken;
+
+      const result = await db.runTransaction(async (t)=>{
+        // 모든 읽기를 먼저 수행 (Firestore 트랜잭션 규칙)
+        const lockSnap = await t.get(lockRef);
+        const recordSnap = await t.get(recordRef);
+
+        const lock = lockSnap.exists ? lockSnap.data() : null;
+        const ownsLock = lock && lock.owner === identity && lock.deviceId === deviceId && lock.lockToken === myToken;
+
+        if(recordSnap.exists){
+          if(ownsLock) t.delete(lockRef); // 내 잠금이 남아있다면 같이 정리
+          return 'exists';
+        }
+        if(!ownsLock) return 'lost';
+
+        t.set(recordRef, { ...data, photos: uploadedPhotos, author: identity, createdAt: Date.now() });
+        t.delete(lockRef); // 기록 생성과 잠금 해제를 한 번에 처리
+        return 'created';
+      });
+
+      if(result === 'lost'){
+        await deletePhotosFromStorage(uploadedPhotos);
+        stopDateLogLockHeartbeat();
+        activeDateLogLockScheduleId = null;
+        activeDateLogLockToken = null;
+        alert('작성 잠금을 잃어서 저장하지 않았어.\n쓴 내용은 그대로 두었으니 기존 기록을 확인해줘.');
+        return false;
+      }
+      if(result === 'exists'){
+        await deletePhotosFromStorage(uploadedPhotos);
+        stopDateLogLockHeartbeat();
+        activeDateLogLockScheduleId = null;
+        activeDateLogLockToken = null;
+        resetDatelogForm();
+        alert('그 사이에 이미 추억이 남겨졌어!\n완성된 기록으로 이동할게.');
+        navigateToItem('datelog', `schedule_${scheduleId}`);
+        return false;
+      }
+      // 'created' - 잠금은 트랜잭션에서 이미 삭제됨
+      stopDateLogLockHeartbeat();
+      activeDateLogLockScheduleId = null;
+      activeDateLogLockToken = null;
+      resetDatelogForm();
+      return true;
+    }catch(e){
+      console.error('일정 연결 기록 저장 실패', e);
+      if(uploadedPhotos.length > 0) await deletePhotosFromStorage(uploadedPhotos);
+      alert('기록을 저장하지 못했어.\n쓴 내용은 그대로 남겨뒀어.');
+      return false;
+    }finally{
+      hideLoadingOverlay();
+    }
+  }
+
+  // ---- 데이트 기록 작성 잠금 (같은 일정에 두 사람이 동시에 기록을 남기는 것 방지) ----
+  // 1차 방어: 작성 화면 진입 자체를 막음 (상대가 이미 쓰고 있으면 진입 불가)
+  // 2차 방어: 저장 시 일정ID 기반 고정 문서ID + 트랜잭션으로, 혹시 잠금을 우회해도 문서가 두 개 생기지 않게 함
+  let activeDateLogLockScheduleId = null;
+  let activeDateLogLockToken = null; // 같은 사람+같은 기기라도 "이번 작성 시도"인지 정확히 구분하기 위한 고유값
+  let dateLogLockHeartbeat = null;
+  const DATELOG_LOCK_DURATION_MS = 10 * 60 * 1000; // 10분 - "무조건 10분 뒤 만료"가 아니라, 갱신할 때마다 뒤로 밀리는 만료시간
+
+  async function acquireDateLogDraftLock(scheduleId){
+    const lockRef = db.collection('datelogDraftLocks').doc(scheduleId);
+    const recordRef = db.collection('datelog').doc(`schedule_${scheduleId}`);
+    const deviceId = getOrCreateDeviceId();
+    const lockToken = genId();
+    const now = Date.now();
+    return db.runTransaction(async (t)=>{
+      // 이미 완성된 고정ID 기록이 있는지도 함께 확인 (취소 없이 사이에 저장이 끝난 경우 대비)
+      const recordSnap = await t.get(recordRef);
+      if(recordSnap.exists) return { acquired: false, existingId: recordRef.id };
+
+      const snap = await t.get(lockRef);
+      if(snap.exists){
+        const lock = snap.data();
+        const isExpired = !lock.expiresAt || lock.expiresAt <= now;
+        const isMyLock = lock.owner === identity && lock.deviceId === deviceId;
+        if(!isExpired && !isMyLock){
+          return { acquired: false, owner: lock.owner };
+        }
+      }
+      t.set(lockRef, { owner: identity, deviceId, lockToken, acquiredAt: now, expiresAt: now + DATELOG_LOCK_DURATION_MS });
+      return { acquired: true, owner: identity, lockToken };
+    });
+  }
+
+  // false는 "잠금 문서가 없거나 실제로 내 것이 아닐 때"만 반환함. 네트워크 등 일시적인 오류는
+  // 여기서 삼켜서 false로 바꾸면 안 됨 - 그러면 진짜 잠금 상실과 구분이 안 돼서, 호출부가
+  // 일시적인 오류일 뿐인데도 "잠금을 잃었다"고 오판해 알림을 띄우거나 작업을 중단할 수 있음
+  async function renewDateLogDraftLock(scheduleId){
+    const lockRef = db.collection('datelogDraftLocks').doc(scheduleId);
+    const deviceId = getOrCreateDeviceId();
+    const myToken = activeDateLogLockToken;
+    return await db.runTransaction(async (t)=>{
+      const snap = await t.get(lockRef);
+      if(!snap.exists) return false;
+      const lock = snap.data();
+      if(lock.owner !== identity || lock.deviceId !== deviceId || lock.lockToken !== myToken) return false;
+      t.update(lockRef, { expiresAt: Date.now() + DATELOG_LOCK_DURATION_MS });
+      return true;
+    });
+  }
+
+  // 하트비트 갱신이 "실패"(진짜로 잠금을 잃음)로 확인됐을 때만 호출 - 네트워크 오류로는 호출 안 됨
+  async function handleLostDateLogLock(scheduleId){
+    if(activeDateLogLockScheduleId !== scheduleId) return;
+    stopDateLogLockHeartbeat();
+    activeDateLogLockScheduleId = null;
+    activeDateLogLockToken = null;
+    alert('작성 잠금이 만료됐거나 상대방이 작성을 시작했어.\n쓴 내용은 지우지 않았어.');
+  }
+
+  function startDateLogLockHeartbeat(scheduleId){
+    stopDateLogLockHeartbeat();
+    dateLogLockHeartbeat = setInterval(async ()=>{
+      if(activeDateLogLockScheduleId !== scheduleId) return;
+      try{
+        const renewed = await renewDateLogDraftLock(scheduleId);
+        if(!renewed) await handleLostDateLogLock(scheduleId);
+      }catch(e){
+        // 일시적인 네트워크 오류는 잠금 상실로 단정하지 않고, 다음 갱신 시도에 맡김
+        console.warn('잠금 갱신 상태를 확인하지 못했어', e);
+      }
+    }, 60000);
+  }
+  function stopDateLogLockHeartbeat(){
+    if(dateLogLockHeartbeat){ clearInterval(dateLogLockHeartbeat); dateLogLockHeartbeat = null; }
+  }
+
+  async function releaseDateLogDraftLock(){
+    stopDateLogLockHeartbeat();
+    const scheduleId = activeDateLogLockScheduleId;
+    const lockToken = activeDateLogLockToken; // 토큰을 먼저 복사해둠 (아래에서 전역변수를 바로 비우니까)
+    activeDateLogLockScheduleId = null;
+    activeDateLogLockToken = null;
+    if(!scheduleId || !lockToken) return;
+    const lockRef = db.collection('datelogDraftLocks').doc(scheduleId);
+    const deviceId = getOrCreateDeviceId();
+    try{
+      // 읽기와 삭제를 트랜잭션으로 묶어야, "확인한 직후 잠금이 만료되고 상대방이
+      // 가져간" 그 짧은 틈에 상대방의 새 잠금을 실수로 지워버리는 것을 막을 수 있음.
+      // owner+deviceId만으로는 "같은 기기에서 취소 직후 바로 재작성한 경우"를
+      // 구분 못 해서, 이 잠금 해제 시도가 정확히 "이번에 내가 받았던 그 잠금"인지까지
+      // lockToken으로 확인함 (재시도 중 최신 상태를 다시 읽었을 때도 안전하도록)
+      await db.runTransaction(async (t)=>{
+        const snap = await t.get(lockRef);
+        if(!snap.exists) return;
+        const lock = snap.data();
+        const isExactLock = lock.owner === identity && lock.deviceId === deviceId && lock.lockToken === lockToken;
+        if(isExactLock) t.delete(lockRef);
+      });
+    }catch(e){ console.warn('데이트 기록 잠금 해제 실패', e); }
+  }
+
+  // 화면이 다시 보일 때(잠깐 사진 찍거나 화면을 껐다 켠 경우 등), 잠금이 여전히 내 것인지 즉시 재확인.
+  // 브라우저 타이머가 멈춰있던 동안 1분 하트비트가 밀렸을 수 있어서, 복귀 즉시 확인하는 안전장치
+  async function recheckDateLogLockOnResume(){
+    if(!activeDateLogLockScheduleId) return;
+    const scheduleId = activeDateLogLockScheduleId;
+    try{
+      const renewed = await renewDateLogDraftLock(scheduleId);
+      if(!renewed) await handleLostDateLogLock(scheduleId);
+    }catch(e){
+      // 일시적인 네트워크 오류는 잠금 상실로 단정하지 않음
+      console.warn('잠금 재확인 중 오류', e);
+    }
+  }
+
+  async function startDateLogFromSchedule(item){
+    if(!item) return;
+    // 이미 기록했다면 새로 만들지 않고 기존 기록으로 이동
+    let existingLog;
+    try{
+      existingLog = await getDateLogForSchedule(item.id);
+    }catch(e){
+      console.error('연결된 데이트 기록 확인 실패', e);
+      alert('기존 추억이 있는지 확인하지 못했어.\n인터넷 연결을 확인하고 다시 눌러줘.');
+      return;
+    }
+    if(existingLog){
+      navigateToItem('datelog', existingLog.id);
+      return;
+    }
+    // 상대방이 이미 이 일정의 추억을 작성 중인지 확인 (동시 작성 방지 1차 방어)
+    let lockResult;
+    try{
+      lockResult = await acquireDateLogDraftLock(item.id);
+    }catch(e){
+      console.error('작성 잠금 확인 실패', e);
+      alert('작성 가능한 상태인지 확인하지 못했어.\n인터넷 연결을 확인하고 다시 눌러줘.');
+      return;
+    }
+    if(lockResult.existingId){
+      // 위에서 확인한 이후, 잠금 확인 직전 그 짧은 사이에 상대가 이미 저장을 끝낸 경우
+      navigateToItem('datelog', lockResult.existingId);
+      return;
+    }
+    if(!lockResult.acquired){
+      alert(`${lockResult.owner}${particleFor(lockResult.owner)} 이 데이트의 추억을 작성 중이야 💛\n완성되면 여기서 바로 볼 수 있어.`);
+      return;
+    }
+    if(!activateTab('datelog')){
+      // 작성 중 내용이 있어서 탭 이동 자체가 취소된 경우, 방금 얻은 잠금도 바로 반납
+      activeDateLogLockScheduleId = item.id;
+      activeDateLogLockToken = lockResult.lockToken;
+      await releaseDateLogDraftLock();
+      return;
+    }
+    resetDatelogForm();
+    activeDateLogLockScheduleId = item.id;
+    activeDateLogLockToken = lockResult.lockToken;
+    startDateLogLockHeartbeat(item.id);
+    setDateLogEntryMode('quick');
+    setDateLogSourceSchedule(item);
+    document.getElementById('dateLogQuickDate').value = item.date || localDateStr();
+    document.getElementById('dateLogQuickForm').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
   setupPhotoPicker('dateLogPhotoInput','dateLogPhotoBtn','dateLogPhotoPreviewWrap', ()=>pendingDateLogPhotos, (v)=>{ pendingDateLogPhotos = v; });
   document.getElementById('dateLogRangeToggleBtn').addEventListener('click', ()=>{
     const row = document.getElementById('dateLogEndDateRow');
@@ -2653,12 +3050,55 @@ function renderLetters() {
     }
   });
   function startEditDatelog(item){
+    if(item.entryMode === 'quick'){
+      startEditQuickDatelog(item);
+    } else {
+      startEditDetailDatelog(item);
+    }
+  }
+  function startEditQuickDatelog(item){
     editingDatelogId = item.id;
+    lockDateLogModeButtons(true);
+    setDateLogEntryMode('quick');
+    document.getElementById('dateLogQuickDate').value = item.date || '';
+    document.getElementById('dateLogQuickBody').value = item.body || item.memo || '';
+    selectedQuickDateLogMood = item.mood || '';
+    document.querySelectorAll('[data-quick-mood]').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.quickMood === selectedQuickDateLogMood);
+    });
+    pendingQuickDateLogPhotos = getItemPhotos(item).slice(0, 1);
+    renderPhotoPreviewGrid('dateLogQuickPhotoPreview', ()=>pendingQuickDateLogPhotos, (v)=>{ pendingQuickDateLogPhotos = v; });
+    const linkedSchedule = item.sourceScheduleId ? schedule.find(s => s.id === item.sourceScheduleId) : null;
+    setDateLogSourceSchedule(item.sourceScheduleId
+      ? { id: item.sourceScheduleId, title: (linkedSchedule && linkedSchedule.title) || item.sourceScheduleTitle || '데이트 일정',
+          sourceWishId: item.sourceWishId || (linkedSchedule && linkedSchedule.sourceWishId) || null,
+          // 일정이 아직 로딩 전이거나 오래돼서 로컬 schedule 배열에 없을 수 있어서,
+          // 그 경우엔 빈 값으로 덮어쓰지 않고 이 기록 자체에 이미 저장된 값으로 폴백함
+          date: (linkedSchedule && linkedSchedule.date) || item.date || '', time: (linkedSchedule && linkedSchedule.time) || item.time || '',
+          endDate: (linkedSchedule && linkedSchedule.endDate) || item.endDate || '', endTime: (linkedSchedule && linkedSchedule.endTime) || item.endTime || '',
+          location: (linkedSchedule && linkedSchedule.location) || item.location || '' }
+      : null);
+    document.getElementById('dateLogQuickSaveBtn').textContent = '수정 완료';
+    document.getElementById('dateLogQuickCancelBtn').classList.remove('hidden');
+    document.getElementById('dateLogQuickForm').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function startEditDetailDatelog(item){
+    editingDatelogId = item.id;
+    lockDateLogModeButtons(true);
+    setDateLogEntryMode('detail');
     document.getElementById('dateLogDate').value = item.date;
     document.getElementById('dateLogTime').value = item.time || '';
     document.getElementById('dateLogTitle').value = item.title;
     document.getElementById('dateLogLocation').value = item.location || '';
     document.getElementById('dateLogLocationResults').classList.add('hidden');
+    const linkedSchedule = item.sourceScheduleId ? schedule.find(s => s.id === item.sourceScheduleId) : null;
+    setDateLogSourceSchedule(item.sourceScheduleId
+      ? { id: item.sourceScheduleId, title: (linkedSchedule && linkedSchedule.title) || item.sourceScheduleTitle || '데이트 일정',
+          sourceWishId: item.sourceWishId || (linkedSchedule && linkedSchedule.sourceWishId) || null,
+          date: (linkedSchedule && linkedSchedule.date) || item.date || '', time: (linkedSchedule && linkedSchedule.time) || item.time || '',
+          endDate: (linkedSchedule && linkedSchedule.endDate) || item.endDate || '', endTime: (linkedSchedule && linkedSchedule.endTime) || item.endTime || '',
+          location: (linkedSchedule && linkedSchedule.location) || item.location || '' }
+      : null);
     const statusEl0 = document.getElementById('dateLogLocationStatus');
     if(typeof item.lat === 'number' && typeof item.lng === 'number'){
       pendingDateLogGeo = { lat: item.lat, lng: item.lng };
@@ -2687,7 +3127,13 @@ function renderLetters() {
     document.getElementById('dateLogAddBtn').closest('.add-card').scrollIntoView({behavior:'smooth', block:'start'});
   }
   function resetDatelogForm(){
+    // 저장 성공/취소/탭 전환 등 폼이 초기화되는 모든 경우에 잠금도 같이 반납함.
+    // UI 초기화 자체를 기다리게 하면 안 되므로 await 없이 백그라운드로 처리(실패해도 최악의 경우
+    // 10분 뒤 자동 만료되니 크게 문제 없음)
+    releaseDateLogDraftLock();
     editingDatelogId = null;
+    lockDateLogModeButtons(false);
+    setDateLogSourceSchedule(null);
     document.getElementById('dateLogTitle').value='';
     document.getElementById('dateLogLocation').value='';
     document.getElementById('dateLogLocationStatus').classList.add('hidden');
@@ -2706,6 +3152,18 @@ function renderLetters() {
     document.getElementById('dateLogAddBtn').textContent = '기록하기';
     document.getElementById('dateLogCancelBtn').classList.add('hidden');
     clearDraftAutosave(STORAGE_PREFIX + 'draft_datelog');
+
+    // 빠른 기록 쪽 상태/입력도 같이 초기화
+    selectedQuickDateLogMood = '';
+    revokePendingPhotoUrls(pendingQuickDateLogPhotos);
+    pendingQuickDateLogPhotos = [];
+    document.getElementById('dateLogQuickDate').value = '';
+    document.getElementById('dateLogQuickBody').value = '';
+    document.getElementById('dateLogQuickSaveBtn').textContent = '추억 남기기';
+    document.getElementById('dateLogQuickCancelBtn').classList.add('hidden');
+    renderPhotoPreviewGrid('dateLogQuickPhotoPreview', ()=>pendingQuickDateLogPhotos, (v)=>{ pendingQuickDateLogPhotos = v; });
+    document.querySelectorAll('[data-quick-mood]').forEach(btn => btn.classList.remove('active'));
+    setDateLogEntryMode(null); // 다시 "빠르게/정성껏" 선택 화면으로 돌아감
   }
   document.getElementById('dateLogLocation').addEventListener('input', ()=>{
     pendingDateLogGeo = null;
@@ -2792,34 +3250,98 @@ function renderLetters() {
     }
     
     // 이제 saveItem 하나로 끝!
-    await saveItem(
-      'datelog',
-      !!editingDatelogId,
-      editingDatelogId,
-      { 
-        title, 
-        date,
-        memo: document.getElementById('dateLogMemo').value.trim(),
-        location: location,
-        time: document.getElementById('dateLogTime').value || null,
-        endDate: document.getElementById('dateLogEndDate').value || null,
-        endTime: document.getElementById('dateLogEndTime').value || null,
-        lat: geo ? geo.lat : null,
-        lng: geo ? geo.lng : null
-      },
-      pendingDateLogPhotos,
-      resetDatelogForm
-    );
+    const detailData = {
+      title, 
+      date,
+      memo: document.getElementById('dateLogMemo').value.trim(),
+      location: location,
+      time: document.getElementById('dateLogTime').value || null,
+      endDate: document.getElementById('dateLogEndDate').value || null,
+      endTime: document.getElementById('dateLogEndTime').value || null,
+      lat: geo ? geo.lat : null,
+      lng: geo ? geo.lng : null,
+      sourceScheduleId: dateLogSourceSchedule ? dateLogSourceSchedule.id : null,
+      sourceScheduleTitle: dateLogSourceSchedule ? dateLogSourceSchedule.title : null,
+      sourceWishId: dateLogSourceSchedule ? dateLogSourceSchedule.sourceWishId : null,
+      entryMode: 'detail'
+    };
+    // 빠른 기록에서 정성 기록으로 바꾸는 경우에만 예전 mood/body 필드를 정리함.
+    // 신규 작성(set())에는 delete()가 포함되면 Firestore가 오류를 내므로, 수정(update()) 중일 때만 넣음
+    if(editingDatelogId){
+      detailData.mood = firebase.firestore.FieldValue.delete();
+      detailData.body = firebase.firestore.FieldValue.delete();
+    }
+    if(!editingDatelogId && dateLogSourceSchedule){
+      // 신규 작성 + 일정 연결 -> 빠른 기록과 동일하게 고정 문서ID + 트랜잭션으로 저장해야
+      // 두 사람이 거의 동시에 "정성껏 기록하기"로 작성해도 중복 문서가 안 생김
+      await saveNewDateLogForSchedule(dateLogSourceSchedule.id, detailData, pendingDateLogPhotos);
+    } else {
+      await saveItem('datelog', !!editingDatelogId, editingDatelogId, detailData, pendingDateLogPhotos, resetDatelogForm);
+    }
   });
-  
+
+  // ---- 빠른 기록 저장 ----
+  document.getElementById('dateLogQuickSaveBtn').addEventListener('click', async ()=>{
+    const date = document.getElementById('dateLogQuickDate').value;
+    const body = document.getElementById('dateLogQuickBody').value.trim();
+    if(!date){ alert('날짜를 골라줘!'); return; }
+    if(!selectedQuickDateLogMood){ alert('오늘의 기분을 골라줘!'); return; }
+    if(!body){ alert('오늘을 한 줄로 남겨줘!'); return; }
+
+    // title/memo에도 한 줄 내용을 같이 넣어둠 - 검색·알림·나의 활동 등 기존 기능이
+    // 전부 title/memo 필드를 기준으로 동작하므로, 새 필드(mood/body)만 쓰면 그 기능들과 안 맞음
+    const compatibleTitle = (dateLogSourceSchedule && dateLogSourceSchedule.title) || body.slice(0, 30) || '빠른 데이트 기록';
+    const data = {
+      entryMode: 'quick',
+      date,
+      mood: selectedQuickDateLogMood,
+      body,
+      title: compatibleTitle,
+      memo: body,
+      location: (dateLogSourceSchedule && dateLogSourceSchedule.location) || '',
+      time: (dateLogSourceSchedule && dateLogSourceSchedule.time) || null,
+      endDate: (dateLogSourceSchedule && dateLogSourceSchedule.endDate) || null,
+      endTime: (dateLogSourceSchedule && dateLogSourceSchedule.endTime) || null,
+      sourceScheduleId: dateLogSourceSchedule ? dateLogSourceSchedule.id : null,
+      sourceScheduleTitle: dateLogSourceSchedule ? dateLogSourceSchedule.title : null,
+      sourceWishId: dateLogSourceSchedule ? dateLogSourceSchedule.sourceWishId : null
+    };
+
+    if(!editingDatelogId && dateLogSourceSchedule){
+      // 신규 작성 + 일정 연결 -> 잠금을 우회한 극히 드문 동시저장까지 막기 위해
+      // 일정ID 기반 고정 문서ID + 트랜잭션으로 저장 (최종 방어선)
+      await saveNewDateLogForSchedule(dateLogSourceSchedule.id, data, pendingQuickDateLogPhotos);
+    } else {
+      try{
+        await saveItem('datelog', !!editingDatelogId, editingDatelogId, data, pendingQuickDateLogPhotos, resetDatelogForm);
+      }catch(e){
+        console.error('빠른 기록 저장 실패', e);
+        alert('기록을 저장하지 못했어. 다시 시도해줘!');
+      }
+    }
+  });
+  document.getElementById('dateLogQuickCancelBtn').addEventListener('click', resetDatelogForm);
+
+
 // 2. 클릭 이벤트 (수정/삭제)
   document.getElementById('dateLogList').addEventListener('click', (e) => {
     const editBtn = e.target.closest('[data-edit-datelog]');
     const delBtn = e.target.closest('[data-del-datelog]');
+    const sourceScheduleBtn = e.target.closest('[data-open-source-schedule]');
+    const sourceWishBtn = e.target.closest('[data-open-source-wish]');
+    const convertBtn = e.target.closest('[data-convert-quick-datelog]');
     const editId = editBtn && editBtn.dataset.editDatelog;
     const delId = delBtn && delBtn.dataset.delDatelog;
 
-    if (editId) startEditDatelog(dateLogs.find(s => s.id === editId));
+    if(convertBtn){
+      // 새 문서를 만들지 않고 같은 문서를 detail 모드로 편집 시작 -> 좋아요/댓글/일정연결이 그대로 보존됨
+      const item = dateLogs.find(log => log.id === convertBtn.dataset.convertQuickDatelog);
+      if(item) startEditDetailDatelog(item);
+    } else if(sourceScheduleBtn){
+      navigateToItem('schedule', sourceScheduleBtn.dataset.openSourceSchedule);
+    } else if(sourceWishBtn){
+      navigateToItem('wish', sourceWishBtn.dataset.openSourceWish);
+    } else if (editId) startEditDatelog(dateLogs.find(s => s.id === editId));
     else if (delId) deleteItem('datelog', delId, dateLogs.find(s => s.id === delId));
   });
 
@@ -3205,6 +3727,9 @@ function startWatchers(){
 
   // 로그아웃(또는 다른 계정으로 전환) 시 이전 사용자의 실시간 구독이 계속 살아있지 않도록 전부 정리
   function stopAllWatchers(){
+    // 작성 중이던 데이트 기록 잠금이 있으면 로그아웃 시 같이 반납함
+    releaseDateLogDraftLock();
+
     const currentFns = unsubscribeFns.splice(0);
     currentFns.forEach(unsubscribe => {
       try{ unsubscribe(); }catch(e){ /* 이미 해제된 구독은 무시 */ }
@@ -3533,7 +4058,13 @@ function startWatchers(){
       });
     } else if(tabName === 'datelog'){
       const dateLogQuery = db.collection('datelog').orderBy('date', 'desc').limit(100);
-      watch(dateLogQuery, 'datelog', items=>{ dateLogs = items; renderDateLog(); renderHome(); });
+      watch(dateLogQuery, 'datelog', items=>{
+        dateLogs = items;
+        renderDateLog();
+        renderHome();
+        // 데이트 기록 생성·삭제 결과를 지난 일정의 "추억 남기기" 버튼에 바로 반영
+        if(collectionWatchersStarted.schedule) renderSchedule();
+      });
     } else if(tabName === 'stamp'){
       const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
       watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
@@ -4083,7 +4614,7 @@ function startWatchers(){
     setupAutoGrow('letterBody', 280);
     setupAutoGrow('stampText', 200);
     setupDraftAutosave(STORAGE_PREFIX + 'draft_wish', ['wishTitle','wishBody']);
-    setupDraftAutosave(STORAGE_PREFIX + 'draft_datelog', ['dateLogTitle','dateLogMemo']);
+    setupDraftAutosave(STORAGE_PREFIX + 'draft_datelog', ['dateLogTitle','dateLogMemo','dateLogQuickDate','dateLogQuickBody']);
     setupDraftAutosave(STORAGE_PREFIX + 'draft_letter', ['letterTitle','letterBody']);
     setupDraftAutosave(STORAGE_PREFIX + 'draft_stamp', ['stampText']);
     document.getElementById('appVersionTag').textContent = `v${APP_VERSION}`;
