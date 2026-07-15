@@ -115,7 +115,6 @@
       </div>
 
       <div class="home-next-card" id="homeNextDateCard"></div>
-      <div class="home-feed-card" id="homeFeedCard"></div>
       <div class="home-throwback-card hidden" id="homeThrowbackCard"></div>
       <div class="home-app-info">
         <div class="visit-counter">
@@ -162,8 +161,11 @@
           <input type="text" id="schedTitle" placeholder="무슨 일정이야?">
         </div>
         <div class="add-row">
-          <input type="text" id="schedLocation" placeholder="📍 장소 (선택)">
+          <input type="text" id="schedLocation" placeholder="📍 장소 검색 (선택)">
+          <button type="button" class="btn-photo" id="schedLocationSearchBtn" style="width:auto;flex-shrink:0;padding:9px 14px;">🔍 검색</button>
         </div>
+        <div class="location-results hidden" id="schedLocationResults"></div>
+        <div class="field-label hidden" id="schedLocationStatus" style="margin:-4px 0 8px 2px;"></div>
         <button type="button" class="date-plan-toggle" id="schedDatePlanToggle"><svg viewBox="0 0 7 6" width="16" height="14" shape-rendering="crispEdges" style="display:inline-block;vertical-align:middle;"><rect x="1" y="0" width="2" height="1" fill="#FF5C7A"/><rect x="4" y="0" width="2" height="1" fill="#FF5C7A"/><rect x="0" y="1" width="7" height="1" fill="#FF5C7A"/><rect x="0" y="2" width="7" height="1" fill="#FF5C7A"/><rect x="1" y="3" width="5" height="1" fill="#FF5C7A"/><rect x="2" y="4" width="3" height="1" fill="#FF5C7A"/><rect x="3" y="5" width="1" height="1" fill="#FF5C7A"/></svg> 데이트 일정으로 표시</button>
         <div class="add-row">
           <textarea id="schedMemo" placeholder="메모 (선택)"></textarea>
@@ -558,6 +560,6 @@
 <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-storage-compat.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=2026.07.15-12"></script>
+<script src="app.js?v=2026.07.15-15"></script>
 </body>
 </html>

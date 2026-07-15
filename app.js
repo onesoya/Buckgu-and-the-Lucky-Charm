@@ -1,5 +1,5 @@
 (function(){
-  const APP_VERSION = '2026.07.15-12'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
+  const APP_VERSION = '2026.07.15-15'; // 코드를 새로 줄 때마다 이 값을 올림 (배포 확인용)
   // 백씨스터즈 앱도 같은 출처(onesoya.github.io)를 써서, localStorage/IndexedDB가 출처 단위로
   // 공유됨 -> 이름이 겹치면 임시저장 내용 등이 서로 섞일 수 있어서 이 앱 전용 접두사를 붙임
   const STORAGE_PREFIX = 'buckgu_lucky_';
@@ -91,7 +91,111 @@ db.enablePersistence()
   // "추억 보기 때문에 임시로 넣어둔 100개 밖 기록"을 정확히 구분해서, 후자만 안전하게 뺄 수 있음
   let recentDateLogIds = new Set();
   let recentLetterIds = new Set();
+  let recentScheduleIds = new Set();
+  let recentWishIds = new Set();
+  let recentStampIds = new Set();
   let searchQuery = '';
+
+  // ---- 알림/딥링크 대상이 로컬 최신 목록(일정 3개월, 나머지 100개) 밖에 있을 때 임시로 화면에 끼워넣기 ----
+  // (8단계 추억 다시보기의 "오래된 문서 임시구독"과 같은 원리를 모든 탭에 일반화한 버전)
+  let openedFarItem = null;           // { tab, id }
+  let openedFarItemUnsubscribe = null;
+
+  function getTabArray(tab){
+    if(tab === 'schedule') return schedule;
+    if(tab === 'wish') return wishes;
+    if(tab === 'datelog') return dateLogs;
+    if(tab === 'stamp') return stamps;
+    if(tab === 'letter') return letters;
+    return null;
+  }
+  function setTabArray(tab, arr){
+    if(tab === 'schedule') schedule = arr;
+    else if(tab === 'wish') wishes = arr;
+    else if(tab === 'datelog') dateLogs = arr;
+    else if(tab === 'stamp') stamps = arr;
+    else if(tab === 'letter') letters = arr;
+  }
+  function renderTabList(tab){
+    if(tab === 'schedule'){ renderSchedule(); renderCalendar(); }
+    else if(tab === 'wish') renderWish();
+    else if(tab === 'datelog') renderDateLog();
+    else if(tab === 'stamp') renderStamp();
+    else if(tab === 'letter') renderLetters();
+  }
+  function getRecentIdSet(tab){
+    if(tab === 'schedule') return recentScheduleIds;
+    if(tab === 'wish') return recentWishIds;
+    if(tab === 'datelog') return recentDateLogIds;
+    if(tab === 'stamp') return recentStampIds;
+    if(tab === 'letter') return recentLetterIds;
+    return new Set();
+  }
+
+  function clearOpenedFarItem(){
+    if(openedFarItemUnsubscribe){ openedFarItemUnsubscribe(); openedFarItemUnsubscribe = null; }
+    const closing = openedFarItem;
+    openedFarItem = null;
+    if(!closing) return;
+    // 그 사이 진짜 최신 목록 범위 안으로 들어온 항목이면 그대로 두고, 임시로 넣었던 것만 안전하게 뺌
+    if(getRecentIdSet(closing.tab).has(closing.id)) return;
+    const list = getTabArray(closing.tab);
+    if(!list) return;
+    setTabArray(closing.tab, list.filter(item => item.id !== closing.id));
+    renderTabList(closing.tab);
+  }
+
+  // 문서는 실제로 존재하지만(삭제 안 됐지만) 로컬 최신 목록 범위 밖이라 화면에 안 보일 때,
+  // 임시로 배열에 끼워 넣고 그 문서만 별도로 실시간 구독해서 정상적으로 찾아지고
+  // 좋아요·댓글도 계속 반영되게 함
+  async function ensureFarItemVisible(tab, itemId, itemData){
+    const list = getTabArray(tab);
+    if(!list) return;
+    if(list.some(item => item.id === itemId)) return; // 이미 있으면(그 사이 정상 로딩됐으면) 아무것도 안 함
+
+    clearOpenedFarItem(); // 이전에 임시로 넣어둔 다른 오래된 글이 있으면 먼저 정리
+    openedFarItem = { tab, id: itemId, item: itemData };
+
+    // 목록에 넣기만 하면 카드가 접힌 영역(지난 일정/완료한 위시/과거 월·연도 그룹) 안에
+    // 숨어 있을 수 있어서, 실제로 눈에 보이도록 그 상위 영역도 함께 펼쳐둠
+    if(tab === 'schedule' && isPast(itemData)){
+      showPastSchedule = true;
+    } else if(tab === 'wish' && itemData.done){
+      showDoneWishes = true;
+    } else if(tab === 'datelog'){
+      const key = groupKeyForTimestamp(new Date(itemData.date + 'T00:00:00').getTime());
+      if(key) dateLogExpandedGroups.add(key);
+    } else if(tab === 'stamp'){
+      const key = groupKeyForTimestamp(itemData.createdAt || Date.now());
+      if(key) stampExpandedGroups.add(key);
+    } else if(tab === 'letter'){
+      const key = groupKeyForTimestamp(itemData.createdAt || Date.now());
+      if(key) letterExpandedGroups.add(key);
+    }
+
+    setTabArray(tab, [...getTabArray(tab), itemData]);
+    renderTabList(tab);
+
+    const colName = TAB_TO_COLLECTION[tab];
+    const ref = db.collection(colName).doc(itemId);
+    openedFarItemUnsubscribe = ref.onSnapshot(snap => {
+      if(!openedFarItem || openedFarItem.tab !== tab || openedFarItem.id !== itemId) return;
+      const currentList = getTabArray(tab);
+      if(!snap.exists){
+        setTabArray(tab, currentList.filter(item => item.id !== itemId));
+        renderTabList(tab);
+        clearOpenedFarItem();
+        return;
+      }
+      const updated = { id: snap.id, ...snap.data() };
+      openedFarItem = { tab, id: itemId, item: updated }; // 최신 데이터로 계속 갱신해둠
+      const idx = currentList.findIndex(item => item.id === itemId);
+      const newList = currentList.slice();
+      if(idx >= 0) newList[idx] = updated; else newList.push(updated);
+      setTabArray(tab, newList);
+      renderTabList(tab);
+    }, err => console.warn('임시로 불러온 게시물 구독 실패', err));
+  }
 
   // ---- 우리의 순간 (예전 "참 잘했어요 스탬프"를 대체) ----
   const MOMENT_DEFS = {
@@ -405,8 +509,11 @@ async function uploadPhotos(photosArray, onProgress) {
       if(!snap.exists){
         clearScrollState();
         showPushToast('삭제된 게시물이야', null, null, null, null, true);
+        return;
       }
-      // 문서가 있으면 단순 로딩 지연이므로 계속 기다림 (아무것도 안 함)
+      // 문서는 실제로 있는데(삭제 안 됐는데) 로컬 최신 목록(일정 3개월/나머지 100개) 범위 밖이라
+      // 화면에 안 그려지고 있을 수 있음 -> 임시로 배열에 끼워넣어서 다음 폴링에 정상적으로 찾아지게 함
+      await ensureFarItemVisible(target.tab, target.itemId, { id: snap.id, ...snap.data() });
     }catch(e){ /* 네트워크 문제 등 - 계속 폴링에 맡김 */ }
   }
 
@@ -898,7 +1005,12 @@ async function uploadPhotos(photosArray, onProgress) {
           const t = e.changedTouches[0];
           const dx = t.clientX - swipeStartX;
           const dy = t.clientY - swipeStartY;
-          if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)){
+          // 최소 확대 상태에서 아래로 충분히 밀면 사진 뷰어 닫기 (위로 밀면 안 닫힘)
+          if(dy > 80 && Math.abs(dy) > Math.abs(dx)){
+            closeLightbox();
+          }
+          // 좌우로 밀면 이전·다음 사진
+          else if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)){
             if(dx < 0) goNext(); else goPrev();
           }
         }
@@ -1915,17 +2027,6 @@ function renderLetters() {
     return `${d.getMonth()+1}.${d.getDate()}`;
   }
 
-  // 9단계: 여러 종류를 섞은 "최근 활동" 대신, 오늘 남긴 "우리의 순간" 하나만 홈에 보여줌
-  function findTodayMoment(){
-    const todayKey = localDateStr();
-    return [...stamps]
-      .filter(item => {
-        const createdAt = Number(item.createdAt || 0);
-        return createdAt > 0 && localDateStr(new Date(createdAt)) === todayKey;
-      })
-      .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))[0] || null;
-  }
-
   let renderHomeDebounceTimer = null;
   // ---- 애정 신호 (마음 보내기) ----
   const LOVE_SIGNAL_TYPES = [
@@ -2310,36 +2411,6 @@ function renderLetters() {
       }
     }
 
-    const feedCard = document.getElementById('homeFeedCard');
-    if(feedCard){
-      const moment = findTodayMoment();
-      const authorClass = a => a === '소정' ? 'author-sojeong' : 'author-seonho';
-      if(moment){
-        feedCard.innerHTML = `
-          <div class="home-next-label">✨ 오늘의 우리</div>
-          <div class="home-feed-item" data-tab-target="stamp" data-item-target="${moment.id}">
-            <span class="home-feed-author ${authorClass(moment.author)}">${escapeHTML(moment.author || '')}</span>
-            <span class="home-feed-text">${escapeHTML(stampPreviewText(moment))}</span>
-            <span class="home-feed-time">${relativeTimeKR(moment.createdAt)}</span>
-          </div>
-        `;
-      } else {
-        feedCard.innerHTML = `
-          <div class="home-next-label">✨ 오늘의 우리</div>
-          <div class="home-feed-item" data-tab-target="stamp" data-item-target="">
-            <span class="home-feed-text">오늘의 순간을 가볍게 남겨볼까?</span>
-          </div>
-        `;
-      }
-      feedCard.querySelectorAll('.home-feed-item').forEach(el=>{
-        el.addEventListener('click', ()=>{
-          const itemId = el.dataset.itemTarget;
-          if(itemId) navigateToItem(el.dataset.tabTarget, itemId);
-          else activateTab(el.dataset.tabTarget);
-        });
-      });
-    }
-
     renderDailyMemoryCard();
   }
 
@@ -2368,6 +2439,10 @@ function renderLetters() {
     const memorySubtabs = document.getElementById('memorySubtabs');
     if(promiseSubtabs) promiseSubtabs.classList.toggle('hidden', section !== 'promise');
     if(memorySubtabs) memorySubtabs.classList.toggle('hidden', section !== 'memory');
+    // 지도 버튼은 [data-inner-tab] 셀렉터에 안 걸려서(별도 id만 있음) 아래 루프로는 안 지워짐 ->
+    // 지도 모달이 닫히거나 다른 화면으로 이동하면 여기서 명시적으로 지도 버튼의 임시 활성 표시를 지움
+    const dateMapButton = document.getElementById('dateMapOpenBtn');
+    if(dateMapButton) dateMapButton.classList.remove('active');
     document.querySelectorAll('[data-inner-tab]').forEach(button=>{
       button.classList.toggle('active', button.dataset.innerTab === tabName);
     });
@@ -2430,6 +2505,10 @@ function renderLetters() {
     if(openedMemoryDoc && currentTab && currentTab !== tabName){
       const openedTab = openedMemoryDoc.type === 'datelog' ? 'datelog' : 'letter';
       if(currentTab === openedTab) clearOpenedMemory();
+    }
+    // 알림/딥링크로 임시로 화면에 끼워넣은 오래된 글도 그 탭을 떠나면 정리
+    if(openedFarItem && currentTab && currentTab !== tabName && currentTab === openedFarItem.tab){
+      clearOpenedFarItem();
     }
     // 떠나는 탭에서 펼쳐뒀던 게시물은 접어둬서, 다음에 다시 왔을 때 깔끔하게 시작하도록 함
     if(currentTab && currentTab !== tabName){
@@ -2843,6 +2922,7 @@ function renderLetters() {
   // 현재 일정 입력창과 연결된 위시 (일정 문서에 sourceWishId로 저장됨 - 위시 쪽엔 아무것도 안 남김.
   // 이렇게 단방향으로 연결해야 일정을 지워도 위시에 낡은 연결 정보가 안 남음)
   let scheduleSourceWish = null;
+  let pendingScheduleGeo = null;
 
   function findScheduleForWish(wishId){
     return schedule.filter(item => item.sourceWishId === wishId)
@@ -2858,6 +2938,80 @@ function renderLetters() {
   document.getElementById('schedSourceWishClearBtn').addEventListener('click', ()=>{
     setScheduleSourceWish(null);
   });
+
+  // ---- 일정 장소 검색 (데이트 기록의 위치 검색과 동일한 패턴 재사용) ----
+  document.getElementById('schedLocation').addEventListener('input', ()=>{
+    pendingScheduleGeo = null;
+    document.getElementById('schedLocationStatus').classList.add('hidden');
+  });
+  document.getElementById('schedLocation').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      e.target.blur();
+      setTimeout(()=>{ document.activeElement && document.activeElement.blur(); }, 0);
+      document.getElementById('schedLocationSearchBtn').click();
+    }
+  });
+  document.getElementById('schedLocationSearchBtn').addEventListener('click', async ()=>{
+    const query = document.getElementById('schedLocation').value.trim();
+    if(!query) return;
+    const resultsEl = document.getElementById('schedLocationResults');
+    document.getElementById('schedLocationStatus').classList.add('hidden');
+    resultsEl.classList.remove('hidden');
+    resultsEl.innerHTML = '';
+    showLoadingOverlay('위치 찾는 중이야...');
+    let results;
+    try{
+      results = await searchLocations(query);
+    } finally {
+      hideLoadingOverlay();
+    }
+    if(results.length === 0){
+      resultsEl.innerHTML = `
+        <div class="location-result-item">검색 결과가 없어. 다른 이름으로 시도해봐.</div>
+        <button type="button" class="location-cancel-btn" id="schedLocationCancelBtn">✕ 취소</button>
+      `;
+      document.getElementById('schedLocationCancelBtn').addEventListener('click', ()=>{
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+        document.getElementById('schedLocation').value = '';
+        pendingScheduleGeo = null;
+        const statusEl = document.getElementById('schedLocationStatus');
+        statusEl.classList.add('hidden');
+        statusEl.textContent = '';
+      });
+      return;
+    }
+    resultsEl.innerHTML = results.map((r,i)=>`
+      <div class="location-result-item" data-idx="${i}">
+        <div class="location-result-name">${escapeHTML(r.name)}</div>
+        <div class="location-result-addr">${escapeHTML(r.address || '')}</div>
+      </div>
+    `).join('') + `<button type="button" class="location-cancel-btn" id="schedLocationCancelBtn">✕ 취소</button>`;
+    document.getElementById('schedLocationCancelBtn').addEventListener('click', ()=>{
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+      document.getElementById('schedLocation').value = '';
+      pendingScheduleGeo = null;
+      const statusEl = document.getElementById('schedLocationStatus');
+      statusEl.classList.add('hidden');
+      statusEl.textContent = '';
+    });
+    resultsEl.querySelectorAll('.location-result-item[data-idx]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const r = results[Number(el.dataset.idx)];
+        pendingScheduleGeo = { lat: r.lat, lng: r.lng };
+        document.getElementById('schedLocation').value = r.name;
+        resultsEl.classList.add('hidden');
+        resultsEl.innerHTML = '';
+        const statusEl = document.getElementById('schedLocationStatus');
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = `✅ 이 장소로 선택했어: ${r.name}`;
+        statusEl.style.color = '#4A9B6E';
+      });
+    });
+  });
+
   function startScheduleFromWish(wish){
     if(!wish) return;
     // 이미 이 위시로 만든 일정이 있으면 새로 만들지 않고 기존 일정으로 이동
@@ -2905,6 +3059,19 @@ function renderLetters() {
     document.getElementById('schedTime').value = item.time || '';
     document.getElementById('schedTitle').value = item.title;
     document.getElementById('schedLocation').value = item.location || '';
+    document.getElementById('schedLocationResults').classList.add('hidden');
+    document.getElementById('schedLocationResults').innerHTML = '';
+    const schedStatusEl = document.getElementById('schedLocationStatus');
+    if(typeof item.lat === 'number' && typeof item.lng === 'number'){
+      pendingScheduleGeo = { lat: item.lat, lng: item.lng };
+      schedStatusEl.classList.remove('hidden');
+      schedStatusEl.textContent = '✅ 저장된 장소가 있어';
+      schedStatusEl.style.color = '#4A9B6E';
+    } else {
+      pendingScheduleGeo = null;
+      schedStatusEl.classList.add('hidden');
+      schedStatusEl.textContent = '';
+    }
     document.getElementById('schedMemo').value = item.memo || '';
     setDatePlanToggle(!!item.isDate);
     setScheduleSourceWish(item.sourceWishId
@@ -2928,6 +3095,11 @@ function renderLetters() {
     setScheduleSourceWish(null);
     document.getElementById('schedTitle').value='';
     document.getElementById('schedLocation').value='';
+    pendingScheduleGeo = null;
+    document.getElementById('schedLocationResults').classList.add('hidden');
+    document.getElementById('schedLocationResults').innerHTML = '';
+    document.getElementById('schedLocationStatus').classList.add('hidden');
+    document.getElementById('schedLocationStatus').textContent = '';
     document.getElementById('schedMemo').value='';
     document.getElementById('schedTime').value='';
     document.getElementById('schedEndDate').value='';
@@ -2943,15 +3115,35 @@ function renderLetters() {
     const date = document.getElementById('schedDate').value;
     const title = document.getElementById('schedTitle').value.trim();
     if(!date || !title) return;
-    const location = document.getElementById('schedLocation').value.trim();
+    let location = document.getElementById('schedLocation').value.trim();
+    let scheduleGeo = pendingScheduleGeo;
     const memo = document.getElementById('schedMemo').value.trim();
     const time = document.getElementById('schedTime').value || null;
     let endDate = document.getElementById('schedEndDate').value || null;
     if(endDate && endDate < date) endDate = date;
     const endTime = endDate ? (document.getElementById('schedEndTime').value || null) : null;
     const isDate = schedIsDatePlan;
+
+    // 검색 결과를 고르지 않고 텍스트만 입력한 경우에도, 저장 직전에 한 번 위치를 확인해서
+    // 나중에 지도에 표시되지 않는 "이름만 있고 좌표는 없는" 장소가 안 남도록 함
+    if(!scheduleGeo && location){
+      showLoadingOverlay('장소 확인 중이야...');
+      try{
+        const results = await searchLocations(location);
+        if(results[0]){
+          location = results[0].name;
+          scheduleGeo = { lat: results[0].lat, lng: results[0].lng };
+        }
+      } finally {
+        hideLoadingOverlay();
+      }
+    }
+
     const scheduleData = {
-      date, endDate, time, endTime, title, location, memo, isDate,
+      date, endDate, time, endTime, title, location,
+      lat: scheduleGeo ? scheduleGeo.lat : null,
+      lng: scheduleGeo ? scheduleGeo.lng : null,
+      memo, isDate,
       sourceWishId: scheduleSourceWish ? scheduleSourceWish.id : null,
       sourceWishTitle: scheduleSourceWish ? scheduleSourceWish.title : null
     };
@@ -3153,7 +3345,9 @@ function renderLetters() {
       ? {
           id: item.id, title: item.title || '데이트 일정', sourceWishId: item.sourceWishId || null,
           date: item.date || '', time: item.time || '', endDate: item.endDate || '', endTime: item.endTime || '',
-          location: item.location || ''
+          location: item.location || '',
+          lat: typeof item.lat === 'number' ? item.lat : null,
+          lng: typeof item.lng === 'number' ? item.lng : null
         }
       : null;
     const row = document.getElementById('dateLogSourceScheduleRow');
@@ -3410,6 +3604,11 @@ function renderLetters() {
     setDateLogEntryMode('quick');
     setDateLogSourceSchedule(item);
     document.getElementById('dateLogQuickDate').value = item.date || localDateStr();
+    // 일정에 이미 검색해서 저장해둔 장소/좌표가 있으면 그대로 이어받음 (다시 검색할 필요 없게)
+    document.getElementById('dateLogLocation').value = item.location || '';
+    pendingDateLogGeo = (typeof item.lat === 'number' && typeof item.lng === 'number')
+      ? { lat: item.lat, lng: item.lng }
+      : null;
     document.getElementById('dateLogQuickForm').scrollIntoView({behavior:'smooth', block:'start'});
   }
 
@@ -3454,7 +3653,9 @@ function renderLetters() {
           // 그 경우엔 빈 값으로 덮어쓰지 않고 이 기록 자체에 이미 저장된 값으로 폴백함
           date: (linkedSchedule && linkedSchedule.date) || item.date || '', time: (linkedSchedule && linkedSchedule.time) || item.time || '',
           endDate: (linkedSchedule && linkedSchedule.endDate) || item.endDate || '', endTime: (linkedSchedule && linkedSchedule.endTime) || item.endTime || '',
-          location: (linkedSchedule && linkedSchedule.location) || item.location || '' }
+          location: (linkedSchedule && linkedSchedule.location) || item.location || '',
+          lat: typeof (linkedSchedule && linkedSchedule.lat) === 'number' ? linkedSchedule.lat : (typeof item.lat === 'number' ? item.lat : null),
+          lng: typeof (linkedSchedule && linkedSchedule.lng) === 'number' ? linkedSchedule.lng : (typeof item.lng === 'number' ? item.lng : null) }
       : null);
     document.getElementById('dateLogQuickSaveBtn').textContent = '수정 완료';
     document.getElementById('dateLogQuickCancelBtn').classList.remove('hidden');
@@ -3475,7 +3676,9 @@ function renderLetters() {
           sourceWishId: item.sourceWishId || (linkedSchedule && linkedSchedule.sourceWishId) || null,
           date: (linkedSchedule && linkedSchedule.date) || item.date || '', time: (linkedSchedule && linkedSchedule.time) || item.time || '',
           endDate: (linkedSchedule && linkedSchedule.endDate) || item.endDate || '', endTime: (linkedSchedule && linkedSchedule.endTime) || item.endTime || '',
-          location: (linkedSchedule && linkedSchedule.location) || item.location || '' }
+          location: (linkedSchedule && linkedSchedule.location) || item.location || '',
+          lat: typeof (linkedSchedule && linkedSchedule.lat) === 'number' ? linkedSchedule.lat : (typeof item.lat === 'number' ? item.lat : null),
+          lng: typeof (linkedSchedule && linkedSchedule.lng) === 'number' ? linkedSchedule.lng : (typeof item.lng === 'number' ? item.lng : null) }
       : null);
     const statusEl0 = document.getElementById('dateLogLocationStatus');
     if(typeof item.lat === 'number' && typeof item.lng === 'number'){
@@ -3578,6 +3781,10 @@ function renderLetters() {
         resultsEl.classList.add('hidden');
         resultsEl.innerHTML = '';
         document.getElementById('dateLogLocation').value = '';
+        pendingDateLogGeo = null;
+        const statusEl = document.getElementById('dateLogLocationStatus');
+        statusEl.classList.add('hidden');
+        statusEl.textContent = '';
       });
       return;
     }
@@ -3591,6 +3798,10 @@ function renderLetters() {
       resultsEl.classList.add('hidden');
       resultsEl.innerHTML = '';
       document.getElementById('dateLogLocation').value = '';
+      pendingDateLogGeo = null;
+      const statusEl = document.getElementById('dateLogLocationStatus');
+      statusEl.classList.add('hidden');
+      statusEl.textContent = '';
     });
     resultsEl.querySelectorAll('.location-result-item[data-idx]').forEach(el=>{
       el.addEventListener('click', ()=>{
@@ -3677,6 +3888,8 @@ function renderLetters() {
       title: compatibleTitle,
       memo: body,
       location: (dateLogSourceSchedule && dateLogSourceSchedule.location) || '',
+      lat: (dateLogSourceSchedule && typeof dateLogSourceSchedule.lat === 'number') ? dateLogSourceSchedule.lat : null,
+      lng: (dateLogSourceSchedule && typeof dateLogSourceSchedule.lng === 'number') ? dateLogSourceSchedule.lng : null,
       time: (dateLogSourceSchedule && dateLogSourceSchedule.time) || null,
       endDate: (dateLogSourceSchedule && dateLogSourceSchedule.endDate) || null,
       endTime: (dateLogSourceSchedule && dateLogSourceSchedule.endTime) || null,
@@ -4185,6 +4398,13 @@ function startWatchers(){
     clearOpenedMemory(false); // 배열은 이 함수 위쪽에서 이미 통째로 비웠으니 구독 해제만 하면 됨
     recentDateLogIds.clear();
     recentLetterIds.clear();
+
+    // 알림/딥링크로 임시로 열어둔 오래된 글 관련 상태도 정리 (배열은 이미 위에서 비워짐)
+    if(openedFarItemUnsubscribe){ openedFarItemUnsubscribe(); openedFarItemUnsubscribe = null; }
+    openedFarItem = null;
+    recentScheduleIds.clear();
+    recentWishIds.clear();
+    recentStampIds.clear();
   }
 
   // ---- 오늘의 질문 ----
@@ -4402,7 +4622,8 @@ function startWatchers(){
     list.innerHTML = '<div class="empty-state" style="padding:20px 10px;">불러오는 중...</div>';
     try{
       const snap = await db.collection('dailyQuestions')
-        .orderBy(firebase.firestore.FieldPath.documentId(), 'desc')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
         .get();
       dailyQuestionArchiveData = [];
       snap.forEach(doc => {
@@ -4456,7 +4677,12 @@ function startWatchers(){
                               .where('date', '>=', pastDateStr)
                               .orderBy('date', 'asc');
       watch(scheduleQuery, 'schedule', items=>{
+        recentScheduleIds = new Set(items.map(item => item.id));
         schedule = items;
+        // 알림 등으로 임시로 열어둔 오래된 일정(3개월 밖)이 있으면, 이 배열 교체로 사라지지 않게 다시 넣어줌
+        if(openedFarItem && openedFarItem.tab === 'schedule' && !schedule.some(item => item.id === openedFarItem.id)){
+          schedule.push(openedFarItem.item);
+        }
         renderSchedule();
         renderCalendar();
         renderHome();
@@ -4467,7 +4693,11 @@ function startWatchers(){
     } else if(tabName === 'wish'){
       const wishQuery = db.collection('wishlist').orderBy('createdAt', 'desc').limit(100);
       watch(wishQuery, 'wishlist', items=>{
+        recentWishIds = new Set(items.map(item => item.id));
         wishes = items;
+        if(openedFarItem && openedFarItem.tab === 'wish' && !wishes.some(item => item.id === openedFarItem.id)){
+          wishes.push(openedFarItem.item);
+        }
         renderWish();
         renderHome();
         // 위시 제목을 수정하면 연결된 일정 카드의 "💫 관련 위시" 표시도 갱신되어야 함
@@ -4484,6 +4714,10 @@ function startWatchers(){
         if(openedMemoryDoc && openedMemoryDoc.type === 'datelog' && !dateLogs.some(item => item.id === openedMemoryDoc.id)){
           dateLogs.push(openedMemoryDoc.item);
         }
+        // 알림으로 열어둔 오래된 데이트기록(100개 밖)도 마찬가지로 보존
+        if(openedFarItem && openedFarItem.tab === 'datelog' && !dateLogs.some(item => item.id === openedFarItem.id)){
+          dateLogs.push(openedFarItem.item);
+        }
         renderDateLog();
         renderHome();
         // 데이트 기록 생성·삭제 결과를 지난 일정의 "추억 남기기" 버튼에 바로 반영
@@ -4496,7 +4730,15 @@ function startWatchers(){
       });
     } else if(tabName === 'stamp'){
       const stampQuery = db.collection('stamps').orderBy('createdAt', 'desc').limit(100);
-      watch(stampQuery, 'stamps', items=>{ stamps = items; renderStamp(); renderHome(); });
+      watch(stampQuery, 'stamps', items=>{
+        recentStampIds = new Set(items.map(item => item.id));
+        stamps = items;
+        if(openedFarItem && openedFarItem.tab === 'stamp' && !stamps.some(item => item.id === openedFarItem.id)){
+          stamps.push(openedFarItem.item);
+        }
+        renderStamp();
+        renderHome();
+      });
     } else if(tabName === 'letter'){
       const letterQuery = db.collection('letters').orderBy('createdAt', 'desc').limit(100);
       watch(letterQuery, 'letters', items=>{
@@ -4504,6 +4746,9 @@ function startWatchers(){
         letters = items;
         if(openedMemoryDoc && openedMemoryDoc.type === 'letter' && !letters.some(item => item.id === openedMemoryDoc.id)){
           letters.push(openedMemoryDoc.item);
+        }
+        if(openedFarItem && openedFarItem.tab === 'letter' && !letters.some(item => item.id === openedFarItem.id)){
+          letters.push(openedFarItem.item);
         }
         renderLetters();
         renderHome();
